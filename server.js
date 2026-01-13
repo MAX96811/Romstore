@@ -1,133 +1,406 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
-const session = require('express-session');
+const cors = require('cors');
+const multer = require('multer');
+const https = require('https'); // For image download if needed, or just use fetch
+const { execSync } = require('child_process');
 
 const app = express();
 const PORT = 3000;
-const DATA_DIR = path.join(__dirname, 'data');
-const ADMIN_CONFIG_FILE = path.join(DATA_DIR, 'admin_config.json');
-const USERS_FILE = path.join(DATA_DIR, 'users.txt');
 
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR);
+// EmuDeck paths
+const EMULATION_DIR = '/emulation';
+const ROMS_DIR = path.join(EMULATION_DIR, 'roms');
+const BIOS_DIR = path.join(EMULATION_DIR, 'bios');
+const SAVES_DIR = path.join(EMULATION_DIR, 'saves');
+
+// Data paths
+const DATA_DIR = path.join(__dirname, 'data');
+const METADATA_FILE = path.join(DATA_DIR, 'metadata.json');
+const KEYS_FILE = path.join(DATA_DIR, 'api_keys.json');
+
+// Ensure data dir exists
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+// Load Metadata & Keys
+let gameMetadata = {};
+if (fs.existsSync(METADATA_FILE)) {
+    try { gameMetadata = JSON.parse(fs.readFileSync(METADATA_FILE, 'utf8')); } catch (e) { console.error("Error loading metadata:", e); }
 }
 
-// Middleware
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(session({
-    secret: 'secret-key-just-for-testing',
-    resave: false,
-    saveUninitialized: true
-}));
+let apiKeys = { clientId: '', clientSecret: '' };
+if (fs.existsSync(KEYS_FILE)) {
+    try { apiKeys = JSON.parse(fs.readFileSync(KEYS_FILE, 'utf8')); } catch (e) { console.error("Error loading keys:", e); }
+}
 
-// Helper: Check if admin is configured
-const isAdminConfigured = () => fs.existsSync(ADMIN_CONFIG_FILE);
+let igdbAccessToken = null;
+let tokenExpiry = 0;
 
-// Helper: Get admin password
-const getAdminPassword = () => {
-    if (!isAdminConfigured()) return null;
-    const data = fs.readFileSync(ADMIN_CONFIG_FILE);
-    return JSON.parse(data).password;
-};
+app.use(cors());
+app.use(express.json());
 
-// Routes
-app.post('/login', (req, res) => {
-    const { email, password } = req.body;
-    const logEntry = `Email: ${email}, Password: ${password}\n`;
-
-    fs.appendFile(USERS_FILE, logEntry, (err) => {
-        if (err) {
-            console.error('Error saving data:', err);
-            return res.status(500).send('Internal Server Error');
-        }
-        console.log('User saved:', email);
-        res.send('<h1>Login Successful! Data saved.</h1><a href="/">Go back</a>');
-    });
+// DEBUG: Log all requests
+app.use((req, res, next) => {
+    console.log(`[INCOMING] ${req.method} ${req.url}`);
+    next();
 });
 
-// Admin Routes
+// --- FILE UPLOAD CONFIGURATION ---
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const targetPath = req.query.path ? path.join(ROMS_DIR, req.query.path) : ROMS_DIR;
+        if (!targetPath.startsWith(EMULATION_DIR)) return cb(new Error('Access Denied: Invalid Path'));
+        if (!fs.existsSync(targetPath)) fs.mkdirSync(targetPath, { recursive: true });
+        cb(null, targetPath);
+    },
+    filename: function (req, file, cb) { cb(null, file.originalname); }
+});
+const upload = multer({ storage: storage });
 
-app.get('/admin', (req, res) => {
-    // 1. First Time Launch: Setup
-    if (!isAdminConfigured()) {
-        return res.send(`
-            <h1>Admin Setup</h1>
-            <p>Please set an admin password for the first time.</p>
-            <form action="/admin/setup" method="POST">
-                <label>Set Password: <input type="password" name="password" required></label>
-                <button type="submit">Save</button>
-            </form>
-        `);
+// --- HELPERS ---
+
+// Scan directory helper
+function scanDir(baseDir, relativePath = '') {
+    const fullPath = path.join(baseDir, relativePath);
+    if (!fs.existsSync(fullPath)) return [];
+    
+    let results = [];
+    const list = fs.readdirSync(fullPath, { withFileTypes: true });
+    
+    for (const file of list) {
+        const rel = path.join(relativePath, file.name).replace(/\\/g, '/');
+        if (file.isDirectory()) {
+            results = results.concat(scanDir(baseDir, rel));
+        } else {
+            const stats = fs.statSync(path.join(baseDir, rel));
+            results.push({
+                name: file.name,
+                relPath: rel,
+                size: (stats.size / 1024 / 1024).toFixed(2) + ' MB',
+                mtime: stats.mtime
+            });
+        }
     }
+    return results;
+}
 
-    // 2. Not Logged In: Login
-    if (!req.session.isAdmin) {
-        return res.send(`
-            <h1>Admin Login</h1>
-            <form action="/admin/login" method="POST">
-                <label>Password: <input type="password" name="password" required></label>
-                <button type="submit">Login</button>
-            </form>
-        `);
-    }
+// IGDB Token Manager
+async function getIgdbToken() {
+    if (igdbAccessToken && Date.now() < tokenExpiry) return igdbAccessToken;
+    if (!apiKeys.clientId || !apiKeys.clientSecret) throw new Error("Missing IGDB Credentials");
 
-    // 3. Logged In: Show Table
-    fs.readFile(USERS_FILE, 'utf8', (err, data) => {
-        if (err && err.code !== 'ENOENT') {
-            return res.status(500).send('Error reading user data');
+    const url = `https://id.twitch.tv/oauth2/token?client_id=${apiKeys.clientId}&client_secret=${apiKeys.clientSecret}&grant_type=client_credentials`;
+    const res = await fetch(url, { method: 'POST' });
+    if (!res.ok) throw new Error("Failed to authenticate with Twitch/IGDB");
+    
+    const data = await res.json();
+    igdbAccessToken = data.access_token;
+    tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000; // Buffer 1 min
+    return igdbAccessToken;
+}
+
+// Download Helper
+async function downloadFile(url, destPath) {
+    console.log(`[Download] Starting download: ${url} -> ${destPath}`);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to download ${url}`);
+    const arrayBuffer = await res.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    const targetDir = path.dirname(destPath);
+    
+    // Robust Directory Creation with Conflict Resolution
+    const parts = targetDir.split(path.sep);
+    let currentPath = parts[0];
+    if (targetDir.startsWith('/')) currentPath = '/'; 
+
+    for (let i = 0; i < parts.length; i++) {
+        if (!parts[i]) continue; 
+        if (i > 0 || !targetDir.startsWith('/')) { 
+            currentPath = path.join(currentPath, parts[i]);
         }
         
-        const lines = data ? data.trim().split('\n') : [];
-        let tableRows = lines.map(line => {
-            // Expected format: "Email: test@test.com, Password: 123"
-            const emailMatch = line.match(/Email: (.*?),/);
-            const passMatch = line.match(/Password: (.*)/);
-            const email = emailMatch ? emailMatch[1] : 'Unknown';
-            const pass = passMatch ? passMatch[1] : 'Unknown';
-            return `<tr><td>${email}</td><td>${pass}</td></tr>`;
-        }).join('');
+        try {
+            fs.mkdirSync(currentPath);
+        } catch (e) {
+            if (e.code === 'EEXIST') {
+                // Path exists. Check if it is a directory.
+                try {
+                    const stats = fs.statSync(currentPath);
+                    if (stats.isDirectory()) {
+                        continue; // All good
+                    } else {
+                        // It exists and is NOT a directory (File or Link)
+                        console.warn(`[Download] Conflict at ${currentPath}. Not a directory. Renaming.`);
+                        const backupPath = `${currentPath}_backup_${Date.now()}`;
+                        fs.renameSync(currentPath, backupPath);
+                        // Try creating again
+                        fs.mkdirSync(currentPath);
+                    }
+                } catch (statErr) {
+                    // Stat failed? Maybe broken link? Try to unlink/rename anyway
+                    console.warn(`[Download] Stat failed for existing path ${currentPath}: ${statErr.message}. Attempting rename.`);
+                    try {
+                        const backupPath = `${currentPath}_backup_${Date.now()}`;
+                        fs.renameSync(currentPath, backupPath);
+                        fs.mkdirSync(currentPath);
+                    } catch (renameErr) {
+                        throw new Error(`Failed to resolve conflict at ${currentPath}: ${renameErr.message}`);
+                    }
+                }
+            } else {
+                throw e; // Other mkdir error
+            }
+        }
+    }
 
-        res.send(`
-            <h1>Admin Panel</h1>
-            <table border="1" cellpadding="5">
-                <thead><tr><th>Email</th><th>Password</th></tr></thead>
-                <tbody>${tableRows || '<tr><td colspan="2">No data yet</td></tr>'}</tbody>
-            </table>
-            <br>
-            <a href="/admin/logout">Logout</a>
-        `);
+    fs.writeFileSync(destPath, buffer);
+    console.log(`[Download] File written successfully.`);
+}
+
+// --- API ROUTES ---
+
+// 1. List Games (ROMs) with Metadata
+app.get('/api/games', (req, res) => {
+    if (!fs.existsSync(ROMS_DIR)) return res.json([]);
+    const systems = fs.readdirSync(ROMS_DIR, { withFileTypes: true }).filter(d => d.isDirectory());
+    const games = [];
+    
+    const findArtwork = (systemPath, gameName) => {
+        const baseName = path.parse(gameName).name;
+        // Priority: Metadata-downloaded > Local folders
+        const potentialDirs = [
+            'media/boxart',
+            'media/images',
+            'images',
+            'boxart',
+            'downloaded_media/images'
+        ];
+        const extensions = ['.png', '.jpg', '.jpeg'];
+
+        for (const dir of potentialDirs) {
+            for (const ext of extensions) {
+                const artPath = path.join(systemPath, dir, baseName + ext);
+                if (fs.existsSync(artPath)) {
+                    return path.relative(ROMS_DIR, artPath).replace(/\\/g, '/');
+                }
+            }
+        }
+        return null;
+    };
+
+    systems.forEach(system => {
+        try {
+            const systemPath = path.join(ROMS_DIR, system.name);
+            const files = fs.readdirSync(systemPath, { withFileTypes: true }).filter(f => !f.isDirectory());
+            files.forEach(file => {
+                if (file.name.startsWith('.')) return; 
+
+                const relPath = path.join(system.name, file.name).replace(/\\/g, '/');
+                const stats = fs.statSync(path.join(systemPath, file.name));
+                let artPath = findArtwork(systemPath, file.name);
+
+                // Apply Metadata
+                let displayName = file.name;
+                let description = '';
+                let meta = gameMetadata[relPath];
+
+                if (meta) {
+                    if (meta.title) displayName = meta.title;
+                    if (meta.summary) description = meta.summary;
+                    // If metadata implies we downloaded art, findArtwork should have found it in media/boxart
+                    // But we can check specifically if needed. For now, standard folders work.
+                }
+
+                games.push({
+                    name: displayName,
+                    originalName: file.name,
+                    system: system.name,
+                    relPath: relPath,
+                    size: (stats.size / 1024 / 1024).toFixed(2) + ' MB',
+                    mtime: stats.mtime,
+                    artworkPath: artPath,
+                    description: description,
+                    hasMetadata: !!meta
+                });
+            });
+        } catch (e) {}
+    });
+    res.json(games);
+});
+
+// 2. List Saves
+app.get('/api/saves', (req, res) => {
+    let files = scanDir(SAVES_DIR);
+    files = files.map(file => {
+        const parts = file.relPath.split('/');
+        let system = null, gameTitle = null;
+
+        if (file.relPath.includes('title/00010000')) {
+            system = 'Wii';
+            const idx = parts.indexOf('00010000');
+            if (idx !== -1 && parts[idx + 1]) {
+                const hexId = parts[idx + 1];
+                try {
+                    let ascii = '';
+                    for (let i = 0; i < hexId.length; i += 2) {
+                        const code = parseInt(hexId.substr(i, 2), 16);
+                        if (code >= 32 && code <= 126) ascii += String.fromCharCode(code);
+                    }
+                    gameTitle = ascii.length === 4 ? `Wii Game: ${ascii} (${hexId})` : `Wii ID: ${hexId}`;
+                } catch (e) { gameTitle = `Wii ID: ${hexId}`; }
+            }
+        }
+        
+        if (!system) {
+            const switchId = parts.find(p => /^[0-9A-Fa-f]{16}$/.test(p));
+            if (switchId) { system = 'Switch'; gameTitle = `Switch TitleID: ${switchId}`; }
+        }
+        if (!system && (file.name.includes('MemoryCard') || file.name.endsWith('.gci'))) { system = 'GameCube'; gameTitle = 'GameCube Memory Card'; }
+        if (!system) { system = parts.length > 1 ? parts[0] : 'Unknown'; gameTitle = system; }
+
+        return { ...file, system, gameTitle: gameTitle || file.name };
+    });
+    res.json(files);
+});
+
+// 3. List Bios
+app.get('/api/bios', (req, res) => res.json(scanDir(BIOS_DIR)));
+
+// 4. Unified Download
+app.get('/api/download', (req, res) => {
+    const { type, path: relPath } = req.query;
+    let base = type === 'saves' ? SAVES_DIR : (type === 'bios' ? BIOS_DIR : ROMS_DIR);
+    const fullPath = path.join(base, relPath);
+    if (!fullPath.startsWith(base) || !fs.existsSync(fullPath)) return res.status(403).send('Invalid Path');
+    res.download(fullPath);
+});
+
+// 5. Artwork Serving
+app.get('/api/artwork', (req, res) => {
+    const { path: relPath } = req.query;
+    if (!relPath) return res.status(400).send('No path provided');
+    const fullPath = path.join(ROMS_DIR, relPath);
+    if (!fullPath.startsWith(ROMS_DIR) || !fs.existsSync(fullPath)) return res.status(404).send('Image not found');
+    res.sendFile(fullPath);
+});
+
+// 6. Upload
+app.post('/api/upload', upload.single('file'), (req, res) => {
+    res.json({ message: 'File uploaded successfully', file: req.file });
+});
+
+// --- METADATA & SETTINGS ROUTES ---
+
+// Get Keys Status
+app.get('/api/settings/keys', (req, res) => {
+    res.json({ 
+        hasClientId: !!apiKeys.clientId, 
+        hasClientSecret: !!apiKeys.clientSecret 
     });
 });
 
-app.post('/admin/setup', (req, res) => {
-    if (isAdminConfigured()) return res.status(403).send('Admin already configured.');
-    
-    const { password } = req.body;
-    fs.writeFileSync(ADMIN_CONFIG_FILE, JSON.stringify({ password }));
-    req.session.isAdmin = true; // Auto login after setup
-    res.redirect('/admin');
+// Save Keys
+app.post('/api/settings/keys', (req, res) => {
+    const { clientId, clientSecret } = req.body;
+    apiKeys = { clientId, clientSecret };
+    fs.writeFileSync(KEYS_FILE, JSON.stringify(apiKeys, null, 2));
+    igdbAccessToken = null; // Reset token
+    res.json({ success: true });
 });
 
-app.post('/admin/login', (req, res) => {
-    const { password } = req.body;
-    const storedPassword = getAdminPassword();
+// Search IGDB
+app.get('/api/metadata/search', async (req, res) => {
+    let query = req.query.q;
+    if (!query) return res.status(400).json({ error: "Missing query" });
 
-    if (password === storedPassword) {
-        req.session.isAdmin = true;
-        res.redirect('/admin');
-    } else {
-        res.send('<h1>Invalid Password</h1><a href="/admin">Try Again</a>');
+    // Clean Query Logic
+    console.log(`[IGDB] Original Query: "${query}"`);
+    
+    // 1. Remove extension
+    query = path.parse(query).name;
+    
+    // 2. Remove things in brackets/parentheses e.g. (USA), [v1.0]
+    // Also remove common dump info like "En,Fr,Es", "Rev 1" if inside brackets
+    query = query.replace(/\s*[\(\[].*?[\)\]]/g, '');
+    
+    // 3. Trim extra spaces
+    query = query.trim();
+
+    console.log(`[IGDB] Cleaned Query: "${query}"`);
+
+    try {
+        const token = await getIgdbToken();
+        // IGDB API: Search games, get cover, summary, etc.
+        const response = await fetch('https://api.igdb.com/v4/games', {
+            method: 'POST',
+            headers: {
+                'Client-ID': apiKeys.clientId,
+                'Authorization': `Bearer ${token}`
+            },
+            body: `search "${query}"; fields name, cover.url, summary, first_release_date, platforms.name; limit 10;`
+        });
+        
+        if (!response.ok) throw new Error("IGDB Request Failed");
+        const data = await response.json();
+        
+        // Fix cover URLs (they come as //images.igdb.com...)
+        const results = data.map(g => ({
+            ...g,
+            coverUrl: g.cover ? `https:${g.cover.url}`.replace('t_thumb', 't_cover_big') : null
+        }));
+        
+        res.json(results);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
     }
 });
 
-app.get('/admin/logout', (req, res) => {
-    req.session.isAdmin = false;
-    res.redirect('/admin');
+// Apply Metadata
+app.post('/api/metadata/apply', async (req, res) => {
+    const { relPath, igdbData } = req.body;
+    if (!relPath || !igdbData) return res.status(400).json({ error: "Missing data" });
+    
+    console.log(`[Apply] Applying to ${relPath}`);
+
+    try {
+        // 1. Download Cover if exists
+        if (igdbData.coverUrl) {
+            const system = relPath.split('/')[0];
+            const gameFileName = path.basename(relPath);
+            const gameBaseName = path.parse(gameFileName).name;
+            // Target: roms/[system]/media/boxart/[gameName].png
+            const targetDir = path.join(ROMS_DIR, system, 'media', 'boxart');
+            console.log(`[Apply] Target Dir: ${targetDir}`);
+            
+            // Check ext from url
+            const ext = path.extname(igdbData.coverUrl) || '.jpg';
+            const finalPath = path.join(targetDir, `${gameBaseName}${ext}`);
+
+            await downloadFile(igdbData.coverUrl, finalPath);
+        }
+
+        // 2. Save to Metadata JSON
+        gameMetadata[relPath] = {
+            title: igdbData.name,
+            summary: igdbData.summary,
+            igdbId: igdbData.id,
+            releaseDate: igdbData.first_release_date
+        };
+        fs.writeFileSync(METADATA_FILE, JSON.stringify(gameMetadata, null, 2));
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to apply metadata" });
+    }
 });
 
+app.get('/api/system', (req, res) => res.json({ status: 'online', mode: 'native_api', storage_root: EMULATION_DIR }));
+
 app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`RomStore Native Backend running on port ${PORT}`);
 });
+

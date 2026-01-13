@@ -3,8 +3,10 @@ version: '3.8'
 services:
   backend:
     build: .
+    restart: unless-stopped
     volumes:
-      - C:\Users\maxime\Documents\docker:/usr/src/app/data
+      - ./data:/usr/src/app/data
+      - C:\Emulation:/emulation
     environment:
       - PORT=3000
     networks:
@@ -12,8 +14,9 @@ services:
 
   frontend:
     build: ./frontend
+    restart: unless-stopped
     ports:
-      - "3000:80"
+      - "80:80"
     depends_on:
       - backend
     networks:

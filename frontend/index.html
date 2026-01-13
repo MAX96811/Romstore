@@ -1,17 +1,989 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Hello World</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RomStore Library</title>
+    <style>
+        :root {
+            --bg-color: #171a21;
+            --card-bg: #1b2838;
+            --text-color: #c7d5e0;
+            --accent: #66c0f4;
+            --btn-bg: #66c0f4;
+            --btn-text: #171a21;
+            --success: #5c7e10;
+            --error: #c23c2a;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #1b2838;
+            padding: 20px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        h1 { margin: 0; color: var(--accent); letter-spacing: 2px; }
+        
+        .tabs {
+            display: flex;
+            gap: 20px;
+        }
+        .tabs button {
+            background: none;
+            border: none;
+            color: #8b9bb4;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .tabs button:hover { color: #fff; }
+        .tabs button.active {
+            color: #fff;
+            border-bottom-color: var(--accent);
+        }
+
+        /* Controls Bar */
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            width: 100%;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            overflow-x: auto;
+            max-width: 60%;
+            padding-bottom: 5px;
+        }
+        .filter-group::-webkit-scrollbar { height: 4px; }
+        .filter-group::-webkit-scrollbar-thumb { background: #3d5a73; border-radius: 2px; }
+
+        .filter-chip {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #8b9bb4;
+            font-size: 0.85em;
+            cursor: pointer;
+            padding: 4px 12px;
+            border-radius: 15px;
+            white-space: nowrap;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .filter-chip:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .filter-chip.active {
+            background: var(--accent);
+            color: var(--btn-text);
+            border-color: var(--accent);
+            font-weight: bold;
+        }
+
+        .view-options {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        select, .toggle-btn {
+            background: #2a475e;
+            color: #fff;
+            border: 1px solid #3d5a73;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            cursor: pointer;
+        }
+        .toggle-btn.active {
+            background: var(--accent);
+            color: var(--btn-text);
+        }
+
+        /* Content Area */
+        .content-area { padding: 40px; }
+        .section-header {
+            color: #fff;
+            font-size: 1.5em;
+            border-bottom: 1px solid #3d5a73;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            margin-top: 30px;
+            text-transform: capitalize;
+        }
+        .section-header:first-child { margin-top: 0; }
+
+        .library-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 30px;
+        }
+        
+        /* Game Card Design */
+        .game-card {
+            background-color: transparent;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.2s;
+        }
+        .game-card:hover { transform: scale(1.03); }
+
+        .art-wrapper {
+            position: relative;
+            width: 100%;
+            padding-top: 140%; 
+            background-color: #2a475e;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .game-art {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+
+        .icon-placeholder {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            background: #2a475e;
+        }
+
+        .card-overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(27, 40, 56, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none; 
+            box-sizing: border-box;
+        }
+
+        .game-card.active .card-overlay {
+            opacity: 1;
+            pointer-events: auto; 
+        }
+
+        .overlay-info {
+            margin-bottom: 20px;
+        }
+        .overlay-system {
+            font-size: 0.8em;
+            color: var(--accent);
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .overlay-meta {
+            font-size: 0.85em;
+            color: #8b9bb4;
+            margin-top: 4px;
+        }
+
+        .download-btn {
+            background-color: var(--btn-bg);
+            color: var(--btn-text);
+            text-decoration: none;
+            padding: 10px 20px;
+            font-weight: bold;
+            border-radius: 2px;
+            transition: background 0.2s;
+            display: inline-block;
+        }
+        .download-btn:hover { background-color: #92d4ff; }
+
+        .game-title-below {
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 0.95em;
+            color: #fff;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 5px;
+        }
+
+        .edit-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        .edit-btn:hover { background: var(--accent); color: #000; }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 200;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #1b2838;
+            padding: 20px;
+            border-radius: 5px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            color: #c7d5e0;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header { font-size: 1.2em; margin-bottom: 15px; color: var(--accent); display:flex; justify-content:space-between; }
+        .close-btn { cursor: pointer; font-size: 1.5em; line-height: 20px; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; font-size: 0.9em; }
+        .input-group input, .input-group select { 
+            width: 100%; padding: 8px; 
+            background: #2a475e; border: 1px solid #3d5a73; 
+            color: #fff; border-radius: 3px;
+            box-sizing: border-box;
+        }
+        .action-btn {
+            background-color: var(--accent);
+            color: var(--btn-text);
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .action-btn:disabled { background-color: #3d5a73; color: #8b9bb4; cursor: not-allowed; }
+        .results-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .result-item {
+            display: flex; background: #2a475e;
+            padding: 10px; gap: 10px;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .result-item:hover { background: #31526b; }
+        .result-img { width: 50px; height: 70px; object-fit: cover; background: #000; }
+        .result-info { display: flex; flex-direction: column; justify-content: center; }
+        .result-title { font-weight: bold; color: #fff; }
+        .result-year { font-size: 0.8em; color: #8b9bb4; }
+
+        /* Notifications */
+        #toast-container {
+            position: fixed;
+            bottom: 20px; right: 20px;
+            z-index: 300;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .toast {
+            background-color: #2a475e;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            border-left: 5px solid var(--accent);
+            min-width: 250px;
+            animation: slideIn 0.3s ease-out;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--error); }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Upload Progress Area */
+        #upload-progress-area {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 4px;
+            border: 1px solid #3d5a73;
+        }
+        .progress-label {
+            font-size: 0.8em;
+            color: #8b9bb4;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .progress-bar-bg {
+            width: 100%; height: 8px;
+            background: #2a475e; border-radius: 4px;
+            overflow: hidden; margin-bottom: 15px;
+        }
+        .progress-bar-fill {
+            width: 0%; height: 100%;
+            background: var(--accent);
+            transition: width 0.1s linear;
+        }
+        #current-file-name {
+            font-size: 0.85em;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
 <body>
-  <h1>Hello World</h1>
-  <p> this is a test website that I try to put in a docker container !</p>
-  <form action="/login" method="POST">
-    <label for="email">Email:</label><br>
-    <input type="email" id="email" name="email" required><br>
-    <label for="password">Password:</label><br>
-    <input type="password" id="password" name="password" required><br><br>
-    <button type="submit">Submit</button>
-  </form>
+
+<header>
+    <div class="header-top">
+        <h1>ROMSTORE</h1>
+        <div style="display:flex; gap: 15px; align-items: center;">
+            <button onclick="openSettings()" class="action-btn" style="background:transparent; border: 1px solid #3d5a73; color: #8b9bb4;">⚙ Settings</button>
+            <nav class="tabs">
+                <button onclick="changeTab('games')" id="tab-games" class="active">Games</button>
+                <button onclick="changeTab('saves')" id="tab-saves">Saves</button>
+                <button onclick="changeTab('bios')" id="tab-bios">Bios</button>
+            </nav>
+        </div>
+        <div style="color: #8b9bb4; font-size: 0.9em;">Library Mode: Native</div>
+    </div>
+    
+    <div class="controls">
+        <div class="filter-group" id="filter-container">
+            <span style="color:#8b9bb4; font-size:0.9em;">Loading filters...</span>
+        </div>
+
+        <div class="view-options">
+            <select id="sort-select" onchange="applyViewSettings()">
+                <option value="name_asc">Name (A-Z)</option>
+                <option value="name_desc">Name (Z-A)</option>
+                <option value="date_new">Date Added (Newest)</option>
+                <option value="date_old">Date Added (Oldest)</option>
+            </select>
+            <button id="group-toggle" class="toggle-btn" onclick="toggleGrouping()">Group by Console</button>
+        </div>
+    </div>
+</header>
+
+<div id="main-content" class="content-area">
+    <div style="text-align:center;">Scanning...</div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span>Settings</span>
+            <span class="close-btn" onclick="closeModal('settings-modal')">&times;</span>
+        </div>
+        
+        <div style="margin-bottom: 25px;">
+            <p style="font-size:0.95em; color:#fff; margin-bottom:10px;">Bulk Upload Games</p>
+            <div class="input-group">
+                <button onclick="document.getElementById('file-input').click()" class="action-btn" style="background:#3d5a73; width:100%;">📁 Select Files</button>
+                <input type="file" id="file-input" multiple style="display:none;" onchange="handleFileSelect()">
+            </div>
+            
+            <div id="upload-controls" style="display:none;">
+                <div class="input-group">
+                    <label>Target Console/Folder</label>
+                    <select id="upload-system-select">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <button onclick="startBulkUpload()" id="start-upload-btn" class="action-btn" style="width:100%">🚀 Start Uploading (<span id="file-count-label">0</span> files)</button>
+                
+                <div id="upload-progress-area" style="display:none;">
+                    <div id="current-file-name">Preparing...</div>
+                    
+                    <div class="progress-label">
+                        <span>Current File Progress</span>
+                        <span id="current-file-percent">0%</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div id="current-file-progress-fill" class="progress-bar-fill"></div>
+                    </div>
+
+                    <div class="progress-label">
+                        <span>Overall Progress</span>
+                        <span id="overall-progress-text">0/0</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div id="overall-progress-fill" class="progress-bar-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="border-top: 1px solid #3d5a73; padding-top: 20px; margin-bottom: 25px;">
+            <p style="font-size:0.95em; color:#fff; margin-bottom:10px;">IGDB Metadata API</p>
+            <div class="input-group">
+                <label>Client ID</label>
+                <input type="text" id="client-id" placeholder="Twitch Client ID">
+            </div>
+            <div class="input-group">
+                <label>Client Secret</label>
+                <input type="password" id="client-secret" placeholder="Twitch Client Secret">
+            </div>
+            <button onclick="saveSettings()" class="action-btn" style="width:100%">Save Credentials</button>
+        </div>
+        
+        <div style="border-top: 1px solid #3d5a73; padding-top: 20px;">
+            <p style="font-size:0.95em; color:#fff; margin-bottom:10px;">Maintenance</p>
+            <button onclick="autoScanLibrary()" class="action-btn" id="auto-scan-btn" style="width:100%">✨ Auto Scan Missing Metadata</button>
+        </div>
+    </div>
+</div>
+
+<!-- Metadata Modal -->
+<div id="metadata-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span id="modal-title">Edit Metadata</span>
+            <span class="close-btn" onclick="closeModal('metadata-modal')">&times;</span>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <input type="text" id="search-query" style="flex:1; padding:8px; border-radius:3px; border:1px solid #3d5a73; background:#2a475e; color:#fff;" placeholder="Search Game Name...">
+            <button onclick="searchMetadata()" class="action-btn">Search</button>
+        </div>
+        <div style="margin-top:10px; display:none;" id="skip-container">
+            <button onclick="skipCurrentAutoGame()" class="action-btn" style="background:#c23c2a; width:100%;">Skip This Game</button>
+        </div>
+        <div id="results-list" class="results-list">
+            <!-- Results here -->
+        </div>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+    // State
+    let currentTab = 'games';
+    let rawData = [];
+    let activeFilters = new Set(); 
+    let isGrouped = false;
+    let editingGamePath = null;
+    
+    // Auto Scan State
+    let isAutoScanning = false;
+    let autoScanQueue = [];
+    let autoScanResolver = null;
+
+    // Upload State
+    let selectedFiles = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadLibrary();
+    });
+
+    // --- Notifications ---
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerText = message;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // --- Modals ---
+    function closeModal(id) { 
+        document.getElementById(id).style.display = 'none'; 
+        if (id === 'metadata-modal' && isAutoScanning && autoScanResolver) {
+            skipCurrentAutoGame();
+        }
+    }
+    
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) closeModal(event.target.id);
+    }
+
+    async function openSettings() {
+        document.getElementById('settings-modal').style.display = 'flex';
+        
+        // Populate system selector for upload
+        const systems = [...new Set(rawData.map(item => item.system))].filter(s => s !== 'Unknown').sort();
+        const select = document.getElementById('upload-system-select');
+        select.innerHTML = systems.map(s => `<option value="${s}">${s}</option>`).join('');
+        select.innerHTML += `<option value="custom">-- New Folder --</option>`;
+
+        try {
+            const res = await fetch('/api/settings/keys');
+            const data = await res.json();
+            document.getElementById('client-id').value = data.hasClientId ? '******' : '';
+            document.getElementById('client-secret').value = data.hasClientSecret ? '******' : '';
+        } catch(e) { console.error(e); }
+    }
+
+    async function saveSettings() {
+        const clientId = document.getElementById('client-id').value;
+        const clientSecret = document.getElementById('client-secret').value;
+        if(clientId === '******' || clientSecret === '******') return showToast('Please enter valid keys', 'error');
+        
+        try {
+            await fetch('/api/settings/keys', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ clientId, clientSecret })
+            });
+            showToast('Settings Saved!', 'success');
+        } catch(e) { showToast('Error saving settings', 'error'); }
+    }
+
+    // --- Bulk Upload Logic ---
+    function handleFileSelect() {
+        const input = document.getElementById('file-input');
+        selectedFiles = Array.from(input.files);
+        if (selectedFiles.length > 0) {
+            document.getElementById('upload-controls').style.display = 'block';
+            document.getElementById('file-count-label').innerText = selectedFiles.length;
+        }
+    }
+
+    async function startBulkUpload() {
+        const sysSelect = document.getElementById('upload-system-select');
+        let system = sysSelect.value;
+        
+        if (system === 'custom') {
+            system = prompt("Enter new folder name (e.g. 'ps2', 'snes'):");
+            if (!system) return;
+            system = system.toLowerCase().replace(/[^a-z0-9]/g, '');
+        }
+
+        const btn = document.getElementById('start-upload-btn');
+        const progressArea = document.getElementById('upload-progress-area');
+        const currentProgressFill = document.getElementById('current-file-progress-fill');
+        const overallProgressFill = document.getElementById('overall-progress-fill');
+        const currentFileText = document.getElementById('current-file-name');
+        const currentFilePercentText = document.getElementById('current-file-percent');
+        const overallText = document.getElementById('overall-progress-text');
+
+        btn.disabled = true;
+        progressArea.style.display = 'block';
+        
+        let successCount = 0;
+        for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            
+            // Update Overall UI
+            overallText.innerText = `${i + 1} / ${selectedFiles.length}`;
+            overallProgressFill.style.width = `${(i / selectedFiles.length) * 100}%`;
+            currentFileText.innerText = `File: ${file.name}`;
+            currentFilePercentText.innerText = `0%`;
+            currentProgressFill.style.width = `0%`;
+
+            try {
+                await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    xhr.upload.onprogress = (e) => {
+                        if (e.lengthComputable) {
+                            const percent = Math.round((e.loaded / e.total) * 100);
+                            currentProgressFill.style.width = `${percent}%`;
+                            currentFilePercentText.innerText = `${percent}%`;
+                        }
+                    };
+
+                    xhr.onload = () => {
+                        if (xhr.status === 200) {
+                            successCount++;
+                            resolve();
+                        } else {
+                            reject(new Error(`Upload failed with status ${xhr.status}`));
+                        }
+                    };
+
+                    xhr.onerror = () => reject(new Error('Network error during upload'));
+                    
+                    xhr.open('POST', `/api/upload?path=${system}`, true);
+                    xhr.send(formData);
+                });
+            } catch (e) {
+                console.error(`Upload failed for ${file.name}`, e);
+                showToast(`Failed: ${file.name}`, 'error');
+            }
+        }
+
+        overallProgressFill.style.width = `100%`;
+        currentFileText.innerText = `All uploads completed!`;
+        showToast(`Successfully uploaded ${successCount} files.`, 'success');
+        
+        setTimeout(() => {
+            document.getElementById('upload-controls').style.display = 'none';
+            progressArea.style.display = 'none';
+            btn.disabled = false;
+            loadLibrary();
+        }, 2000);
+    }
+
+    // --- Metadata Logic ---
+    function openMetadata(name, relPath) {
+        if(isAutoScanning) return; 
+        startMetadataFlow(name, relPath);
+    }
+
+    function openMetadataFromButton(btn) {
+        const name = decodeURIComponent(btn.dataset.name);
+        const path = decodeURIComponent(btn.dataset.path);
+        openMetadata(name, path);
+    }
+
+    function startMetadataFlow(name, relPath, existingResults = null) {
+        editingGamePath = relPath;
+        document.getElementById('search-query').value = name;
+        document.getElementById('results-list').innerHTML = '';
+        document.getElementById('metadata-modal').style.display = 'flex';
+        
+        if (existingResults) {
+            renderResults(existingResults);
+            document.getElementById('modal-title').innerText = "Select Match (Conflict)";
+            document.getElementById('skip-container').style.display = 'block';
+        } else {
+            document.getElementById('modal-title').innerText = "Edit Metadata";
+            document.getElementById('skip-container').style.display = 'none';
+            searchMetadata(); 
+        }
+    }
+
+    async function searchMetadata() {
+        const query = document.getElementById('search-query').value;
+        const list = document.getElementById('results-list');
+        list.innerHTML = '<div style="text-align:center; padding:20px;">Searching IGDB...</div>';
+        
+        try {
+            const res = await fetch(`/api/metadata/search?q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            renderResults(data);
+        } catch(e) {
+            list.innerHTML = '<div style="text-align:center; color:#ff6b6b;">Search failed. Check API Keys.</div>';
+        }
+    }
+
+    function renderResults(data) {
+        const list = document.getElementById('results-list');
+        list.innerHTML = '';
+        if (data.error) {
+            list.innerHTML = `<div style="text-align:center; color:#ff6b6b;">${data.error}</div>`;
+            return;
+        }
+        if (data.length === 0) {
+            list.innerHTML = '<div style="text-align:center;">No results found.</div>';
+            return;
+        }
+        data.forEach(game => {
+            const year = game.first_release_date ? new Date(game.first_release_date * 1000).getFullYear() : 'N/A';
+            const img = game.coverUrl || '';
+            const item = document.createElement('div');
+            item.className = 'result-item';
+            item.onclick = () => applyMetadata(game, true); 
+            item.innerHTML = `
+                <img src="${img}" class="result-img" onerror="this.style.backgroundColor='#333'">
+                <div class="result-info">
+                    <div class="result-title">${game.name}</div>
+                    <div class="result-year">${year} - ${game.platforms ? game.platforms[0].name : ''}</div>
+                </div>
+            `;
+            list.appendChild(item);
+        });
+    }
+
+    async function applyMetadata(igdbData, silent = false) {
+        try {
+            const res = await fetch('/api/metadata/apply', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ relPath: editingGamePath, igdbData })
+            });
+            if (res.ok) {
+                if (!isAutoScanning) {
+                    closeModal('metadata-modal');
+                    loadLibrary(); 
+                    showToast('Metadata Applied!', 'success');
+                } else {
+                    document.getElementById('metadata-modal').style.display = 'none';
+                    if(autoScanResolver) autoScanResolver(true); 
+                }
+            } else {
+                if(!silent) showToast('Failed to apply metadata.', 'error');
+            }
+        } catch(e) { showToast('Error applying metadata', 'error'); }
+    }
+
+    async function autoScanLibrary() {
+        if(isAutoScanning) return;
+        const btn = document.getElementById('auto-scan-btn');
+        autoScanQueue = rawData.filter(g => !g.hasMetadata);
+        if(autoScanQueue.length === 0) return showToast('All games already have metadata!', 'success');
+        isAutoScanning = true;
+        btn.innerText = "Scanning Queue...";
+        btn.disabled = true;
+        document.getElementById('settings-modal').style.display = 'none';
+        let appliedCount = 0;
+        showToast(`Auto-Scanning ${autoScanQueue.length} games...`, 'info');
+        for (const game of autoScanQueue) {
+            editingGamePath = game.relPath; 
+            try {
+                const res = await fetch(`/api/metadata/search?q=${encodeURIComponent(game.originalName || game.name)}`);
+                const results = await res.json();
+                if (results && results.length > 0) {
+                    if (results.length === 1) {
+                        await applyMetadata(results[0], true);
+                        appliedCount++;
+                    } else {
+                        await new Promise(resolve => {
+                            autoScanResolver = resolve;
+                            startMetadataFlow(game.name, game.relPath, results);
+                        });
+                        appliedCount++;
+                    }
+                }
+            } catch (err) { console.error(err); }
+        }
+        isAutoScanning = false;
+        autoScanResolver = null;
+        btn.innerText = "✨ Auto Scan Metadata";
+        btn.disabled = false;
+        loadLibrary();
+        showToast(`Scan Complete! Updated ${appliedCount} games.`, 'success');
+    }
+
+    function skipCurrentAutoGame() {
+        if(isAutoScanning && autoScanResolver) {
+            document.getElementById('metadata-modal').style.display = 'none';
+            autoScanResolver(false); 
+        }
+    }
+
+    // --- Core Logic ---
+    function changeTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+        document.getElementById(`tab-${tab}`).classList.add('active');
+        activeFilters.clear();
+        loadLibrary(); 
+    }
+
+    function toggleGrouping() {
+        isGrouped = !isGrouped;
+        document.getElementById('group-toggle').classList.toggle('active', isGrouped);
+        renderContent();
+    }
+
+    async function loadLibrary() {
+        const content = document.getElementById('main-content');
+        content.innerHTML = '<div style="text-align:center;">Scanning...</div>';
+        try {
+            const res = await fetch(`/api/${currentTab}?t=${Date.now()}`);
+            rawData = await res.json();
+            rawData = rawData.map(item => {
+                if (!item.system) {
+                    const parts = item.relPath.split('/');
+                    item.system = parts.length > 1 ? parts[0] : 'Unknown';
+                }
+                return item;
+            });
+            generateFilters();
+            renderContent();
+        } catch (err) {
+            console.error(err);
+            content.innerHTML = `<div style="text-align:center; color: #ff6b6b;">Error loading ${currentTab}</div>`;
+        }
+    }
+
+    function generateFilters() {
+        const container = document.getElementById('filter-container');
+        container.innerHTML = '';
+        const systems = [...new Set(rawData.map(item => item.system))].sort();
+        if (systems.length === 0) {
+            container.innerHTML = '<span style="color:#55687a; font-size:0.8em;">No systems found</span>';
+            return;
+        }
+        const allChip = document.createElement('div');
+        allChip.className = `filter-chip ${activeFilters.size === 0 ? 'active' : ''}`;
+        allChip.textContent = 'All Systems';
+        allChip.onclick = () => {
+            activeFilters.clear();
+            updateFilterVisuals();
+            renderContent();
+        };
+        container.appendChild(allChip);
+        systems.forEach(sys => {
+            const chip = document.createElement('div');
+            chip.className = `filter-chip ${activeFilters.has(sys) ? 'active' : ''}`;
+            chip.textContent = sys;
+            chip.onclick = () => {
+                if (activeFilters.has(sys)) activeFilters.delete(sys);
+                else activeFilters.add(sys);
+                updateFilterVisuals();
+                renderContent();
+            };
+            container.appendChild(chip);
+        });
+    }
+
+    function updateFilterVisuals() {
+        const chips = document.getElementById('filter-container').children;
+        if (activeFilters.size === 0) chips[0].classList.add('active');
+        else chips[0].classList.remove('active');
+        for (let i = 1; i < chips.length; i++) {
+            const sysName = chips[i].textContent;
+            if (activeFilters.has(sysName)) chips[i].classList.add('active');
+            else chips[i].classList.remove('active');
+        }
+    }
+
+    function applyViewSettings() { renderContent(); }
+
+    function renderContent() {
+        const content = document.getElementById('main-content');
+        content.innerHTML = '';
+        let filtered = rawData;
+        if (activeFilters.size > 0) filtered = rawData.filter(item => activeFilters.has(item.system));
+        if (filtered.length === 0) {
+            content.innerHTML = '<div style="text-align:center; margin-top:20px;">No items match the current filters.</div>';
+            return;
+        }
+        const sortMode = document.getElementById('sort-select').value;
+        filtered.sort((a, b) => {
+            const nameA = a.gameTitle || a.name;
+            const nameB = b.gameTitle || b.name;
+            if (sortMode === 'name_asc') return nameA.localeCompare(nameB);
+            if (sortMode === 'name_desc') return nameB.localeCompare(nameA);
+            if (sortMode === 'date_new') return new Date(b.mtime) - new Date(a.mtime);
+            if (sortMode === 'date_old') return new Date(a.mtime) - new Date(b.mtime);
+            return 0;
+        });
+        if (isGrouped) {
+            const groups = {};
+            filtered.forEach(item => {
+                if (!groups[item.system]) groups[item.system] = [];
+                groups[item.system].push(item);
+            });
+            const sortedKeys = Object.keys(groups).sort();
+            sortedKeys.forEach(sys => {
+                const header = document.createElement('div');
+                header.className = 'section-header';
+                header.textContent = sys;
+                content.appendChild(header);
+                const grid = document.createElement('div');
+                grid.className = 'library-grid';
+                groups[sys].forEach(item => grid.appendChild(createCard(item)));
+                content.appendChild(grid);
+            });
+        } else {
+            const grid = document.createElement('div');
+            grid.className = 'library-grid';
+            filtered.forEach(item => grid.appendChild(createCard(item)));
+            content.appendChild(grid);
+        }
+    }
+
+    function createCard(item) {
+        const card = document.createElement('div');
+        card.className = 'game-card';
+        card.onclick = (e) => {
+            if (e.target.tagName === 'A' || e.target.classList.contains('edit-btn')) return;
+            card.classList.toggle('active');
+        };
+
+        const icon = currentTab === 'games' ? '💿' : (currentTab === 'saves' ? '💾' : '🔑');
+        const dateStr = new Date(item.mtime).toLocaleDateString();
+        
+        let title = item.name;
+        let subtitle = item.system;
+        if (currentTab === 'saves' && item.gameTitle) {
+            title = item.gameTitle;
+            subtitle = item.name; 
+        }
+
+        let imageHtml = `<div class="icon-placeholder">${icon}</div>`;
+        if (item.artworkPath) {
+            const artUrl = `/api/artwork?path=${encodeURIComponent(item.artworkPath)}`;
+            imageHtml = `<img src="${artUrl}" class="game-art" alt="${title}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                         <div class="icon-placeholder" style="display:none">${icon}</div>`;
+        }
+
+        let editHtml = '';
+        if (currentTab === 'games') {
+            editHtml = `<button class="edit-btn" data-name="${encodeURIComponent(title)}" data-path="${encodeURIComponent(item.relPath)}" onclick="event.stopPropagation(); openMetadataFromButton(this)" title="Edit Metadata">✎</button>`;
+        }
+
+        card.innerHTML = `
+            ${editHtml}
+            <div class="art-wrapper">
+                ${imageHtml}
+                <div class="card-overlay">
+                    <div class="overlay-info">
+                        <div class="overlay-system">${subtitle}</div>
+                        <div class="overlay-meta">Size: ${item.size}</div>
+                        <div class="overlay-meta">Added: ${dateStr}</div>
+                    </div>
+                    <a href="/api/download?type=${currentTab}&path=${encodeURIComponent(item.relPath)}" class="download-btn">Download</a>
+                </div>
+            </div>
+            <div class="game-title-below" title="${title}">${title}</div>
+        `;
+        return card;
+    }
+</script>
+
 </body>
 </html>
