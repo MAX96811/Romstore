@@ -15,6 +15,18 @@ const ROMS_DIR = path.join(EMULATION_DIR, 'roms');
 const BIOS_DIR = path.join(EMULATION_DIR, 'bios');
 const SAVES_DIR = path.join(EMULATION_DIR, 'saves');
 
+// Ensure essential emulation directories exist
+[ROMS_DIR, BIOS_DIR, SAVES_DIR].forEach(dir => {
+    try {
+        if (!fs.existsSync(dir)) {
+            console.log(`[Init] Creating missing directory: ${dir}`);
+            fs.mkdirSync(dir, { recursive: true });
+        }
+    } catch (e) {
+        console.error(`[Init] Failed to create directory ${dir}: ${e.message}`);
+    }
+});
+
 // Data paths
 const DATA_DIR = path.join(__dirname, 'data');
 const METADATA_FILE = path.join(DATA_DIR, 'metadata.json');
@@ -289,6 +301,20 @@ app.get('/api/artwork', (req, res) => {
 // 6. Upload
 app.post('/api/upload', upload.single('file'), (req, res) => {
     res.json({ message: 'File uploaded successfully', file: req.file });
+});
+
+// 7. List all available systems (folders in roms dir)
+app.get('/api/systems', (req, res) => {
+    if (!fs.existsSync(ROMS_DIR)) return res.json([]);
+    try {
+        const systems = fs.readdirSync(ROMS_DIR, { withFileTypes: true })
+            .filter(d => d.isDirectory())
+            .map(d => d.name)
+            .sort();
+        res.json(systems);
+    } catch (e) {
+        res.status(500).json({ error: "Failed to list systems" });
+    }
 });
 
 // --- METADATA & SETTINGS ROUTES ---

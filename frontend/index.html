@@ -557,11 +557,16 @@
     async function openSettings() {
         document.getElementById('settings-modal').style.display = 'flex';
         
-        // Populate system selector for upload
-        const systems = [...new Set(rawData.map(item => item.system))].filter(s => s !== 'Unknown').sort();
-        const select = document.getElementById('upload-system-select');
-        select.innerHTML = systems.map(s => `<option value="${s}">${s}</option>`).join('');
-        select.innerHTML += `<option value="custom">-- New Folder --</option>`;
+        // Populate system selector for upload from backend
+        try {
+            const sysRes = await fetch('/api/systems');
+            const systems = await sysRes.json();
+            const select = document.getElementById('upload-system-select');
+            select.innerHTML = systems.map(s => `<option value="${s}">${s}</option>`).join('');
+            select.innerHTML += `<option value="custom">-- New Folder --</option>`;
+        } catch (e) {
+            console.error("Failed to load systems", e);
+        }
 
         try {
             const res = await fetch('/api/settings/keys');
