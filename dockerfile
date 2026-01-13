@@ -12,6 +12,11 @@ RUN npm install --production
 
 # Bundle app source
 COPY . .
+
+# Create data directory and define volume
+RUN mkdir -p data
+VOLUME ["/usr/src/app/data"]
+
  ENV PORT=3000
 # Expose the port the app runs on
 EXPOSE 3000

