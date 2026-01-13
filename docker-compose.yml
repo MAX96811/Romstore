@@ -3,8 +3,11 @@ version: '3.8'
 services:
   backend:
     build: .
+    image: max96811/romstore-backend:latest
+    restart: unless-stopped
     volumes:
-      - C:\Users\maxime\Documents\docker:/usr/src/app/data
+      - ${DATA_PATH:-./data}:/usr/src/app/data
+      - ${EMULATION_PATH:-/mnt/emulation}:/emulation
     environment:
       - PORT=3000
     networks:
@@ -12,8 +15,10 @@ services:
 
   frontend:
     build: ./frontend
+    image: max96811/romstore-frontend:latest
+    restart: unless-stopped
     ports:
-      - "3000:80"
+      - "1567:80"
     depends_on:
       - backend
     networks:
