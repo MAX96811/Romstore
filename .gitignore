@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+data/*.json
+!data/users.json
+library/
+frontend/node_modules/
+client/node_modules/
+client/dist/
+.DS_Store
+*.log
