@@ -167,8 +167,15 @@ app.use((req, res, next) => {
 // --- FILE UPLOAD CONFIGURATION ---
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        const targetPath = req.query.path ? path.join(ROMS_DIR, req.query.path) : ROMS_DIR;
+        let baseDir = ROMS_DIR;
+        if (req.query.type === 'saves') baseDir = SAVES_DIR;
+        else if (req.query.type === 'bios') baseDir = BIOS_DIR;
+
+        const targetPath = req.query.path ? path.join(baseDir, req.query.path) : baseDir;
+        
+        // Security check
         if (!targetPath.startsWith(EMULATION_DIR)) return cb(new Error('Access Denied: Invalid Path'));
+        
         if (!fs.existsSync(targetPath)) fs.mkdirSync(targetPath, { recursive: true });
         cb(null, targetPath);
     },
@@ -454,6 +461,107 @@ app.get('/api/artwork', requireAuth, (req, res) => {
 // 6. Upload
 app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
     res.json({ message: 'File uploaded successfully', file: req.file });
+});
+
+// --- SAVE MANAGEMENT (Versioning) ---
+
+app.post('/api/saves/upload', requireAuth, upload.single('file'), (req, res) => {
+    const relPath = req.body.relPath; // e.g. "snes/mario.srm"
+    if (!relPath) return res.status(400).json({ error: 'Missing relPath' });
+
+    const fullPath = path.join(SAVES_DIR, relPath);
+    if (!fullPath.startsWith(SAVES_DIR)) return res.status(403).json({ error: 'Invalid path' });
+
+    // Ensure dir exists
+    const dir = path.dirname(fullPath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+    // Handle Versioning
+    if (fs.existsSync(fullPath)) {
+        const versionDir = path.join(SAVES_DIR, '.versions', relPath);
+        if (!fs.existsSync(versionDir)) fs.mkdirSync(versionDir, { recursive: true });
+
+        const stats = fs.statSync(fullPath);
+        const timestamp = stats.mtime.toISOString().replace(/[:.]/g, '-');
+        const versionPath = path.join(versionDir, `${timestamp}_${path.basename(relPath)}`);
+
+        fs.copyFileSync(fullPath, versionPath);
+        console.log(`[SaveSync] Versioned: ${versionPath}`);
+
+        // Prune old versions (Keep last 5)
+        const versions = fs.readdirSync(versionDir)
+            .map(f => ({ name: f, time: fs.statSync(path.join(versionDir, f)).mtime.getTime() }))
+            .sort((a, b) => b.time - a.time);
+        
+        if (versions.length > 5) {
+            versions.slice(5).forEach(v => {
+                fs.unlinkSync(path.join(versionDir, v.name));
+                console.log(`[SaveSync] Pruned: ${v.name}`);
+            });
+        }
+    }
+
+    // Move uploaded file to final destination
+    // req.file.path is the temp location or the destination if destination defined in multer
+    // Since we used the same storage engine, it might have already put it in ROMS_DIR if we didn't override.
+    // But wait, the existing storage engine uses req.query.path. 
+    // Let's manually move it from req.file.path if it ended up somewhere else or just overwrite.
+    // Actually, our multer config uses req.query.path to determine destination.
+    // If we want to use the same upload middleware, we should probably pass ?path=... in query 
+    // OR create a specific multer config for saves. 
+    // The current multer config targets ROMS_DIR by default unless ?path is set.
+    // We should probably just move the file from where it landed.
+    
+    // However, the current upload middleware puts it in ROMS_DIR if path is not set, or subpath of ROMS_DIR.
+    // We want SAVES_DIR. 
+    // So we should effectively Move it from req.file.path (which might be in ROMS_DIR due to global config) to SAVES_DIR.
+    // OR, we assume the client sends ?path=../saves/..., but that's risky security-wise.
+    
+    // Safer: Move from wherever it is to SAVES_DIR/relPath.
+    try {
+        fs.renameSync(req.file.path, fullPath);
+        res.json({ success: true, message: 'Save uploaded and versioned' });
+    } catch (e) {
+        console.error("Move failed", e);
+        res.status(500).json({ error: 'Failed to save file' });
+    }
+});
+
+app.get('/api/saves/versions', requireAuth, (req, res) => {
+    const { relPath } = req.query;
+    if (!relPath) return res.status(400).json({ error: 'Missing relPath' });
+
+    const versionDir = path.join(SAVES_DIR, '.versions', relPath);
+    if (!fs.existsSync(versionDir)) return res.json([]);
+
+    const versions = fs.readdirSync(versionDir).map(f => ({
+        name: f,
+        time: fs.statSync(path.join(versionDir, f)).mtime
+    })).sort((a, b) => b.time - a.time);
+
+    res.json(versions);
+});
+
+app.post('/api/saves/restore', requireAuth, (req, res) => {
+    const { relPath, versionName } = req.body;
+    if (!relPath || !versionName) return res.status(400).json({ error: 'Missing params' });
+
+    const fullPath = path.join(SAVES_DIR, relPath);
+    const versionPath = path.join(SAVES_DIR, '.versions', relPath, versionName);
+
+    if (!fs.existsSync(versionPath)) return res.status(404).json({ error: 'Version not found' });
+
+    // Version the current one before restoring? Yes.
+    if (fs.existsSync(fullPath)) {
+        const versionDir = path.join(SAVES_DIR, '.versions', relPath);
+        const stats = fs.statSync(fullPath);
+        const timestamp = stats.mtime.toISOString().replace(/[:.]/g, '-');
+        const backupPath = path.join(versionDir, `${timestamp}_${path.basename(relPath)}`);
+        fs.copyFileSync(fullPath, backupPath);
+    }
+
+    fs.copyFileSync(versionPath, fullPath);
+    res.json({ success: true, message: 'Version restored' });
 });
 
 // 7. List all available systems (folders in roms dir)

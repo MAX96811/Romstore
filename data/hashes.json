@@ -344,12 +344,12 @@
     "mtime": "1761780611459"
   },
   "/emulation/saves/ryujinx/saves/0000000000000004/ExtraData0": {
-    "hash": "4354e203fa853ca2f70a35a12dcf2f65",
-    "mtime": "1761780611372"
+    "hash": "b1c99d6629874d1a44926b0e19e16be8",
+    "mtime": "1768414913596.9075"
   },
   "/emulation/saves/ryujinx/saves/0000000000000004/ExtraData1": {
-    "hash": "4354e203fa853ca2f70a35a12dcf2f65",
-    "mtime": "1761780611392"
+    "hash": "b1c99d6629874d1a44926b0e19e16be8",
+    "mtime": "1768414913590.3696"
   },
   "/emulation/saves/ryujinx/saves/0000000000000005/0/MarioGalaxy/GameData.bin": {
     "hash": "e47f5889d6574b7e28074b509b73fb2e",
@@ -464,8 +464,8 @@
     "mtime": "1766369485546"
   },
   "/emulation/saves/ryujinx/system/Profiles.json": {
-    "hash": "924aed0d2a1fd0a6e3921092b04487e4",
-    "mtime": "1768324487044.293"
+    "hash": "467d5b62f2c36a498823ddcc4ba8280c",
+    "mtime": "1768411251019.412"
   },
   "/emulation/saves/ryujinx/system/prod.keys": {
     "hash": "65bf82982e3ed7a2fb3a55f81ac902f6",
@@ -477,27 +477,27 @@
   },
   "/emulation/saves/ryujinx/system_saves/8000000000000000/0/imkvdb.arc": {
     "hash": "4abdcce687b02661b42a4a75dfe9f7d1",
-    "mtime": "1768324486899.9758"
+    "mtime": "1768411250882.3079"
   },
   "/emulation/saves/ryujinx/system_saves/8000000000000000/0/lastPublishedId": {
     "hash": "fcf5af2016adf65a97b579a67730f1b6",
-    "mtime": "1768324486900.9841"
+    "mtime": "1768411250883.3108"
   },
   "/emulation/saves/ryujinx/system_saves/8000000000000000/1/imkvdb.arc": {
     "hash": "4abdcce687b02661b42a4a75dfe9f7d1",
-    "mtime": "1768324486890.8489"
+    "mtime": "1768411250874.3828"
   },
   "/emulation/saves/ryujinx/system_saves/8000000000000000/1/lastPublishedId": {
     "hash": "fcf5af2016adf65a97b579a67730f1b6",
-    "mtime": "1768324486891.9392"
+    "mtime": "1768411250874.3828"
   },
   "/emulation/saves/ryujinx/system_saves/8000000000000000/ExtraData0": {
-    "hash": "8988211367d2790ee3b68bb3e376c3e1",
-    "mtime": "1768324486898.46"
+    "hash": "206487125fe214dedc099a9a6512af9c",
+    "mtime": "1768411250880.7153"
   },
   "/emulation/saves/ryujinx/system_saves/8000000000000000/ExtraData1": {
-    "hash": "8988211367d2790ee3b68bb3e376c3e1",
-    "mtime": "1768324486892.942"
+    "hash": "206487125fe214dedc099a9a6512af9c",
+    "mtime": "1768411250874.8904"
   },
   "/emulation/saves/ryujinx/system_saves/8000000000000030/0/MiiDatabase.dat": {
     "hash": "ebcbc5c932efa1b2890704ed9a879d40",
@@ -505,7 +505,7 @@
   },
   "/emulation/saves/ryujinx/system_saves/8000000000000030/1/MiiDatabase.dat": {
     "hash": "ebcbc5c932efa1b2890704ed9a879d40",
-    "mtime": "1768324488580.2751"
+    "mtime": "1768411252260.4692"
   },
   "/emulation/saves/ryujinx/system_saves/8000000000000030/ExtraData0": {
     "hash": "f8abde7010fa77a671b30b0a30765a13",
@@ -513,7 +513,7 @@
   },
   "/emulation/saves/ryujinx/system_saves/8000000000000030/ExtraData1": {
     "hash": "f8abde7010fa77a671b30b0a30765a13",
-    "mtime": "1768324488581.2754"
+    "mtime": "1768411252260.4692"
   },
   "/emulation/saves/xemu/saves/xbox_hdd.qcow2": {
     "hash": "1f75a4d66f2a25c0bcbbcba03b330ad3",
@@ -534,5 +534,13 @@
   "/emulation/bios/ryujinx/keys/title.keys": {
     "hash": "782aea76b1aa9718ba2d5b0bc6bc3af8",
     "mtime": "1755742196319.9517"
+  },
+  "/emulation/saves/ryujinx/saves/0000000000000004/0/GameData.bin": {
+    "hash": "0cc63e28803aa51ed065703f1eddefbd",
+    "mtime": "1768414913598.4077"
+  },
+  "/emulation/saves/ryujinx/saves/0000000000000004/1/GameData.bin": {
+    "hash": "0cc63e28803aa51ed065703f1eddefbd",
+    "mtime": "1768414913557.3196"
   }
 }
