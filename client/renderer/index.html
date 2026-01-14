@@ -101,7 +101,7 @@
 <div id="auth-modal" class="modal" style="display:none; backdrop-filter: blur(15px);">
     <div class="modal-content" style="width: 350px; text-align: center;">
         <img src="LOGO.png" style="width: 150px; margin-bottom: 20px;">
-        <div class="modal-header"><span>Login</span></div>
+        <div class="modal-header"><span id="auth-title">Login</span></div>
         <p id="auth-desc" style="font-size: 0.9em; color: #9e9e9e; margin-bottom: 20px;">Please login to access your library.</p>
         <div class="input-group" id="auth-url-group" style="display:none;"><label>Server URL</label><input type="text" id="auth-server-url" placeholder="http://192.168.1.100:1567"></div>
         <div class="input-group"><label>Username</label><input type="text" id="auth-username" placeholder="Username"></div>
@@ -188,7 +188,8 @@
             const data = await res.json();
             if (data.needsSetup || !data.authenticated) {
                 isSetupMode = !!data.needsSetup;
-                document.getElementById('auth-title').innerText = isSetupMode ? 'Initial Setup' : 'Login';
+                const titleEl = document.getElementById('auth-title');
+                if (titleEl) titleEl.innerText = isSetupMode ? 'Initial Setup' : 'Login';
                 document.getElementById('auth-modal').style.display = 'flex';
             } else {
                 document.getElementById('auth-modal').style.display = 'none';
@@ -273,33 +274,56 @@
             const res = await fetch(getApiUrl('/api/saves'), getFetchOptions());
             if (!res.ok) throw new Error('Failed to fetch server saves');
             const serverSaves = await res.json();
+            console.log('[Sync] Server saves found:', serverSaves.length);
             
             // 2. Get Local State
             const localSaves = await window.electronAPI.scanDirStat(localDir + '/saves');
+            console.log('[Sync] Local saves found:', localSaves.length);
+            
             const localMap = new Map();
             localSaves.forEach(f => localMap.set(f.relPath, new Date(f.mtime).getTime()));
             
             let downloadCount = 0;
+            let uploadCount = 0;
             
-            // 3. Compare & Download
+            // 3. Compare & Sync (Cloud -> Local)
             for (const sSave of serverSaves) {
                 const sTime = new Date(sSave.mtime).getTime();
                 const lTime = localMap.get(sSave.relPath);
                 
-                // If missing locally OR server is newer (> 2 seconds diff to ignore precision issues)
+                // If missing locally OR server is newer (> 2 seconds diff)
                 if (lTime === undefined || (sTime > lTime + 2000)) {
-                    console.log(`[Sync] Downloading ${sSave.relPath} (Server: ${sSave.mtime} vs Local: ${lTime})`);
-                    // We reuse startDownload logic but we need to ensure it knows it's a 'save' type
-                    // The item passed to startDownload expects { relPath, _type: 'saves' } or logic to deduce it.
-                    // sSave from /api/saves usually has relPath like "snes/mario.srm" but doesn't explicitly say type 'roms' vs 'saves' property except context.
-                    // startDownload uses 'currentTab' logic. We should force type 'saves'.
+                    console.log(`[Sync] Downloading ${sSave.relPath} (Server: ${sSave.mtime} vs Local: ${lTime ? new Date(lTime).toISOString() : 'Missing'})`);
                     await downloadSaveDirect(sSave.relPath);
                     downloadCount++;
                 }
             }
+
+            // 4. Compare & Sync (Local -> Cloud)
+            for (const lSave of localSaves) {
+                const lTime = new Date(lSave.mtime).getTime();
+                const sSave = serverSaves.find(s => s.relPath === lSave.relPath);
+                const sTime = sSave ? new Date(sSave.mtime).getTime() : undefined;
+
+                // If missing on server OR local is newer (> 2 seconds diff)
+                if (sTime === undefined || (lTime > sTime + 2000)) {
+                    console.log(`[Sync] Uploading ${lSave.relPath} (Local: ${lSave.mtime} vs Server: ${sTime ? new Date(sTime).toISOString() : 'Missing'})`);
+                    const fullPath = `${localDir}/saves/${lSave.relPath}`; 
+                    const result = await window.electronAPI.uploadSave(fullPath, lSave.relPath, sessionToken);
+                    if (result && (result.success || result === true)) {
+                        uploadCount++;
+                    } else {
+                        console.error(`[Sync] Failed to upload ${lSave.relPath}`, result);
+                    }
+                }
+            }
             
-            if (downloadCount > 0) showToast(`Synced ${downloadCount} saves from cloud`, 'success');
-            else console.log('[Sync] Up to date');
+            if (downloadCount > 0 || uploadCount > 0) {
+                showToast(`Sync complete: ${downloadCount} downloaded, ${uploadCount} uploaded`, 'success');
+            } else {
+                console.log('[Sync] Up to date');
+                showToast('Saves are up to date', 'info');
+            }
             
         } catch (e) {
             console.error('[Sync] Error:', e);
@@ -568,9 +592,13 @@
                 console.log('[AutoSync] Change detected:', relPath);
                 showToast('Syncing save...', 'info');
                 // We need sessionToken here.
-                const success = await window.electronAPI.uploadSave(fullPath, relPath, sessionToken);
-                if (success) showToast('Save Synced!', 'success');
-                else showToast('Sync failed', 'error');
+                const result = await window.electronAPI.uploadSave(fullPath, relPath, sessionToken);
+                
+                const isSuccess = (typeof result === 'object' && result !== null) ? result.success : result;
+                const errorMsg = (typeof result === 'object' && result !== null && result.error) ? ': ' + result.error : '';
+
+                if (isSuccess) showToast('Save Synced!', 'success');
+                else showToast('Sync failed' + errorMsg, 'error');
             });
         }
         checkAuth();

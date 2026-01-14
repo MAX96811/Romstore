@@ -43,6 +43,8 @@ ipcMain.handle('scan-local-emulation', async (event, baseDir) => {
     function walk(dir, results = []) {
         const list = fs.readdirSync(dir);
         list.forEach(file => {
+            if (file.startsWith('.') || file.toLowerCase().endsWith('.txt')) return;
+
             const fullPath = path.join(dir, file);
             const stat = fs.statSync(fullPath);
             if (stat && stat.isDirectory()) {
@@ -69,6 +71,8 @@ ipcMain.handle('scan-dir-stat', async (event, baseDir) => {
     function walk(dir, results = []) {
         const list = fs.readdirSync(dir);
         list.forEach(file => {
+            if (file.startsWith('.') || file.toLowerCase().endsWith('.txt')) return;
+
             const fullPath = path.join(dir, file);
             const stat = fs.statSync(fullPath);
             if (stat && stat.isDirectory()) {
@@ -183,35 +187,57 @@ ipcMain.handle('save-config', (event, config) => {
 
 // --- SAVE SYNC & WATCHER ---
 let saveWatcher = null;
-let debounceTimer = null;
+const uploadDebounceMap = new Map();
 
-ipcMain.handle('start-save-watcher', (event, saveDir) => {
+ipcMain.handle('start-save-watcher', async (event, saveDir) => {
+    // Check if already watching this directory to avoid redundant restarts
+    if (saveWatcher && saveWatcher.getWatched()[saveDir]) {
+        console.log('[Watcher] Already watching:', saveDir);
+        return true;
+    }
+
     if (saveWatcher) {
-        saveWatcher.close();
+        await saveWatcher.close();
         saveWatcher = null;
     }
     if (!fs.existsSync(saveDir)) return false;
 
-    console.log('[Watcher] Starting on:', saveDir);
+    console.log('[Watcher] Starting (Chokidar) on:', saveDir);
     try {
-        saveWatcher = fs.watch(saveDir, { recursive: true }, (eventType, filename) => {
-            if (!filename) return;
-            // Ignore temporary files or dotfiles
-            if (filename.startsWith('.') || filename.endsWith('.tmp')) return;
-
-            if (debounceTimer) clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                console.log('[Watcher] Change detected:', filename);
-                const fullPath = path.join(saveDir, filename);
-                if (fs.existsSync(fullPath)) {
-                    // Send to renderer to decide if it should upload
-                    event.sender.send('save-change', { 
-                        relPath: filename.replace(/\\/g, '/'), 
-                        fullPath 
-                    });
-                }
-            }, 2000); // 2 sec debounce
+        const { watch } = await import('chokidar');
+        saveWatcher = watch(saveDir, {
+            ignored: /(^|[\/\\])\../, // ignore dotfiles
+            persistent: true,
+            ignoreInitial: true,
+            awaitWriteFinish: {
+                stabilityThreshold: 2000,
+                pollInterval: 100
+            }
         });
+
+        saveWatcher.on('all', (eventName, filePath) => {
+            // Only care about adds and changes to files
+            if (eventName !== 'add' && eventName !== 'change') return;
+            if (fs.statSync(filePath).isDirectory()) return;
+            
+            // Debounce uploads per file to handle rapid successive writes
+            if (uploadDebounceMap.has(filePath)) {
+                clearTimeout(uploadDebounceMap.get(filePath));
+            }
+
+            const timer = setTimeout(() => {
+                console.log(`[Watcher] ${eventName} (debounced): ${filePath}`);
+                const rel = path.relative(saveDir, filePath).replace(/\\/g, '/');
+                event.sender.send('save-change', { 
+                    relPath: rel, 
+                    fullPath: filePath 
+                });
+                uploadDebounceMap.delete(filePath);
+            }, 1000);
+
+            uploadDebounceMap.set(filePath, timer);
+        });
+
         return true;
     } catch (e) {
         console.error('[Watcher] Failed:', e);
@@ -219,16 +245,20 @@ ipcMain.handle('start-save-watcher', (event, saveDir) => {
     }
 });
 
-ipcMain.handle('stop-save-watcher', () => {
+ipcMain.handle('stop-save-watcher', async () => {
     if (saveWatcher) {
-        saveWatcher.close();
+        await saveWatcher.close();
         saveWatcher = null;
     }
     return true;
 });
 
 ipcMain.handle('upload-save', async (event, { filePath, relPath, sessionToken }) => {
-    if (!fs.existsSync(filePath)) return false;
+    if (!fs.existsSync(filePath)) return { success: false, error: 'File not found' };
+
+    try {
+        if (fs.statSync(filePath).isDirectory()) return { success: false, error: 'Skipped directory' };
+    } catch (e) { return { success: false, error: 'File access failed' }; }
     
     // Check config for server URL
     const configPath = path.join(app.getPath('userData'), 'config.json');
@@ -238,25 +268,6 @@ ipcMain.handle('upload-save', async (event, { filePath, relPath, sessionToken })
         if (conf.serverUrl) serverUrl = conf.serverUrl;
     }
 
-    try {
-        const form = new (require('form-data'))(); // Might need to check if form-data is available or use pure boundary constr
-        // Since we can't guarantee 'form-data' npm package is installed in this env, 
-        // we'll try a different approach or assume axios can handle stream with proper headers if we import 'form-data' or similar.
-        // But 'axios' usually needs 'form-data' package for multipart in Node.
-        // Let's check package.json
-        
-        // Fallback: Using basic fs read and axios
-        const FormData = require('form-data'); // This will fail if not installed.
-        // We will assume it's installed or handle it.
-        // If not, we might need to manually construct body. 
-        // For this environment, let's look at package.json.
-        
-    } catch (e) {}
-
-    // Safe implementation using axios + form-data (assuming standard electron deps or manual construction)
-    // Actually, Electron's net module or fetch API (Node 18+) is better. 
-    // But let's stick to axios if available (it was required at top).
-    
     try {
         const FormData = require('form-data'); 
         const form = new FormData();
@@ -269,10 +280,10 @@ ipcMain.handle('upload-save', async (event, { filePath, relPath, sessionToken })
                 'X-Session-Token': sessionToken
             }
         });
-        return res.status === 200;
+        return { success: res.status === 200 };
     } catch (e) {
         console.error('[Upload] Failed:', e.message);
-        return false;
+        return { success: false, error: e.message };
     }
 });
 
