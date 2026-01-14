@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RomStore Library</title>
+    <style>
+        :root {
+            --bg-color: #121212; --card-bg: #1e1e1e; --text-color: #e0e0e0; --accent: #ff9800;
+            --btn-bg: #ff9800; --btn-text: #121212; --success: #4caf50; --error: #f44336;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 0; }
+        header { background-color: #1e1e1e; padding: 20px 40px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); position: sticky; top: 0; z-index: 100; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+        h1 { margin: 0; color: var(--accent); letter-spacing: 2px; }
+        .tabs { display: flex; gap: 20px; }
+        .tabs button { background: none; border: none; color: #9e9e9e; font-size: 1.1em; font-weight: bold; cursor: pointer; padding: 5px 10px; border-bottom: 3px solid transparent; transition: all 0.2s; }
+        .tabs button:hover { color: #fff; }
+        .tabs button.active { color: #fff; border-bottom-color: var(--accent); }
+        .controls { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); width: 100%; flex-wrap: wrap; gap: 10px; }
+        .filter-group { display: flex; gap: 10px; align-items: center; overflow-x: auto; max-width: 60%; padding-bottom: 5px; }
+        .filter-chip { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #9e9e9e; font-size: 0.85em; cursor: pointer; padding: 4px 12px; border-radius: 15px; white-space: nowrap; transition: all 0.2s; user-select: none; }
+        .filter-chip.active { background: var(--accent); color: var(--btn-text); border-color: var(--accent); font-weight: bold; }
+        .view-options { display: flex; gap: 15px; align-items: center; }
+        select, .toggle-btn, #search-filter { background: #333; color: #fff; border: 1px solid #444; padding: 5px 10px; border-radius: 3px; font-size: 0.9em; cursor: pointer; }
+        .content-area { padding: 40px; }
+        .section-header { color: #fff; font-size: 1.5em; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 20px; margin-top: 30px; text-transform: capitalize; }
+        .library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 30px; }
+        .game-card { background-color: transparent; display: flex; flex-direction: column; cursor: pointer; position: relative; transition: transform 0.2s; }
+        .game-card:hover { transform: scale(1.03); }
+        .art-wrapper { position: relative; width: 100%; padding-top: 140%; background-color: #333; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .game-art { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        .icon-placeholder { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 60px; background: #333; }
+        .card-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(30, 30, 30, 0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; box-sizing: border-box; }
+        .game-card.active .card-overlay { opacity: 1; pointer-events: auto; }
+        .overlay-system { font-size: 0.8em; color: var(--accent); text-transform: uppercase; font-weight: bold; margin-bottom: 5px; }
+        .overlay-meta { font-size: 0.85em; color: #9e9e9e; margin-top: 4px; }
+        .action-btn-small { background-color: var(--btn-bg); color: var(--btn-text); padding: 8px 16px; font-weight: bold; border-radius: 2px; border: none; cursor: pointer; font-size: 0.9em; margin-top: 10px; }
+        .game-title-below { margin-top: 10px; font-weight: bold; font-size: 0.95em; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; }
+        .edit-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #fff; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center; }
+        .modal { display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); align-items: center; justify-content: center; }
+        .modal-content { background-color: #1e1e1e; padding: 20px; border-radius: 5px; width: 500px; max-width: 90%; box-shadow: 0 4px 10px rgba(0,0,0,0.5); color: #e0e0e0; position: relative; max-height: 90vh; overflow-y: auto; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 5px; font-size: 0.9em; }
+        .input-group input, .input-group select { width: 100%; padding: 8px; background: #333; border: 1px solid #444; color: #fff; border-radius: 3px; box-sizing: border-box; }
+        .action-btn { background-color: var(--accent); color: var(--btn-text); border: none; padding: 8px 16px; cursor: pointer; border-radius: 3px; font-weight: bold; }
+        .toast { background-color: #333; color: #fff; padding: 12px 20px; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border-left: 5px solid var(--accent); min-width: 250px; animation: slideIn 0.3s ease-out; display: flex; align-items: center; justify-content: space-between; position: fixed; bottom: 20px; right: 20px; z-index: 300; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+<header>
+    <div class="header-top">
+        <h1>ROMSTORE</h1>
+        <div style="display:flex; gap: 15px; align-items: center;">
+            <button id="logout-btn" class="action-btn" style="background:transparent; border: 1px solid #f44336; color: #f44336;">Logout</button>
+            <button id="open-settings-btn" class="action-btn" style="background:transparent; border: 1px solid #444; color: #9e9e9e;">⚙ Settings</button>
+            <nav class="tabs">
+                <button id="tab-games" class="active">Games</button>
+                <button id="tab-installed">Installed</button>
+                <button id="tab-saves">Saves</button>
+                <button id="tab-bios">Bios</button>
+            </nav>
+        </div>
+        <div style="color: #9e9e9e; font-size: 0.9em;" id="lib-mode">Library Mode: Native</div>
+    </div>
+    <div class="controls">
+        <div class="filter-group" id="filter-container"></div>
+        <div class="view-options">
+            <input type="text" id="search-filter" placeholder="Search files...">
+            <label style="font-size: 0.85em; display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="selected-only-filter"> Show Selected
+            </label>
+            <select id="sort-select"><option value="name_asc">Name (A-Z)</option><option value="name_desc">Name (Z-A)</option><option value="date_new">Date Added (Newest)</option><option value="date_old">Date Added (Oldest)</option></select>
+            <button id="group-toggle" class="toggle-btn">Group by Console</button>
+        </div>
+    </div>
+</header>
+<div id="main-content" class="content-area"></div>
+<div id="auth-modal" class="modal" style="display:none; backdrop-filter: blur(15px);">
+    <div class="modal-content" style="width: 350px;">
+        <div class="modal-header"><span>Login</span></div>
+        <p id="auth-desc" style="font-size: 0.9em; color: #9e9e9e; margin-bottom: 20px;">Please login to access your library.</p>
+        <div class="input-group" id="auth-url-group" style="display:none;"><label>Server URL</label><input type="text" id="auth-server-url" placeholder="http://192.168.1.100:1567"></div>
+        <div class="input-group"><label>Username</label><input type="text" id="auth-username" placeholder="Username"></div>
+        <div class="input-group"><label>Password</label><input type="password" id="auth-password" placeholder="Password"></div>
+        <button id="handle-auth-btn" class="action-btn" style="width:100%">Login</button>
+    </div>
+</div>
+<div id="settings-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header"><span>Settings</span><span class="close-btn" id="close-settings-btn">&times;</span></div>
+        <div id="client-settings-area" style="display:none; border-top: 2px solid var(--accent); padding-top: 20px; margin-bottom: 25px;">
+            <p style="font-size:1.1em; color:var(--accent); font-weight:bold; margin-bottom:10px;">Desktop Client Settings</p>
+            <div class="input-group"><label>Server URL</label><input type="text" id="client-server-url"></div>
+            <div class="input-group"><label>Local Emulation Directory</label>
+                <div style="display:flex; gap:10px;"><input type="text" id="client-local-dir" readonly style="flex:1;"><button id="select-local-dir-btn" class="action-btn">Browse</button></div>
+            </div>
+        </div>
+        <button class="action-btn" id="auto-scan-btn" style="width:100%">✨ Auto Scan Missing Metadata</button>
+    </div>
+</div>
+<div id="toast-container"></div>
+<script>
+(function() {
+    const isElectron = !!(window.electronAPI);
+    let serverUrl = '', localDir = '', sessionToken = localStorage.getItem('romstore_token') || '';
+    let currentTab = 'games', rawData = [], activeFilters = new Set(), selectedPaths = new Set(), installedLocalPaths = new Set(), isGrouped = false, isSetupMode = false;
+
+    function getApiUrl(endpoint) {
+        if (!isElectron) return endpoint;
+        let base = serverUrl || '';
+        if (base && !base.startsWith('http')) base = 'http://' + base;
+        return base + endpoint;
+    }
+    function getFetchOptions(method, body) {
+        const options = { method: method || 'GET', headers: {}, credentials: 'include' };
+        if (sessionToken) options.headers['X-Session-Token'] = sessionToken;
+        if (body) { options.headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(body); }
+        return options;
+    }
+    function showToast(message, type) {
+        console.log('[Toast]', message);
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = 'toast ' + (type || 'info');
+        toast.innerText = message;
+        container.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+    }
+    async function scanLocalFiles() {
+        if (isElectron && localDir) {
+            console.log('[Local] Scanning:', localDir);
+            const files = await window.electronAPI.scanLocalEmulation(localDir);
+            installedLocalPaths = new Set(files);
+            console.log('[Local] Found:', installedLocalPaths.size);
+        }
+    }
+    async function checkAuth() {
+        console.log('[Auth] Checking status...');
+        if (isElectron) {
+            document.getElementById('auth-url-group').style.display = 'block';
+            document.getElementById('auth-server-url').value = serverUrl;
+        }
+        if (isElectron && !serverUrl) { document.getElementById('auth-modal').style.display = 'flex'; return; }
+        try {
+            const res = await fetch(getApiUrl('/api/auth/status'), getFetchOptions());
+            const data = await res.json();
+            if (data.needsSetup || !data.authenticated) {
+                isSetupMode = !!data.needsSetup;
+                document.getElementById('auth-title').innerText = isSetupMode ? 'Initial Setup' : 'Login';
+                document.getElementById('auth-modal').style.display = 'flex';
+            } else {
+                document.getElementById('auth-modal').style.display = 'none';
+                loadUIState(); await scanLocalFiles(); loadLibrary();
+            }
+        } catch (e) { console.error('[Auth] Status check failed', e); document.getElementById('auth-modal').style.display = 'flex'; }
+    }
+    async function handleAuth() {
+        console.log('[Auth] Attempting login...');
+        if (isElectron) {
+            let inputUrl = document.getElementById('auth-server-url').value.trim();
+            if (inputUrl) {
+                if (!inputUrl.startsWith('http')) inputUrl = 'http://' + inputUrl;
+                serverUrl = inputUrl;
+                await window.electronAPI.saveConfig({ serverUrl, localDir });
+            }
+        }
+        const username = document.getElementById('auth-username').value, password = document.getElementById('auth-password').value;
+        if (!username || !password) return showToast('Fields required', 'error');
+        try {
+            const res = await fetch(getApiUrl(isSetupMode ? '/api/auth/setup' : '/api/auth/login'), getFetchOptions('POST', { username, password }));
+            if (res.ok) {
+                const data = await res.json();
+                if (data.token) { sessionToken = data.token; localStorage.setItem('romstore_token', sessionToken); }
+                showToast('Success!', 'success');
+                document.getElementById('auth-modal').style.display = 'none';
+                loadUIState(); await scanLocalFiles(); loadLibrary();
+            } else showToast('Auth failed', 'error');
+        } catch (e) { console.error('[Auth] Error:', e); showToast('Server error', 'error'); }
+    }
+    function saveUIState() { localStorage.setItem('romstore_ui_state', JSON.stringify({ currentTab, activeFilters: Array.from(activeFilters), isGrouped, sortMode: document.getElementById('sort-select').value, searchVal: document.getElementById('search-filter').value })); }
+    function loadUIState() {
+        const saved = localStorage.getItem('romstore_ui_state');
+        if (!saved) return;
+        try {
+            const state = JSON.parse(saved);
+            currentTab = state.currentTab || 'games'; activeFilters = new Set(state.activeFilters || []); isGrouped = !!state.isGrouped;
+            document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+            const tb = document.getElementById('tab-' + currentTab); if (tb) tb.classList.add('active');
+            document.getElementById('sort-select').value = state.sortMode || 'name_asc';
+            document.getElementById('search-filter').value = state.searchVal || '';
+            document.getElementById('group-toggle').classList.toggle('active', isGrouped);
+        } catch (e) {}
+    }
+    async function loadLibrary() {
+        console.log('[Library] Loading', currentTab);
+        const content = document.getElementById('main-content'); content.innerHTML = 'Scanning...';
+        try {
+            let data;
+            if (currentTab === 'installed') {
+                const res = await fetch(getApiUrl('/api/sync/manifest'), getFetchOptions());
+                if (!res.ok) throw new Error('Manifest failed');
+                const manifest = await res.json();
+                data = [
+                    ...manifest.games.map(g => ({...g, _type: 'roms'})),
+                    ...manifest.saves.map(s => ({...s, _type: 'saves'})),
+                    ...manifest.bios.map(b => ({...b, _type: 'bios'}))
+                ].filter(item => installedLocalPaths.has(item._type + '/' + item.relPath));
+            } else {
+                const res = await fetch(getApiUrl('/api/' + currentTab), getFetchOptions());
+                if (res.status === 401) return checkAuth();
+                data = await res.json();
+            }
+            rawData = data.map(item => { if (!item.system) item.system = item.relPath.split('/')[0] || 'Unknown'; return item; });
+            renderFilters(); await renderContent();
+        } catch (err) { console.error('[Library] Load failed', err); content.innerHTML = '<div style="color:red">Error: ' + err.message + '</div>'; }
+    }
+    async function getAuthImg(path) {
+        try {
+            const res = await fetch(getApiUrl('/api/artwork?path=' + encodeURIComponent(path)), getFetchOptions());
+            if (!res.ok) return null;
+            return URL.createObjectURL(await res.blob());
+        } catch (e) { return null; }
+    }
+    async function createCard(item) {
+        const card = document.createElement('div');
+        const typePrefix = currentTab === 'installed' ? (item._type + '/') : (currentTab === 'games' ? 'roms/' : currentTab + '/');
+        const isLocal = installedLocalPaths.has(typePrefix + item.relPath);
+        card.className = 'game-card ' + (selectedPaths.has(item.relPath) ? 'selected' : '');
+        let imgUrl = null; if (item.artworkPath) imgUrl = await getAuthImg(item.artworkPath);
+        const title = (currentTab === 'saves' && item.gameTitle) ? item.gameTitle : item.name;
+        card.innerHTML = `
+            <input type="checkbox" class="select-checkbox" ${selectedPaths.has(item.relPath) ? 'checked' : ''} style="position:absolute; top:8px; left:8px; z-index:10;">
+            <div class="art-wrapper">
+                ${imgUrl ? `<img src="${imgUrl}" class="game-art">` : `<div class="icon-placeholder">${currentTab === 'saves' ? '💾' : '💿'}</div>`}
+                <div class="card-overlay">
+                    <div class="overlay-info"><div class="overlay-system">${item.system}</div><div class="overlay-meta">Size: ${item.size}</div></div>
+                    ${isLocal ? '<span style="color:var(--success); font-weight:bold; margin-bottom:5px;">✓ Installed</span>' : ''}
+                    <button class="action-btn-small dl-btn">${isLocal ? 'Re-download' : 'Download'}</button>
+                </div>
+            </div>
+            <div class="game-title-below">${title}</div>`;
+        card.onclick = e => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') card.classList.toggle('active'); };
+        card.querySelector('.select-checkbox').onchange = e => { if (e.target.checked) selectedPaths.add(item.relPath); else selectedPaths.delete(item.relPath); };
+        card.querySelector('.dl-btn').onclick = e => { e.stopPropagation(); startDownload(item); };
+        return card;
+    }
+    async function startDownload(item) {
+        const type = currentTab === 'installed' ? item._type : (currentTab === 'games' ? 'roms' : currentTab);
+        const dest = localDir ? `${localDir}/${type}/${item.relPath}`.replace(/\\/g, '/') : null;
+        if (isElectron && !dest) return showToast('Set local directory in Settings', 'error');
+        showToast('Downloading...', 'info');
+        try {
+            const url = getApiUrl(`/api/download?type=${currentTab === 'games' ? 'roms' : currentTab}&path=${encodeURIComponent(item.relPath)}`);
+            if (isElectron) {
+                await window.electronAPI.downloadFile(url, dest, sessionToken);
+                showToast('Done!', 'success'); await scanLocalFiles(); await renderContent();
+            } else { window.open(url, '_blank'); }
+        } catch (e) { showToast('Download failed', 'error'); }
+    }
+    function renderFilters() {
+        const c = document.getElementById('filter-container'); if (!c) return; c.innerHTML = '';
+        const sys = Array.from(new Set(rawData.map(i => i.system))).sort();
+        const chip = (txt, active, onClick) => { const d = document.createElement('div'); d.className = 'filter-chip ' + (active ? 'active' : ''); d.innerText = txt; d.onclick = onClick; c.appendChild(d); };
+        chip('All Systems', activeFilters.size === 0, () => { activeFilters.clear(); renderFilters(); renderContent(); });
+        sys.forEach(s => chip(s, activeFilters.has(s), () => { if (activeFilters.has(s)) activeFilters.delete(s); else activeFilters.add(s); renderFilters(); renderContent(); }));
+    }
+    async function renderContent() {
+        const c = document.getElementById('main-content'); c.innerHTML = '';
+        let filtered = rawData;
+        if (activeFilters.size > 0) filtered = rawData.filter(i => activeFilters.has(i.system));
+        const search = document.getElementById('search-filter').value.toLowerCase();
+        if (search) filtered = filtered.filter(i => (i.gameTitle || i.name).toLowerCase().includes(search));
+        if (document.getElementById('selected-only-filter').checked) filtered = filtered.filter(i => selectedPaths.has(i.relPath));
+        if (filtered.length === 0) { c.innerHTML = '<div style="text-align:center; padding:20px;">No items found</div>'; return; }
+        const grid = document.createElement('div'); grid.className = 'library-grid';
+        const cards = await Promise.all(filtered.map(createCard));
+        cards.forEach(card => grid.appendChild(card)); c.appendChild(grid);
+    }
+    function changeTab(t) { currentTab = t; document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.id === 'tab-'+t)); activeFilters.clear(); selectedPaths.clear(); document.getElementById('selected-only-filter').checked = false; document.getElementById('search-filter').value = ''; saveUIState(); loadLibrary(); }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        document.getElementById('logout-btn').onclick = () => { localStorage.removeItem('romstore_token'); sessionToken = ''; location.reload(); };
+        document.getElementById('handle-auth-btn').onclick = handleAuth;
+        document.getElementById('open-settings-btn').onclick = () => { document.getElementById('settings-modal').style.display = 'flex'; };
+        document.getElementById('close-settings-btn').onclick = () => { document.getElementById('settings-modal').style.display = 'none'; };
+        document.getElementById('tab-games').onclick = () => { changeTab('games'); };
+        document.getElementById('tab-installed').onclick = () => { changeTab('installed'); };
+        document.getElementById('tab-saves').onclick = () => { changeTab('saves'); };
+        document.getElementById('tab-bios').onclick = () => { changeTab('bios'); };
+        document.getElementById('search-filter').oninput = () => { saveUIState(); renderContent(); };
+        document.getElementById('sort-select').onchange = () => { saveUIState(); renderContent(); };
+        document.getElementById('selected-only-filter').onchange = () => { saveUIState(); renderContent(); };
+        document.getElementById('group-toggle').onclick = function() { isGrouped = !isGrouped; this.classList.toggle('active', isGrouped); saveUIState(); renderContent(); };
+        if (isElectron) {
+            document.getElementById('client-settings-area').style.display = 'block';
+            document.getElementById('select-local-dir-btn').onclick = async () => {
+                const p = await window.electronAPI.selectDir(); 
+                if (p) { localDir = p; document.getElementById('client-local-dir').value = p; await window.electronAPI.saveConfig({ serverUrl, localDir }); await scanLocalFiles(); renderContent(); }
+            };
+            const cfg = await window.electronAPI.getConfig(); serverUrl = cfg.serverUrl || ''; localDir = cfg.localDir || ''; document.getElementById('client-local-dir').value = localDir;
+        }
+        checkAuth();
+    });
+})();
+</script>
+</body>
+</html>

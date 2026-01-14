@@ -4,385 +4,385 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RomStore Library</title>
-    <style>
-        :root {
-            --bg-color: #171a21;
-            --card-bg: #1b2838;
-            --text-color: #c7d5e0;
-            --accent: #66c0f4;
-            --btn-bg: #66c0f4;
-            --btn-text: #171a21;
-            --success: #5c7e10;
-            --error: #c23c2a;
-        }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 0;
-        }
-        header {
-            background-color: #1b2838;
-            padding: 20px 40px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        .header-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-        }
-        h1 { margin: 0; color: var(--accent); letter-spacing: 2px; }
-        
-        .tabs {
-            display: flex;
-            gap: 20px;
-        }
-        .tabs button {
-            background: none;
-            border: none;
-            color: #8b9bb4;
-            font-size: 1.1em;
-            font-weight: bold;
-            cursor: pointer;
-            padding: 5px 10px;
-            border-bottom: 3px solid transparent;
-            transition: all 0.2s;
-        }
-        .tabs button:hover { color: #fff; }
-        .tabs button.active {
-            color: #fff;
-            border-bottom-color: var(--accent);
-        }
-
-        /* Controls Bar */
-        .controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-top: 10px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            width: 100%;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-        .filter-group {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            overflow-x: auto;
-            max-width: 60%;
-            padding-bottom: 5px;
-        }
-        .filter-group::-webkit-scrollbar { height: 4px; }
-        .filter-group::-webkit-scrollbar-thumb { background: #3d5a73; border-radius: 2px; }
-
-        .filter-chip {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            color: #8b9bb4;
-            font-size: 0.85em;
-            cursor: pointer;
-            padding: 4px 12px;
-            border-radius: 15px;
-            white-space: nowrap;
-            transition: all 0.2s;
-            user-select: none;
-        }
-        .filter-chip:hover { background: rgba(255,255,255,0.1); color: #fff; }
-        .filter-chip.active {
-            background: var(--accent);
-            color: var(--btn-text);
-            border-color: var(--accent);
-            font-weight: bold;
-        }
-
-        .view-options {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-        select, .toggle-btn {
-            background: #2a475e;
-            color: #fff;
-            border: 1px solid #3d5a73;
-            padding: 5px 10px;
-            border-radius: 3px;
-            font-size: 0.9em;
-            cursor: pointer;
-        }
-        .toggle-btn.active {
-            background: var(--accent);
-            color: var(--btn-text);
-        }
-
-        /* Content Area */
-        .content-area { padding: 40px; }
-        .section-header {
-            color: #fff;
-            font-size: 1.5em;
-            border-bottom: 1px solid #3d5a73;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            margin-top: 30px;
-            text-transform: capitalize;
-        }
-        .section-header:first-child { margin-top: 0; }
-
-        .library-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 30px;
-        }
-        
-        /* Game Card Design */
-        .game-card {
-            background-color: transparent;
-            display: flex;
-            flex-direction: column;
-            cursor: pointer;
-            position: relative;
-            transition: transform 0.2s;
-        }
-        .game-card:hover { transform: scale(1.03); }
-
-        .art-wrapper {
-            position: relative;
-            width: 100%;
-            padding-top: 140%; 
-            background-color: #2a475e;
-            border-radius: 4px;
-            overflow: hidden;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-        }
-
-        .game-art {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-        }
-
-        .icon-placeholder {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 60px;
-            background: #2a475e;
-        }
-
-        .card-overlay {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(27, 40, 56, 0.9);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-            text-align: center;
-            opacity: 0;
-            transition: opacity 0.2s ease;
-            pointer-events: none; 
-            box-sizing: border-box;
-        }
-
-        .game-card.active .card-overlay {
-            opacity: 1;
-            pointer-events: auto; 
-        }
-
-        .overlay-info {
-            margin-bottom: 20px;
-        }
-        .overlay-system {
-            font-size: 0.8em;
-            color: var(--accent);
-            text-transform: uppercase;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .overlay-meta {
-            font-size: 0.85em;
-            color: #8b9bb4;
-            margin-top: 4px;
-        }
-
-        .download-btn {
-            background-color: var(--btn-bg);
-            color: var(--btn-text);
-            text-decoration: none;
-            padding: 10px 20px;
-            font-weight: bold;
-            border-radius: 2px;
-            transition: background 0.2s;
-            display: inline-block;
-        }
-        .download-btn:hover { background-color: #92d4ff; }
-
-        .game-title-below {
-            margin-top: 10px;
-            font-weight: bold;
-            font-size: 0.95em;
-            color: #fff;
-            text-align: center;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            padding: 0 5px;
-        }
-
-        .edit-btn {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: rgba(0,0,0,0.6);
-            color: #fff;
-            border: none;
-            border-radius: 50%;
-            width: 28px;
-            height: 28px;
-            cursor: pointer;
-            z-index: 10;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.2s;
-        }
-        .edit-btn:hover { background: var(--accent); color: #000; }
-
-        /* Modals */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 200;
-            left: 0; top: 0;
-            width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.7);
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-content {
-            background-color: #1b2838;
-            padding: 20px;
-            border-radius: 5px;
-            width: 500px;
-            max-width: 90%;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            color: #c7d5e0;
-            position: relative;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        .modal-header { font-size: 1.2em; margin-bottom: 15px; color: var(--accent); display:flex; justify-content:space-between; }
-        .close-btn { cursor: pointer; font-size: 1.5em; line-height: 20px; }
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; margin-bottom: 5px; font-size: 0.9em; }
-        .input-group input, .input-group select { 
-            width: 100%; padding: 8px; 
-            background: #2a475e; border: 1px solid #3d5a73; 
-            color: #fff; border-radius: 3px;
-            box-sizing: border-box;
-        }
-        .action-btn {
-            background-color: var(--accent);
-            color: var(--btn-text);
-            border: none;
-            padding: 8px 16px;
-            cursor: pointer;
-            border-radius: 3px;
-            font-weight: bold;
-        }
-        .action-btn:disabled { background-color: #3d5a73; color: #8b9bb4; cursor: not-allowed; }
-        .results-list {
-            max-height: 300px;
-            overflow-y: auto;
-            margin-top: 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .result-item {
-            display: flex; background: #2a475e;
-            padding: 10px; gap: 10px;
-            cursor: pointer; transition: background 0.2s;
-        }
-        .result-item:hover { background: #31526b; }
-        .result-img { width: 50px; height: 70px; object-fit: cover; background: #000; }
-        .result-info { display: flex; flex-direction: column; justify-content: center; }
-        .result-title { font-weight: bold; color: #fff; }
-        .result-year { font-size: 0.8em; color: #8b9bb4; }
-
-        /* Notifications */
-        #toast-container {
-            position: fixed;
-            bottom: 20px; right: 20px;
-            z-index: 300;
-            display: flex; flex-direction: column; gap: 10px;
-        }
-        .toast {
-            background-color: #2a475e;
-            color: #fff;
-            padding: 12px 20px;
-            border-radius: 4px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-            border-left: 5px solid var(--accent);
-            min-width: 250px;
-            animation: slideIn 0.3s ease-out;
-            display: flex; align-items: center; justify-content: space-between;
-        }
-        .toast.success { border-left-color: var(--success); }
-        .toast.error { border-left-color: var(--error); }
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        /* Upload Progress Area */
-        #upload-progress-area {
-            margin-top: 15px;
-            padding: 15px;
-            background: rgba(0,0,0,0.2);
-            border-radius: 4px;
-            border: 1px solid #3d5a73;
-        }
-        .progress-label {
-            font-size: 0.8em;
-            color: #8b9bb4;
-            margin-bottom: 5px;
-            display: flex;
-            justify-content: space-between;
-        }
-        .progress-bar-bg {
-            width: 100%; height: 8px;
-            background: #2a475e; border-radius: 4px;
-            overflow: hidden; margin-bottom: 15px;
-        }
-        .progress-bar-fill {
-            width: 0%; height: 100%;
-            background: var(--accent);
-            transition: width 0.1s linear;
-        }
-        #current-file-name {
-            font-size: 0.85em;
-            color: #fff;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            margin-bottom: 10px;
-        }
-    </style>
+        <style>
+            :root {
+                --bg-color: #121212;
+                --card-bg: #1e1e1e;
+                --text-color: #e0e0e0;
+                --accent: #ff9800;
+                --btn-bg: #ff9800;
+                --btn-text: #121212;
+                --success: #4caf50;
+                --error: #f44336;
+            }
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background-color: var(--bg-color);
+                color: var(--text-color);
+                margin: 0;
+                padding: 0;
+            }
+            header {
+                background-color: #1e1e1e;
+                padding: 20px 40px;
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+                position: sticky;
+                top: 0;
+                z-index: 100;
+            }
+            .header-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                width: 100%;
+            }
+            h1 { margin: 0; color: var(--accent); letter-spacing: 2px; }
+            
+            .tabs {
+                display: flex;
+                gap: 20px;
+            }
+            .tabs button {
+                background: none;
+                border: none;
+                color: #9e9e9e;
+                font-size: 1.1em;
+                font-weight: bold;
+                cursor: pointer;
+                padding: 5px 10px;
+                border-bottom: 3px solid transparent;
+                transition: all 0.2s;
+            }
+            .tabs button:hover { color: #fff; }
+            .tabs button.active {
+                color: #fff;
+                border-bottom-color: var(--accent);
+            }
+    
+            /* Controls Bar */
+            .controls {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding-top: 10px;
+                border-top: 1px solid rgba(255,255,255,0.1);
+                width: 100%;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            .filter-group {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                overflow-x: auto;
+                max-width: 60%;
+                padding-bottom: 5px;
+            }
+            .filter-group::-webkit-scrollbar { height: 4px; }
+            .filter-group::-webkit-scrollbar-thumb { background: #424242; border-radius: 2px; }
+    
+            .filter-chip {
+                background: rgba(255,255,255,0.05);
+                border: 1px solid rgba(255,255,255,0.1);
+                color: #9e9e9e;
+                font-size: 0.85em;
+                cursor: pointer;
+                padding: 4px 12px;
+                border-radius: 15px;
+                white-space: nowrap;
+                transition: all 0.2s;
+                user-select: none;
+            }
+            .filter-chip:hover { background: rgba(255,255,255,0.1); color: #fff; }
+            .filter-chip.active {
+                background: var(--accent);
+                color: var(--btn-text);
+                border-color: var(--accent);
+                font-weight: bold;
+            }
+    
+            .view-options {
+                display: flex;
+                gap: 15px;
+                align-items: center;
+            }
+            select, .toggle-btn {
+                background: #333;
+                color: #fff;
+                border: 1px solid #444;
+                padding: 5px 10px;
+                border-radius: 3px;
+                font-size: 0.9em;
+                cursor: pointer;
+            }
+            .toggle-btn.active {
+                background: var(--accent);
+                color: var(--btn-text);
+            }
+    
+            /* Content Area */
+            .content-area { padding: 40px; }
+            .section-header {
+                color: #fff;
+                font-size: 1.5em;
+                border-bottom: 1px solid #444;
+                padding-bottom: 10px;
+                margin-bottom: 20px;
+                margin-top: 30px;
+                text-transform: capitalize;
+            }
+            .section-header:first-child { margin-top: 0; }
+    
+            .library-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 30px;
+            }
+            
+            /* Game Card Design */
+            .game-card {
+                background-color: transparent;
+                display: flex;
+                flex-direction: column;
+                cursor: pointer;
+                position: relative;
+                transition: transform 0.2s;
+            }
+            .game-card:hover { transform: scale(1.03); }
+    
+            .art-wrapper {
+                position: relative;
+                width: 100%;
+                padding-top: 140%; 
+                background-color: #333;
+                border-radius: 4px;
+                overflow: hidden;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            }
+    
+            .game-art {
+                position: absolute;
+                top: 0; left: 0;
+                width: 100%; height: 100%;
+                object-fit: cover;
+            }
+    
+            .icon-placeholder {
+                position: absolute;
+                top: 0; left: 0;
+                width: 100%; height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 60px;
+                background: #333;
+            }
+    
+            .card-overlay {
+                position: absolute;
+                top: 0; left: 0;
+                width: 100%; height: 100%;
+                background: rgba(30, 30, 30, 0.9);
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                padding: 20px;
+                text-align: center;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+                pointer-events: none; 
+                box-sizing: border-box;
+            }
+    
+            .game-card.active .card-overlay {
+                opacity: 1;
+                pointer-events: auto; 
+            }
+    
+            .overlay-info {
+                margin-bottom: 20px;
+            }
+            .overlay-system {
+                font-size: 0.8em;
+                color: var(--accent);
+                text-transform: uppercase;
+                font-weight: bold;
+                margin-bottom: 5px;
+            }
+            .overlay-meta {
+                font-size: 0.85em;
+                color: #9e9e9e;
+                margin-top: 4px;
+            }
+    
+            .download-btn {
+                background-color: var(--btn-bg);
+                color: var(--btn-text);
+                text-decoration: none;
+                padding: 10px 20px;
+                font-weight: bold;
+                border-radius: 2px;
+                transition: background 0.2s;
+                display: inline-block;
+            }
+            .download-btn:hover { background-color: #ffa726; }
+    
+            .game-title-below {
+                margin-top: 10px;
+                font-weight: bold;
+                font-size: 0.95em;
+                color: #fff;
+                text-align: center;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                padding: 0 5px;
+            }
+    
+            .edit-btn {
+                position: absolute;
+                top: 8px;
+                right: 8px;
+                background: rgba(0,0,0,0.6);
+                color: #fff;
+                border: none;
+                border-radius: 50%;
+                width: 28px;
+                height: 28px;
+                cursor: pointer;
+                z-index: 10;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background 0.2s;
+            }
+            .edit-btn:hover { background: var(--accent); color: #000; }
+    
+            /* Modals */
+            .modal {
+                display: none;
+                position: fixed;
+                z-index: 200;
+                left: 0; top: 0;
+                width: 100%; height: 100%;
+                background-color: rgba(0,0,0,0.7);
+                align-items: center;
+                justify-content: center;
+            }
+            .modal-content {
+                background-color: #1e1e1e;
+                padding: 20px;
+                border-radius: 5px;
+                width: 500px;
+                max-width: 90%;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+                color: #e0e0e0;
+                position: relative;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+            .modal-header { font-size: 1.2em; margin-bottom: 15px; color: var(--accent); display:flex; justify-content:space-between; }
+            .close-btn { cursor: pointer; font-size: 1.5em; line-height: 20px; }
+            .input-group { margin-bottom: 15px; }
+            .input-group label { display: block; margin-bottom: 5px; font-size: 0.9em; }
+            .input-group input, .input-group select { 
+                width: 100%; padding: 8px; 
+                background: #333; border: 1px solid #444; 
+                color: #fff; border-radius: 3px;
+                box-sizing: border-box;
+            }
+            .action-btn {
+                background-color: var(--accent);
+                color: var(--btn-text);
+                border: none;
+                padding: 8px 16px;
+                cursor: pointer;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            .action-btn:disabled { background-color: #424242; color: #9e9e9e; cursor: not-allowed; }
+            .results-list {
+                max-height: 300px;
+                overflow-y: auto;
+                margin-top: 15px;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .result-item {
+                display: flex; background: #333;
+                padding: 10px; gap: 10px;
+                cursor: pointer; transition: background 0.2s;
+            }
+            .result-item:hover { background: #383838; }
+            .result-img { width: 50px; height: 70px; object-fit: cover; background: #000; }
+            .result-info { display: flex; flex-direction: column; justify-content: center; }
+            .result-title { font-weight: bold; color: #fff; }
+            .result-year { font-size: 0.8em; color: #9e9e9e; }
+    
+            /* Notifications */
+            #toast-container {
+                position: fixed;
+                bottom: 20px; right: 20px;
+                z-index: 300;
+                display: flex; flex-direction: column; gap: 10px;
+            }
+            .toast {
+                background-color: #333;
+                color: #fff;
+                padding: 12px 20px;
+                border-radius: 4px;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+                border-left: 5px solid var(--accent);
+                min-width: 250px;
+                animation: slideIn 0.3s ease-out;
+                display: flex; align-items: center; justify-content: space-between;
+            }
+            .toast.success { border-left-color: var(--success); }
+            .toast.error { border-left-color: var(--error); }
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+    
+            /* Upload Progress Area */
+            #upload-progress-area {
+                margin-top: 15px;
+                padding: 15px;
+                background: rgba(0,0,0,0.2);
+                border-radius: 4px;
+                border: 1px solid #444;
+            }
+            .progress-label {
+                font-size: 0.8em;
+                color: #9e9e9e;
+                margin-bottom: 5px;
+                display: flex;
+                justify-content: space-between;
+            }
+            .progress-bar-bg {
+                width: 100%; height: 8px;
+                background: #333; border-radius: 4px;
+                overflow: hidden; margin-bottom: 15px;
+            }
+            .progress-bar-fill {
+                width: 0%; height: 100%;
+                background: var(--accent);
+                transition: width 0.1s linear;
+            }
+            #current-file-name {
+                font-size: 0.85em;
+                color: #fff;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                margin-bottom: 10px;
+            }
+        </style>
 </head>
 <body>
 
@@ -390,6 +390,7 @@
     <div class="header-top">
         <h1>ROMSTORE</h1>
         <div style="display:flex; gap: 15px; align-items: center;">
+            <button onclick="logout()" class="action-btn" style="background:transparent; border: 1px solid #c23c2a; color: #c23c2a;">Logout</button>
             <button onclick="openSettings()" class="action-btn" style="background:transparent; border: 1px solid #3d5a73; color: #8b9bb4;">⚙ Settings</button>
             <nav class="tabs">
                 <button onclick="changeTab('games')" id="tab-games" class="active">Games</button>
@@ -406,6 +407,10 @@
         </div>
 
         <div class="view-options">
+            <input type="text" id="search-filter" placeholder="Search files..." oninput="applyViewSettings()" style="background:#2a475e; color:#fff; border:1px solid #3d5a73; padding:5px 10px; border-radius:3px; font-size:0.9em;">
+            <label style="font-size: 0.85em; display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="selected-only-filter" onchange="applyViewSettings()"> Show Selected
+            </label>
             <select id="sort-select" onchange="applyViewSettings()">
                 <option value="name_asc">Name (A-Z)</option>
                 <option value="name_desc">Name (Z-A)</option>
@@ -419,6 +424,26 @@
 
 <div id="main-content" class="content-area">
     <div style="text-align:center;">Scanning...</div>
+</div>
+
+<!-- Auth Modal -->
+<div id="auth-modal" class="modal" style="display:flex; backdrop-filter: blur(10px);">
+    <div class="modal-content" style="width: 350px;">
+        <div class="modal-header">
+            <span id="auth-title">Login</span>
+        </div>
+        <p id="auth-desc" style="font-size: 0.9em; color: #8b9bb4; margin-bottom: 20px;">Please login to access your library.</p>
+        
+        <div class="input-group">
+            <label>Username</label>
+            <input type="text" id="auth-username" placeholder="Username">
+        </div>
+        <div class="input-group">
+            <label>Password</label>
+            <input type="password" id="auth-password" placeholder="Password">
+        </div>
+        <button onclick="handleAuth()" id="auth-btn" class="action-btn" style="width:100%">Login</button>
+    </div>
 </div>
 
 <!-- Settings Modal -->
@@ -510,10 +535,41 @@
 <div id="toast-container"></div>
 
 <script>
+    // State Persistence
+    function saveUIState() {
+        const state = {
+            currentTab,
+            activeFilters: Array.from(activeFilters),
+            isGrouped,
+            sortMode: document.getElementById('sort-select').value,
+            searchVal: document.getElementById('search-filter').value
+        };
+        localStorage.setItem('romstore_ui_state', JSON.stringify(state));
+    }
+
+    function loadUIState() {
+        const saved = localStorage.getItem('romstore_ui_state');
+        if (!saved) return;
+        try {
+            const state = JSON.parse(saved);
+            currentTab = state.currentTab || 'games';
+            activeFilters = new Set(state.activeFilters || []);
+            isGrouped = !!state.isGrouped;
+            
+            // Apply to DOM
+            document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+            document.getElementById(`tab-${currentTab}`).classList.add('active');
+            document.getElementById('sort-select').value = state.sortMode || 'name_asc';
+            document.getElementById('search-filter').value = state.searchVal || '';
+            document.getElementById('group-toggle').classList.toggle('active', isGrouped);
+        } catch (e) { console.error("Failed to load state", e); }
+    }
+
     // State
     let currentTab = 'games';
     let rawData = [];
     let activeFilters = new Set(); 
+    let selectedPaths = new Set();
     let isGrouped = false;
     let editingGamePath = null;
     
@@ -524,10 +580,74 @@
 
     // Upload State
     let selectedFiles = [];
+    let isSetupMode = false;
 
     document.addEventListener('DOMContentLoaded', () => {
-        loadLibrary();
+        checkAuth();
     });
+
+    async function checkAuth() {
+        try {
+            const res = await fetch('/api/auth/status');
+            const data = await res.json();
+            
+            if (data.needsSetup) {
+                isSetupMode = true;
+                document.getElementById('auth-title').innerText = 'Initial Setup';
+                document.getElementById('auth-desc').innerText = 'Create your administrator account.';
+                document.getElementById('auth-btn').innerText = 'Create Account';
+                document.getElementById('auth-modal').style.display = 'flex';
+            } else if (!data.authenticated) {
+                isSetupMode = false;
+                document.getElementById('auth-title').innerText = 'Login';
+                document.getElementById('auth-desc').innerText = 'Please login to access your library.';
+                document.getElementById('auth-btn').innerText = 'Login';
+                document.getElementById('auth-modal').style.display = 'flex';
+            } else {
+                document.getElementById('auth-modal').style.display = 'none';
+                loadUIState();
+                loadLibrary();
+            }
+        } catch (e) {
+            console.error('Auth check failed', e);
+        }
+    }
+
+    async function handleAuth() {
+        const username = document.getElementById('auth-username').value;
+        const password = document.getElementById('auth-password').value;
+        
+        if (!username || !password) return showToast('Please enter both fields', 'error');
+        
+        const endpoint = isSetupMode ? '/api/auth/setup' : '/api/auth/login';
+        
+        try {
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            
+            if (res.ok) {
+                showToast(isSetupMode ? 'Account Created!' : 'Welcome back!', 'success');
+                checkAuth();
+            } else {
+                const err = await res.json();
+                showToast(err.error || 'Authentication failed', 'error');
+            }
+        } catch (e) {
+            showToast('Server error during authentication', 'error');
+        }
+    }
+
+    async function logout() {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            location.reload();
+        } catch (e) {
+            showToast('Logout failed', 'error');
+        }
+    }
 
     // --- Notifications ---
     function showToast(message, type = 'info') {
@@ -817,18 +937,28 @@
         }
     }
 
+    function toggleFileSelection(path, isChecked) {
+        if (isChecked) selectedPaths.add(path);
+        else selectedPaths.delete(path);
+    }
+
     // --- Core Logic ---
     function changeTab(tab) {
         currentTab = tab;
         document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
         document.getElementById(`tab-${tab}`).classList.add('active');
         activeFilters.clear();
+        selectedPaths.clear();
+        document.getElementById('selected-only-filter').checked = false;
+        document.getElementById('search-filter').value = '';
+        saveUIState();
         loadLibrary(); 
     }
 
     function toggleGrouping() {
         isGrouped = !isGrouped;
         document.getElementById('group-toggle').classList.toggle('active', isGrouped);
+        saveUIState();
         renderContent();
     }
 
@@ -837,6 +967,7 @@
         content.innerHTML = '<div style="text-align:center;">Scanning...</div>';
         try {
             const res = await fetch(`/api/${currentTab}?t=${Date.now()}`);
+            if (res.status === 401) return checkAuth();
             rawData = await res.json();
             rawData = rawData.map(item => {
                 if (!item.system) {
@@ -867,6 +998,7 @@
         allChip.onclick = () => {
             activeFilters.clear();
             updateFilterVisuals();
+            saveUIState();
             renderContent();
         };
         container.appendChild(allChip);
@@ -878,6 +1010,7 @@
                 if (activeFilters.has(sys)) activeFilters.delete(sys);
                 else activeFilters.add(sys);
                 updateFilterVisuals();
+                saveUIState();
                 renderContent();
             };
             container.appendChild(chip);
@@ -895,13 +1028,30 @@
         }
     }
 
-    function applyViewSettings() { renderContent(); }
+    function applyViewSettings() { 
+        saveUIState();
+        renderContent(); 
+    }
 
     function renderContent() {
         const content = document.getElementById('main-content');
         content.innerHTML = '';
         let filtered = rawData;
         if (activeFilters.size > 0) filtered = rawData.filter(item => activeFilters.has(item.system));
+
+        const searchVal = document.getElementById('search-filter').value.toLowerCase();
+        if (searchVal) {
+            filtered = filtered.filter(item => {
+                const title = (item.gameTitle || item.name).toLowerCase();
+                return title.includes(searchVal) || item.name.toLowerCase().includes(searchVal);
+            });
+        }
+
+        const showSelected = document.getElementById('selected-only-filter').checked;
+        if (showSelected) {
+            filtered = filtered.filter(item => selectedPaths.has(item.relPath));
+        }
+
         if (filtered.length === 0) {
             content.innerHTML = '<div style="text-align:center; margin-top:20px;">No items match the current filters.</div>';
             return;
@@ -943,9 +1093,9 @@
 
     function createCard(item) {
         const card = document.createElement('div');
-        card.className = 'game-card';
+        card.className = `game-card ${selectedPaths.has(item.relPath) ? 'selected' : ''}`;
         card.onclick = (e) => {
-            if (e.target.tagName === 'A' || e.target.classList.contains('edit-btn')) return;
+            if (e.target.tagName === 'A' || e.target.classList.contains('edit-btn') || e.target.classList.contains('select-checkbox')) return;
             card.classList.toggle('active');
         };
 
@@ -971,7 +1121,13 @@
             editHtml = `<button class="edit-btn" data-name="${encodeURIComponent(title)}" data-path="${encodeURIComponent(item.relPath)}" onclick="event.stopPropagation(); openMetadataFromButton(this)" title="Edit Metadata">✎</button>`;
         }
 
+        const isChecked = selectedPaths.has(item.relPath);
+        const checkboxHtml = `<input type="checkbox" class="select-checkbox" ${isChecked ? 'checked' : ''} 
+            style="position:absolute; top:8px; left:8px; z-index:10; width:18px; height:18px; cursor:pointer;" 
+            onchange="toggleFileSelection('${item.relPath}', this.checked)">`;
+
         card.innerHTML = `
+            ${checkboxHtml}
             ${editHtml}
             <div class="art-wrapper">
                 ${imageHtml}
