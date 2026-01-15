@@ -143,7 +143,7 @@
 (function() {
     const isElectron = !!(window.electronAPI);
     let serverUrl = '', localDir = '', sessionToken = localStorage.getItem('romstore_token') || '';
-    let currentTab = 'games', rawData = [], activeFilters = new Set(), selectedPaths = new Set(), installedLocalPaths = new Set(), isGrouped = false, isSetupMode = false;
+    let currentTab = 'games', rawData = [], activeFilters = new Set(), installedLocalPaths = new Set(), isGrouped = false, isSetupMode = false;
     let isListView = false, isAutoSync = false;
 
     function getApiUrl(endpoint) {
@@ -367,7 +367,7 @@
         const card = document.createElement('div');
         const typePrefix = currentTab === 'installed' ? (item._type + '/') : (currentTab === 'games' ? 'roms/' : currentTab + '/');
         const isLocal = installedLocalPaths.has(typePrefix + item.relPath);
-        card.className = 'game-card ' + (selectedPaths.has(item.relPath) ? 'selected' : '');
+        card.className = 'game-card';
         card.dataset.relPath = item.relPath; 
         let imgUrl = null; if (item.artworkPath) imgUrl = await getAuthImg(item.artworkPath);
         const title = (currentTab === 'saves' && item.gameTitle) ? item.gameTitle : item.name;
@@ -382,7 +382,6 @@
         }
 
         card.innerHTML = `
-            <input type="checkbox" class="select-checkbox" ${selectedPaths.has(item.relPath) ? 'checked' : ''} style="position:absolute; top:8px; left:8px; z-index:10;">
             <div class="art-wrapper">
                 ${imgUrl ? `<img src="${imgUrl}" class="game-art">` : `<div class="icon-placeholder">${currentTab === 'saves' ? '💾' : '💿'}</div>`}
                 <div class="card-overlay">
@@ -394,8 +393,7 @@
             </div>
             <div class="progress-container"><div class="progress-bar"></div></div>
             <div class="game-title-below">${title}</div>`;
-        card.onclick = e => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') card.classList.toggle('active'); };
-        card.querySelector('.select-checkbox').onchange = e => { if (e.target.checked) selectedPaths.add(item.relPath); else selectedPaths.delete(item.relPath); };
+        card.onclick = e => { if (e.target.tagName !== 'BUTTON') card.classList.toggle('active'); };
         if (isLocal) {
             card.querySelector('.uninstall-btn').onclick = e => { e.stopPropagation(); uninstallGame(item); };
         } else {
@@ -408,7 +406,7 @@
         const row = document.createElement('div');
         const typePrefix = currentTab === 'installed' ? (item._type + '/') : (currentTab === 'games' ? 'roms/' : currentTab + '/');
         const isLocal = installedLocalPaths.has(typePrefix + item.relPath);
-        row.className = 'game-row ' + (selectedPaths.has(item.relPath) ? 'selected' : '');
+        row.className = 'game-row';
         row.dataset.relPath = item.relPath;
         let imgUrl = null; if (item.artworkPath) imgUrl = await getAuthImg(item.artworkPath);
         const title = (currentTab === 'saves' && item.gameTitle) ? item.gameTitle : item.name;
@@ -423,7 +421,6 @@
         }
 
         row.innerHTML = `
-            <input type="checkbox" class="select-checkbox" ${selectedPaths.has(item.relPath) ? 'checked' : ''}>
             ${imgUrl ? `<img src="${imgUrl}" class="row-thumb">` : `<div class="row-thumb" style="display:flex;align-items:center;justify-content:center;font-size:24px;">💿</div>`}
             <div class="row-info">
                 <div class="row-title">${title}</div>
@@ -435,8 +432,7 @@
                 ${actionBtn}
                 ${versionsBtn}
             </div>`;
-        row.onclick = e => { if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') row.classList.toggle('active'); };
-        row.querySelector('.select-checkbox').onchange = e => { if (e.target.checked) selectedPaths.add(item.relPath); else selectedPaths.delete(item.relPath); };
+        row.onclick = e => { if (e.target.tagName !== 'BUTTON') row.classList.toggle('active'); };
         if (isLocal) {
             row.querySelector('.uninstall-btn').onclick = e => { e.stopPropagation(); uninstallGame(item); };
         } else {
@@ -519,8 +515,8 @@
     }
     async function renderContent() {
         const c = document.getElementById('main-content'); c.innerHTML = '';
-        let filtered = rawData;
-        if (activeFilters.size > 0) filtered = rawData.filter(i => activeFilters.has(i.system));
+        let filtered = [...rawData];
+        if (activeFilters.size > 0) filtered = filtered.filter(i => activeFilters.has(i.system));
         
         if (document.getElementById('installed-only-filter').checked) {
              filtered = filtered.filter(item => {
@@ -531,19 +527,46 @@
 
         const search = document.getElementById('search-filter').value.toLowerCase();
         if (search) filtered = filtered.filter(i => (i.gameTitle || i.name).toLowerCase().includes(search));
+        
+        // Sorting Logic
+        const sortMode = document.getElementById('sort-select').value;
+        filtered.sort((a, b) => {
+            if (sortMode === 'name_asc') return (a.gameTitle || a.name).localeCompare(b.gameTitle || b.name);
+            if (sortMode === 'name_desc') return (b.gameTitle || b.name).localeCompare(a.gameTitle || a.name);
+            if (sortMode === 'date_new') return new Date(b.mtime) - new Date(a.mtime);
+            if (sortMode === 'date_old') return new Date(a.mtime) - new Date(b.mtime);
+            return 0;
+        });
+
         if (filtered.length === 0) { c.innerHTML = '<div style="text-align:center; padding:20px;">No items found</div>'; return; }
         
-        if (isListView) {
-             const list = document.createElement('div'); list.className = 'library-list';
-             const rows = await Promise.all(filtered.map(createRow));
-             rows.forEach(r => list.appendChild(r)); c.appendChild(list);
+        const renderGroup = async (items) => {
+            const container = document.createElement('div');
+            container.className = isListView ? 'library-list' : 'library-grid';
+            const elements = await Promise.all(items.map(isListView ? createRow : createCard));
+            elements.forEach(el => container.appendChild(el));
+            return container;
+        };
+
+        if (isGrouped) {
+            const groups = {};
+            filtered.forEach(item => {
+                if (!groups[item.system]) groups[item.system] = [];
+                groups[item.system].push(item);
+            });
+            const systems = Object.keys(groups).sort();
+            for (const system of systems) {
+                const header = document.createElement('div');
+                header.className = 'section-header';
+                header.innerText = system;
+                c.appendChild(header);
+                c.appendChild(await renderGroup(groups[system]));
+            }
         } else {
-             const grid = document.createElement('div'); grid.className = 'library-grid';
-             const cards = await Promise.all(filtered.map(createCard));
-             cards.forEach(card => grid.appendChild(card)); c.appendChild(grid);
+            c.appendChild(await renderGroup(filtered));
         }
     }
-    function changeTab(t) { currentTab = t; document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.id === 'tab-'+t)); activeFilters.clear(); selectedPaths.clear(); document.getElementById('search-filter').value = ''; saveUIState(); loadLibrary(); }
+    function changeTab(t) { currentTab = t; document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.id === 'tab-'+t)); activeFilters.clear(); document.getElementById('search-filter').value = ''; saveUIState(); loadLibrary(); }
 
     document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('logout-btn').onclick = () => { localStorage.removeItem('romstore_token'); sessionToken = ''; location.reload(); };

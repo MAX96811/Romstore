@@ -408,9 +408,6 @@
 
         <div class="view-options">
             <input type="text" id="search-filter" placeholder="Search files..." oninput="applyViewSettings()" style="background:#2a475e; color:#fff; border:1px solid #3d5a73; padding:5px 10px; border-radius:3px; font-size:0.9em;">
-            <label style="font-size: 0.85em; display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="selected-only-filter" onchange="applyViewSettings()"> Show Selected
-            </label>
             <select id="sort-select" onchange="applyViewSettings()">
                 <option value="name_asc">Name (A-Z)</option>
                 <option value="name_desc">Name (Z-A)</option>
@@ -569,7 +566,6 @@
     let currentTab = 'games';
     let rawData = [];
     let activeFilters = new Set(); 
-    let selectedPaths = new Set();
     let isGrouped = false;
     let editingGamePath = null;
     
@@ -937,19 +933,12 @@
         }
     }
 
-    function toggleFileSelection(path, isChecked) {
-        if (isChecked) selectedPaths.add(path);
-        else selectedPaths.delete(path);
-    }
-
     // --- Core Logic ---
     function changeTab(tab) {
         currentTab = tab;
         document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
         document.getElementById(`tab-${tab}`).classList.add('active');
         activeFilters.clear();
-        selectedPaths.clear();
-        document.getElementById('selected-only-filter').checked = false;
         document.getElementById('search-filter').value = '';
         saveUIState();
         loadLibrary(); 
@@ -1047,11 +1036,6 @@
             });
         }
 
-        const showSelected = document.getElementById('selected-only-filter').checked;
-        if (showSelected) {
-            filtered = filtered.filter(item => selectedPaths.has(item.relPath));
-        }
-
         if (filtered.length === 0) {
             content.innerHTML = '<div style="text-align:center; margin-top:20px;">No items match the current filters.</div>';
             return;
@@ -1093,9 +1077,9 @@
 
     function createCard(item) {
         const card = document.createElement('div');
-        card.className = `game-card ${selectedPaths.has(item.relPath) ? 'selected' : ''}`;
+        card.className = `game-card`;
         card.onclick = (e) => {
-            if (e.target.tagName === 'A' || e.target.classList.contains('edit-btn') || e.target.classList.contains('select-checkbox')) return;
+            if (e.target.tagName === 'A' || e.target.classList.contains('edit-btn')) return;
             card.classList.toggle('active');
         };
 
@@ -1121,13 +1105,7 @@
             editHtml = `<button class="edit-btn" data-name="${encodeURIComponent(title)}" data-path="${encodeURIComponent(item.relPath)}" onclick="event.stopPropagation(); openMetadataFromButton(this)" title="Edit Metadata">✎</button>`;
         }
 
-        const isChecked = selectedPaths.has(item.relPath);
-        const checkboxHtml = `<input type="checkbox" class="select-checkbox" ${isChecked ? 'checked' : ''} 
-            style="position:absolute; top:8px; left:8px; z-index:10; width:18px; height:18px; cursor:pointer;" 
-            onchange="toggleFileSelection('${item.relPath}', this.checked)">`;
-
         card.innerHTML = `
-            ${checkboxHtml}
             ${editHtml}
             <div class="art-wrapper">
                 ${imageHtml}
