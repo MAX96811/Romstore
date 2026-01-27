@@ -4,3 +4,10 @@ users.txt
 admin_config.json
 .git
 .dockerignore
+client
+frontend
+library
+docker-compose.yml
+dockerfile
+README.md
+lOGO.png
