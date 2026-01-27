@@ -1,25 +1,22 @@
-# Use an official Node.js runtime as a parent image
-FROM node:20-slim
+# Use Alpine for smaller footprint (approx 50MB vs 200MB+)
+FROM node:20-alpine
 
-# Set the working directory in the container
 WORKDIR /usr/src/app
 
-# Copy package.json and package-lock.json
+# Copy package files first to leverage Docker cache
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --production
+# Install only production dependencies
+RUN npm ci --only=production
 
-# Bundle app source
+# Copy the rest of the application code
 COPY . .
 
-# Create data directory and define volume
+# Ensure data directory exists
 RUN mkdir -p data
 VOLUME ["/usr/src/app/data"]
 
- ENV PORT=3000
-# Expose the port the app runs on
+ENV PORT=3000
 EXPOSE 3000
 
-# Command to run the application
 CMD [ "node", "server.js" ]

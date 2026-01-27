@@ -68,6 +68,21 @@
         
         .toast { background-color: #333; color: #fff; padding: 12px 20px; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border-left: 5px solid var(--accent); min-width: 250px; animation: slideIn 0.3s ease-out; display: flex; align-items: center; justify-content: space-between; position: fixed; bottom: 20px; right: 20px; z-index: 300; }
         @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* Conflict Modal Styles */
+        .conflict-item { background: #252525; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #333; }
+        .conflict-title { font-weight: bold; color: var(--accent); font-size: 1em; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 5px; }
+        .conflict-compare { display: flex; justify-content: space-between; align-items: flex-start; }
+        .conflict-side { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+        .conflict-side.local { border-right: 1px solid #444; padding-right: 15px; }
+        .conflict-side.cloud { padding-left: 15px; text-align: right; }
+        .c-label { font-size: 0.75em; text-transform: uppercase; color: #888; letter-spacing: 1px; margin-bottom: 3px; }
+        .c-date { font-size: 0.9em; color: #e0e0e0; font-family: monospace; }
+        .c-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 0.7em; margin-top: 5px; align-self: flex-start; }
+        .conflict-side.cloud .c-badge { align-self: flex-end; }
+        .c-newer { background: rgba(76, 175, 80, 0.2); color: #81c784; border: 1px solid rgba(76, 175, 80, 0.3); }
+        .c-older { background: rgba(244, 67, 54, 0.2); color: #e57373; border: 1px solid rgba(244, 67, 54, 0.3); }
+        .conflict-actions { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -138,6 +153,22 @@
         <div id="versions-list" style="margin-top:20px;">Loading...</div>
     </div>
 </div>
+<div id="conflict-modal" class="modal">
+    <div class="modal-content" style="width: 650px; max-width: 95%;">
+        <div class="modal-header"><span>⚠️ Sync Conflicts</span></div>
+        <p style="color:#ccc; font-size:0.9em; margin-bottom:20px; line-height: 1.5;">
+            The following save files have been modified on both your local machine and the cloud since the last sync. 
+            <br>Please choose which version you would like to keep.
+        </p>
+        <div id="conflict-list" style="display:flex; flex-direction:column; gap:15px; max-height:50vh; overflow-y:auto; margin-bottom:20px; padding-right: 5px;">
+            <!-- Conflicts injected here -->
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #333; padding-top:15px;">
+             <button class="action-btn" id="resolve-all-local" style="background:transparent; border:1px solid #555; font-weight:normal;">Keep All Local</button>
+             <button class="action-btn" id="resolve-all-cloud" style="background:transparent; border:1px solid #555; font-weight:normal;">Keep All Cloud</button>
+        </div>
+    </div>
+</div>
 <div id="toast-container"></div>
 <script>
 (function() {
@@ -145,6 +176,16 @@
     let serverUrl = '', localDir = '', sessionToken = localStorage.getItem('romstore_token') || '';
     let currentTab = 'games', rawData = [], activeFilters = new Set(), installedLocalPaths = new Set(), isGrouped = false, isSetupMode = false;
     let isListView = false, isAutoSync = false;
+    
+    // Sync Manifest: Tracks last known state of files to detect conflicts
+    let syncManifest = {};
+    try { syncManifest = JSON.parse(localStorage.getItem('romstore_sync_manifest') || '{}'); } catch(e) { syncManifest = {}; }
+    function updateManifest(relPath, lTime, sTime) {
+        if (!relPath) return;
+        syncManifest[relPath] = { l: lTime, s: sTime };
+        localStorage.setItem('romstore_sync_manifest', JSON.stringify(syncManifest));
+    }
+
 
     function getApiUrl(endpoint) {
         if (!isElectron) return endpoint;
@@ -264,62 +305,127 @@
         }
     }
     
+    async function uploadSaveDirect(relPath) {
+        const fullPath = `${localDir}/saves/${relPath}`;
+        const res = await window.electronAPI.uploadSave(fullPath, relPath, sessionToken);
+        if (res && res.success) {
+            // Update manifest after successful upload
+            const files = await window.electronAPI.scanDirStat(localDir + '/saves');
+            const f = files.find(x => x.relPath === relPath);
+            if (f) {
+                const t = new Date(f.mtime).getTime();
+                updateManifest(relPath, t, t); 
+            }
+            return true;
+        }
+        return false;
+    }
+
+    async function downloadSaveDirect(relPath) {
+        const dest = `${localDir}/saves/${relPath}`.split('\\').join('/');
+        const url = getApiUrl(`/api/download?type=saves&path=${encodeURIComponent(relPath)}`);
+        try {
+            if (await window.electronAPI.checkLocalFile(dest)) {
+                await window.electronAPI.backupLocalFile(dest);
+            }
+            await window.electronAPI.downloadFile(url, dest, sessionToken, relPath);
+            
+            // Update manifest after successful download
+            // We need the server's mtime (or assume it's now synced). 
+            // Better to re-scan local to get the exact mtime written to disk.
+            const files = await window.electronAPI.scanDirStat(localDir + '/saves');
+            const f = files.find(x => x.relPath === relPath);
+            if (f) {
+                const t = new Date(f.mtime).getTime();
+                updateManifest(relPath, t, t);
+            }
+        } catch (e) { console.error('Download failed', e); }
+    }
+
     async function syncSaves() {
         if (!isElectron || !localDir) return;
-        console.log('[Sync] Starting full save sync...');
+        console.log('[Sync] Starting conflict-aware sync...');
         showToast('Checking for cloud saves...', 'info');
         
         try {
-            // 1. Get Server State
             const res = await fetch(getApiUrl('/api/saves'), getFetchOptions());
             if (!res.ok) throw new Error('Failed to fetch server saves');
             const serverSaves = await res.json();
-            console.log('[Sync] Server saves found:', serverSaves.length);
-            
-            // 2. Get Local State
             const localSaves = await window.electronAPI.scanDirStat(localDir + '/saves');
-            console.log('[Sync] Local saves found:', localSaves.length);
+            
+            const serverMap = new Map();
+            serverSaves.forEach(s => serverMap.set(s.relPath, new Date(s.mtime).getTime()));
             
             const localMap = new Map();
-            localSaves.forEach(f => localMap.set(f.relPath, new Date(f.mtime).getTime()));
-            
-            let downloadCount = 0;
-            let uploadCount = 0;
-            
-            // 3. Compare & Sync (Cloud -> Local)
-            for (const sSave of serverSaves) {
-                const sTime = new Date(sSave.mtime).getTime();
-                const lTime = localMap.get(sSave.relPath);
-                
-                // If missing locally OR server is newer (> 2 seconds diff)
-                if (lTime === undefined || (sTime > lTime + 2000)) {
-                    console.log(`[Sync] Downloading ${sSave.relPath} (Server: ${sSave.mtime} vs Local: ${lTime ? new Date(lTime).toISOString() : 'Missing'})`);
-                    await downloadSaveDirect(sSave.relPath);
-                    downloadCount++;
-                }
-            }
+            localSaves.forEach(l => localMap.set(l.relPath, new Date(l.mtime).getTime()));
 
-            // 4. Compare & Sync (Local -> Cloud)
-            for (const lSave of localSaves) {
-                const lTime = new Date(lSave.mtime).getTime();
-                const sSave = serverSaves.find(s => s.relPath === lSave.relPath);
-                const sTime = sSave ? new Date(sSave.mtime).getTime() : undefined;
+            const allPaths = new Set([...serverMap.keys(), ...localMap.keys()]);
+            const conflicts = [];
+            let dlCount = 0, ulCount = 0;
 
-                // If missing on server OR local is newer (> 2 seconds diff)
-                if (sTime === undefined || (lTime > sTime + 2000)) {
-                    console.log(`[Sync] Uploading ${lSave.relPath} (Local: ${lSave.mtime} vs Server: ${sTime ? new Date(sTime).toISOString() : 'Missing'})`);
-                    const fullPath = `${localDir}/saves/${lSave.relPath}`; 
-                    const result = await window.electronAPI.uploadSave(fullPath, lSave.relPath, sessionToken);
-                    if (result && (result.success || result === true)) {
-                        uploadCount++;
+            for (const path of allPaths) {
+                const sTime = serverMap.get(path);
+                const lTime = localMap.get(path);
+                const manifest = syncManifest[path]; 
+
+                // 1. New on Server (Missing Local) -> Download
+                if (lTime === undefined && sTime !== undefined) {
+                    if (!manifest || !manifest.l) { // If never seen locally, download
+                         console.log('[Sync] New on server:', path);
+                         await downloadSaveDirect(path); dlCount++;
                     } else {
-                        console.error(`[Sync] Failed to upload ${lSave.relPath}`, result);
+                         // Was deleted locally? If manifest says we had it.
+                         // For now, re-download to be safe, or ignore? 
+                         // Steam usually re-downloads unless you explicitly deleted it.
+                         await downloadSaveDirect(path); dlCount++;
                     }
+                    continue;
+                }
+
+                // 2. New on Local (Missing Server) -> Upload
+                if (sTime === undefined && lTime !== undefined) {
+                    if (!manifest || !manifest.s) {
+                        console.log('[Sync] New on local:', path);
+                        await uploadSaveDirect(path); ulCount++;
+                    }
+                    // If it was on server (manifest.s exists) but is gone now?
+                    // Re-upload.
+                    continue;
+                }
+
+                // 3. Exists on Both -> Check Changes
+                const lastL = manifest ? manifest.l : 0;
+                const lastS = manifest ? manifest.s : 0;
+                
+                // Allow 2s variance
+                const localChanged = lTime !== undefined && Math.abs(lTime - lastL) > 2000;
+                const serverChanged = sTime !== undefined && Math.abs(sTime - lastS) > 2000;
+                
+                // No Manifest (First Run)
+                if (!manifest) {
+                    if (Math.abs(lTime - sTime) > 2000) {
+                        conflicts.push({ path, lTime, sTime });
+                    } else {
+                        updateManifest(path, lTime, sTime); // Assumed synced
+                    }
+                    continue;
+                }
+
+                if (localChanged && serverChanged) {
+                    conflicts.push({ path, lTime, sTime });
+                } else if (localChanged) {
+                    console.log('[Sync] Local changed:', path);
+                    await uploadSaveDirect(path); ulCount++;
+                } else if (serverChanged) {
+                    console.log('[Sync] Server changed:', path);
+                    await downloadSaveDirect(path); dlCount++;
                 }
             }
-            
-            if (downloadCount > 0 || uploadCount > 0) {
-                showToast(`Sync complete: ${downloadCount} downloaded, ${uploadCount} uploaded`, 'success');
+
+            if (conflicts.length > 0) {
+                showConflictModal(conflicts);
+            } else if (dlCount > 0 || ulCount > 0) {
+                showToast(`Sync: ${dlCount} ↓, ${ulCount} ↑`, 'success');
             } else {
                 console.log('[Sync] Up to date');
                 showToast('Saves are up to date', 'info');
@@ -331,19 +437,70 @@
         }
     }
 
-    async function downloadSaveDirect(relPath) {
-        const dest = `${localDir}/saves/${relPath}`.split('\\').join('/');
-        const url = getApiUrl(`/api/download?type=saves&path=${encodeURIComponent(relPath)}`);
-        try {
-            // Backup exists logic handled in main process if we call backupLocalFile, 
-            // OR main's download-file simply overwrites. 
-            // We should ideally backup if replacing.
-            if (await window.electronAPI.checkLocalFile(dest)) {
-                await window.electronAPI.backupLocalFile(dest);
-            }
-            await window.electronAPI.downloadFile(url, dest, sessionToken, relPath);
-        } catch (e) { console.error('Download failed', e); }
+    function showConflictModal(conflicts) {
+        const modal = document.getElementById('conflict-modal');
+        const list = document.getElementById('conflict-list');
+        list.innerHTML = '';
+        
+        conflicts.forEach(c => {
+            const item = document.createElement('div');
+            item.className = 'conflict-item';
+            
+            const lDate = new Date(c.lTime);
+            const sDate = new Date(c.sTime);
+            const lNewer = c.lTime > c.sTime;
+            
+            item.innerHTML = `
+                <div class="conflict-title">${c.path}</div>
+                <div class="conflict-compare">
+                    <div class="conflict-side local">
+                        <div class="c-label">Local Device</div>
+                        <div class="c-date">${lDate.toLocaleDateString()} ${lDate.toLocaleTimeString()}</div>
+                        <div class="c-badge ${lNewer ? 'c-newer' : 'c-older'}">${lNewer ? 'NEWER' : 'OLDER'}</div>
+                    </div>
+                    <div class="conflict-side cloud">
+                        <div class="c-label">Cloud Save</div>
+                        <div class="c-date">${sDate.toLocaleDateString()} ${sDate.toLocaleTimeString()}</div>
+                        <div class="c-badge ${!lNewer ? 'c-newer' : 'c-older'}">${!lNewer ? 'NEWER' : 'OLDER'}</div>
+                    </div>
+                </div>
+                <div class="conflict-actions">
+                    <button class="action-btn-small" style="background:#555" onclick="resolveConflict('${c.path}', 'local')">Keep Local</button>
+                    <button class="action-btn-small" style="background:#555" onclick="resolveConflict('${c.path}', 'cloud')">Keep Cloud</button>
+                </div>
+            `;
+            list.appendChild(item);
+        });
+
+        document.getElementById('resolve-all-local').onclick = () => resolveAll(conflicts, 'local');
+        document.getElementById('resolve-all-cloud').onclick = () => resolveAll(conflicts, 'cloud');
+        
+        modal.style.display = 'flex';
     }
+
+    window.resolveConflict = async (path, choice) => {
+        const item = document.querySelector(`.conflict-item:has(.conflict-title)`); // messy selector, better to rebuild list
+        // Actually, just perform action and remove from DOM or refresh
+        document.getElementById('conflict-modal').style.display = 'none'; // Close for now, or refresh
+        showToast(`Resolving ${path}...`, 'info');
+        
+        if (choice === 'local') await uploadSaveDirect(path);
+        else await downloadSaveDirect(path);
+        
+        // Re-run sync to check remaining or verify
+        setTimeout(syncSaves, 500);
+    };
+
+    window.resolveAll = async (conflicts, choice) => {
+        document.getElementById('conflict-modal').style.display = 'none';
+        showToast(`Resolving all ${conflicts.length} conflicts...`, 'info');
+        for (const c of conflicts) {
+            if (choice === 'local') await uploadSaveDirect(c.path);
+            else await downloadSaveDirect(c.path);
+        }
+        showToast('All conflicts resolved', 'success');
+    };
+
 
     async function loadLibrary() {
         console.log('[Library] Loading', currentTab);
@@ -576,6 +733,7 @@
         document.getElementById('close-versions-btn').onclick = () => { document.getElementById('versions-modal').style.display = 'none'; };
         document.getElementById('settings-modal').onclick = (e) => { if(e.target === document.getElementById('settings-modal')) document.getElementById('settings-modal').style.display = 'none'; };
         document.getElementById('versions-modal').onclick = (e) => { if(e.target === document.getElementById('versions-modal')) document.getElementById('versions-modal').style.display = 'none'; };
+        document.getElementById('conflict-modal').onclick = (e) => { if(e.target === document.getElementById('conflict-modal')) document.getElementById('conflict-modal').style.display = 'none'; };
         document.getElementById('tab-games').onclick = () => { changeTab('games'); };
         document.getElementById('tab-bios').onclick = () => { changeTab('bios'); };
         document.getElementById('search-filter').oninput = () => { saveUIState(); renderContent(); };
