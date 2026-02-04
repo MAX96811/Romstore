@@ -1,456 +1,980 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RomStore Library</title>
     <style>
         :root {
-            --bg-color: #121212; --card-bg: #1e1e1e; --text-color: #e0e0e0; --accent: #ff9800;
-            --btn-bg: #ff9800; --btn-text: #121212; --success: #4caf50; --error: #f44336;
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent: #ff9800;
+            --btn-bg: #ff9800;
+            --btn-text: #121212;
+            --success: #4caf50;
+            --error: #f44336;
         }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 0; }
-        header { background-color: #1e1e1e; padding: 20px 40px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); position: sticky; top: 0; z-index: 100; }
-        .header-top { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-        h1 { margin: 0; color: var(--accent); letter-spacing: 2px; }
-        .tabs { display: flex; gap: 20px; }
-        .tabs button { background: none; border: none; color: #9e9e9e; font-size: 1.1em; font-weight: bold; cursor: pointer; padding: 5px 10px; border-bottom: 3px solid transparent; transition: all 0.2s; }
-        .tabs button:hover { color: #fff; }
-        .tabs button.active { color: #fff; border-bottom-color: var(--accent); }
-        .controls { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); width: 100%; flex-wrap: wrap; gap: 10px; }
-        .filter-group { display: flex; gap: 10px; align-items: center; overflow-x: auto; max-width: 60%; padding-bottom: 5px; }
-        .filter-chip { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #9e9e9e; font-size: 0.85em; cursor: pointer; padding: 4px 12px; border-radius: 15px; white-space: nowrap; transition: all 0.2s; user-select: none; }
-        .filter-chip.active { background: var(--accent); color: var(--btn-text); border-color: var(--accent); font-weight: bold; }
-        .view-options { display: flex; gap: 15px; align-items: center; }
-        select, .toggle-btn, #search-filter { background: #333; color: #fff; border: 1px solid #444; padding: 5px 10px; border-radius: 3px; font-size: 0.9em; cursor: pointer; }
-        .content-area { padding: 40px; }
-        .section-header { color: #fff; font-size: 1.5em; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 20px; margin-top: 30px; text-transform: capitalize; }
-        .library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 30px; }
-        .game-card { background-color: transparent; display: flex; flex-direction: column; cursor: pointer; position: relative; transition: transform 0.2s; }
-        .game-card:hover { transform: scale(1.03); }
-        .art-wrapper { position: relative; width: 100%; padding-top: 140%; background-color: #333; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .game-art { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-        .icon-placeholder { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 60px; background: #333; }
-        .card-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(30, 30, 30, 0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; box-sizing: border-box; }
-        .game-card.active .card-overlay { opacity: 1; pointer-events: auto; }
-        .overlay-system { font-size: 0.8em; color: var(--accent); text-transform: uppercase; font-weight: bold; margin-bottom: 5px; }
-        .overlay-meta { font-size: 0.85em; color: #9e9e9e; margin-top: 4px; }
-        .action-btn-small { background-color: var(--btn-bg); color: var(--btn-text); padding: 8px 16px; font-weight: bold; border-radius: 2px; border: none; cursor: pointer; font-size: 0.9em; margin-top: 10px; }
-        .game-title-below { margin-top: 10px; font-weight: bold; font-size: 0.95em; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; }
-        .edit-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #fff; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center; }
-        .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 20px; }
-        .close-btn:hover { color: #fff; }
-        .modal { display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); align-items: center; justify-content: center; }
-        .modal-content { background-color: #1e1e1e; padding: 20px; border-radius: 5px; width: 500px; max-width: 90%; box-shadow: 0 4px 10px rgba(0,0,0,0.5); color: #e0e0e0; position: relative; max-height: 90vh; overflow-y: auto; }
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; margin-bottom: 5px; font-size: 0.9em; }
-        .input-group input, .input-group select { width: 100%; padding: 8px; background: #333; border: 1px solid #444; color: #fff; border-radius: 3px; box-sizing: border-box; }
-        .action-btn { background-color: var(--accent); color: var(--btn-text); border: none; padding: 8px 16px; cursor: pointer; border-radius: 3px; font-weight: bold; }
-        .version-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #333; }
-        .version-row:last-child { border-bottom: none; }
-        .version-info { font-size: 0.9em; color: #ccc; }
-        
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: #1e1e1e;
+            padding: 20px 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        h1 {
+            margin: 0;
+            color: var(--accent);
+            letter-spacing: 2px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 20px;
+        }
+
+        .tabs button {
+            background: none;
+            border: none;
+            color: #9e9e9e;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tabs button:hover {
+            color: #fff;
+        }
+
+        .tabs button.active {
+            color: #fff;
+            border-bottom-color: var(--accent);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            width: 100%;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            overflow-x: auto;
+            max-width: 60%;
+            padding-bottom: 5px;
+        }
+
+        .filter-chip {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #9e9e9e;
+            font-size: 0.85em;
+            cursor: pointer;
+            padding: 4px 12px;
+            border-radius: 15px;
+            white-space: nowrap;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .filter-chip.active {
+            background: var(--accent);
+            color: var(--btn-text);
+            border-color: var(--accent);
+            font-weight: bold;
+        }
+
+        .view-options {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        select,
+        .toggle-btn,
+        #search-filter {
+            background: #333;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            cursor: pointer;
+        }
+
+        .content-area {
+            padding: 40px;
+        }
+
+        .section-header {
+            color: #fff;
+            font-size: 1.5em;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            margin-top: 30px;
+            text-transform: capitalize;
+        }
+
+        .library-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 30px;
+        }
+
+        .game-card {
+            background-color: transparent;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        .game-card:hover {
+            transform: scale(1.03);
+        }
+
+        .art-wrapper {
+            position: relative;
+            width: 100%;
+            padding-top: 140%;
+            background-color: #333;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-art {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .icon-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            background: #333;
+        }
+
+        .card-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(30, 30, 30, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+            box-sizing: border-box;
+        }
+
+        .game-card.active .card-overlay {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .overlay-system {
+            font-size: 0.8em;
+            color: var(--accent);
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .overlay-meta {
+            font-size: 0.85em;
+            color: #9e9e9e;
+            margin-top: 4px;
+        }
+
+        .action-btn-small {
+            background-color: var(--btn-bg);
+            color: var(--btn-text);
+            padding: 8px 16px;
+            font-weight: bold;
+            border-radius: 2px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .game-title-below {
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 0.95em;
+            color: #fff;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 5px;
+        }
+
+        .edit-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 20px;
+        }
+
+        .close-btn:hover {
+            color: #fff;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 200;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 5px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            color: #e0e0e0;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 8px;
+            background: #333;
+            border: 1px solid #444;
+            color: #fff;
+            border-radius: 3px;
+            box-sizing: border-box;
+        }
+
+        .action-btn {
+            background-color: var(--accent);
+            color: var(--btn-text);
+            border: none;
+            padding: 8px 16px;
+            cursor: pointer;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+
+        .version-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #333;
+        }
+
+        .version-row:last-child {
+            border-bottom: none;
+        }
+
+        .version-info {
+            font-size: 0.9em;
+            color: #ccc;
+        }
+
         /* List View Styles */
-        .library-list { display: flex; flex-direction: column; gap: 10px; }
-        .game-row { display: flex; align-items: center; background: #2a2a2a; padding: 10px; border-radius: 4px; gap: 15px; transition: background 0.2s; cursor: pointer; position: relative; }
-        .game-row:hover { background: #333; }
-        .game-row .row-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 3px; background: #111; flex-shrink: 0; }
-        .game-row .row-info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-        .game-row .row-title { font-weight: bold; font-size: 1.1em; color: #fff; }
-        .game-row .row-meta { font-size: 0.85em; color: #9e9e9e; display: flex; gap: 10px; }
-        .game-row .row-actions { display: flex; align-items: center; gap: 10px; }
-        .game-row.active { border: 1px solid var(--accent); }
+        .library-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .game-row {
+            display: flex;
+            align-items: center;
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 4px;
+            gap: 15px;
+            transition: background 0.2s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .game-row:hover {
+            background: #333;
+        }
+
+        .game-row .row-thumb {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 3px;
+            background: #111;
+            flex-shrink: 0;
+        }
+
+        .game-row .row-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .game-row .row-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #fff;
+        }
+
+        .game-row .row-meta {
+            font-size: 0.85em;
+            color: #9e9e9e;
+            display: flex;
+            gap: 10px;
+        }
+
+        .game-row .row-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .game-row.active {
+            border: 1px solid var(--accent);
+        }
 
         /* Progress Bar */
-        .progress-container { width: 100%; background-color: #333; height: 6px; border-radius: 3px; margin-top: 8px; display: none; overflow: hidden; }
-        .progress-bar { width: 0%; height: 100%; background-color: var(--accent); transition: width 0.2s; }
-        .downloading .progress-container { display: block; }
-        
-        .toast { background-color: #333; color: #fff; padding: 12px 20px; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border-left: 5px solid var(--accent); min-width: 250px; animation: slideIn 0.3s ease-out; display: flex; align-items: center; justify-content: space-between; position: fixed; bottom: 20px; right: 20px; z-index: 300; }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .progress-container {
+            width: 100%;
+            background-color: #333;
+            height: 6px;
+            border-radius: 3px;
+            margin-top: 8px;
+            display: none;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: var(--accent);
+            transition: width 0.2s;
+        }
+
+        .downloading .progress-container {
+            display: block;
+        }
+
+        .toast {
+            background-color: #333;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+            border-left: 5px solid var(--accent);
+            min-width: 250px;
+            animation: slideIn 0.3s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 300;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
 
         /* Conflict Modal Styles */
-        .conflict-item { background: #252525; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #333; }
-        .conflict-title { font-weight: bold; color: var(--accent); font-size: 1em; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 5px; }
-        .conflict-compare { display: flex; justify-content: space-between; align-items: flex-start; }
-        .conflict-side { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-        .conflict-side.local { border-right: 1px solid #444; padding-right: 15px; }
-        .conflict-side.cloud { padding-left: 15px; text-align: right; }
-        .c-label { font-size: 0.75em; text-transform: uppercase; color: #888; letter-spacing: 1px; margin-bottom: 3px; }
-        .c-date { font-size: 0.9em; color: #e0e0e0; font-family: monospace; }
-        .c-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 0.7em; margin-top: 5px; align-self: flex-start; }
-        .conflict-side.cloud .c-badge { align-self: flex-end; }
-        .c-newer { background: rgba(76, 175, 80, 0.2); color: #81c784; border: 1px solid rgba(76, 175, 80, 0.3); }
-        .c-older { background: rgba(244, 67, 54, 0.2); color: #e57373; border: 1px solid rgba(244, 67, 54, 0.3); }
-        .conflict-actions { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+        .conflict-item {
+            background: #252525;
+            padding: 15px;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border: 1px solid #333;
+        }
+
+        .conflict-title {
+            font-weight: bold;
+            color: var(--accent);
+            font-size: 1em;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 8px;
+            margin-bottom: 5px;
+        }
+
+        .conflict-compare {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .conflict-side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .conflict-side.local {
+            border-right: 1px solid #444;
+            padding-right: 15px;
+        }
+
+        .conflict-side.cloud {
+            padding-left: 15px;
+            text-align: right;
+        }
+
+        .c-label {
+            font-size: 0.75em;
+            text-transform: uppercase;
+            color: #888;
+            letter-spacing: 1px;
+            margin-bottom: 3px;
+        }
+
+        .c-date {
+            font-size: 0.9em;
+            color: #e0e0e0;
+            font-family: monospace;
+        }
+
+        .c-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.7em;
+            margin-top: 5px;
+            align-self: flex-start;
+        }
+
+        .conflict-side.cloud .c-badge {
+            align-self: flex-end;
+        }
+
+        .c-newer {
+            background: rgba(76, 175, 80, 0.2);
+            color: #81c784;
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+
+        .c-older {
+            background: rgba(244, 67, 54, 0.2);
+            color: #e57373;
+            border: 1px solid rgba(244, 67, 54, 0.3);
+        }
+
+        .conflict-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 10px;
+        }
     </style>
 </head>
+
 <body>
-<header>
-    <div class="header-top">
-        <img src="LOGO.png" alt="ROMSTORE" style="height: 50px; width: auto;">
-        <div style="display:flex; gap: 15px; align-items: center;">
-            <button id="logout-btn" class="action-btn" style="background:transparent; border: 1px solid #f44336; color: #f44336;">Logout</button>
-            <button id="open-settings-btn" class="action-btn" style="background:transparent; border: 1px solid #444; color: #9e9e9e;">⚙ Settings</button>
-            <nav class="tabs">
-                <button id="tab-games" class="active">Games</button>
-                <button id="tab-bios">Bios</button>
-            </nav>
+    <header>
+        <div class="header-top">
+            <img src="LOGO.png" alt="ROMSTORE" style="height: 50px; width: auto;">
+            <div style="display:flex; gap: 15px; align-items: center;">
+                <button id="logout-btn" class="action-btn"
+                    style="background:transparent; border: 1px solid #f44336; color: #f44336;">Logout</button>
+                <button id="open-settings-btn" class="action-btn"
+                    style="background:transparent; border: 1px solid #444; color: #9e9e9e;">⚙ Settings</button>
+                <nav class="tabs">
+                    <button id="tab-games" class="active">Games</button>
+                    <button id="tab-bios">Bios</button>
+                </nav>
+            </div>
+            <div style="color: #9e9e9e; font-size: 0.9em;" id="lib-mode">Library Mode: Native</div>
         </div>
-        <div style="color: #9e9e9e; font-size: 0.9em;" id="lib-mode">Library Mode: Native</div>
-    </div>
-    <div class="controls">
-        <div class="filter-group" id="filter-container"></div>
-        <div class="view-options">
-            <input type="text" id="search-filter" placeholder="Search files...">
-            <label style="font-size: 0.85em; display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="installed-only-filter"> Installed
-            </label>
-            <select id="sort-select"><option value="name_asc">Name (A-Z)</option><option value="name_desc">Name (Z-A)</option><option value="date_new">Date Added (Newest)</option><option value="date_old">Date Added (Oldest)</option></select>
-            <button id="view-toggle" class="toggle-btn" title="Toggle Grid/List">⊞ / ☰</button>
-            <button id="group-toggle" class="toggle-btn">Group by Console</button>
-        </div>
-    </div>
-</header>
-<div id="main-content" class="content-area"></div>
-<div id="auth-modal" class="modal" style="display:none; backdrop-filter: blur(15px);">
-    <div class="modal-content" style="width: 350px; text-align: center;">
-        <img src="LOGO.png" style="width: 150px; margin-bottom: 20px;">
-        <div class="modal-header"><span id="auth-title">Login</span></div>
-        <p id="auth-desc" style="font-size: 0.9em; color: #9e9e9e; margin-bottom: 20px;">Please login to access your library.</p>
-        <div class="input-group" id="auth-url-group" style="display:none;"><label>Server URL</label><input type="text" id="auth-server-url" placeholder="http://192.168.1.100:1567"></div>
-        <div class="input-group"><label>Username</label><input type="text" id="auth-username" placeholder="Username"></div>
-        <div class="input-group"><label>Password</label><input type="password" id="auth-password" placeholder="Password"></div>
-        <button id="handle-auth-btn" class="action-btn" style="width:100%">Login</button>
-    </div>
-</div>
-<div id="settings-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header"><span>Settings</span><span class="close-btn" id="close-settings-btn">&times;</span></div>
-        <div id="client-settings-area" style="display:none; border-top: 2px solid var(--accent); padding-top: 20px; margin-bottom: 25px;">
-            <p style="font-size:1.1em; color:var(--accent); font-weight:bold; margin-bottom:10px;">Desktop Client Settings</p>
-            <div class="input-group">
-                <label style="display:flex; align-items:center; cursor:pointer;">
-                    <input type="checkbox" id="auto-sync-check" style="width:auto; margin-right:10px;"> Enable Auto-Sync Saves
+        <div class="controls">
+            <div class="filter-group" id="filter-container"></div>
+            <div class="view-options">
+                <input type="text" id="search-filter" placeholder="Search files...">
+                <label
+                    style="font-size: 0.85em; display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none;">
+                    <input type="checkbox" id="installed-only-filter"> Installed
                 </label>
-                <div style="font-size:0.8em; color:#999; margin-left:25px; line-height: 1.4;">
-                    Automatically uploads local save changes to the cloud and downloads new saves from the server.<br>
-                    • Creates local backups (.oldsave) before overwriting.<br>
-                    • Maintains version history on the server.<br>
-                    • Syncs automatically on startup and when files change.
+                <select id="sort-select">
+                    <option value="name_asc">Name (A-Z)</option>
+                    <option value="name_desc">Name (Z-A)</option>
+                    <option value="date_new">Date Added (Newest)</option>
+                    <option value="date_old">Date Added (Oldest)</option>
+                </select>
+                <button id="view-toggle" class="toggle-btn" title="Toggle Grid/List">⊞ / ☰</button>
+                <button id="group-toggle" class="toggle-btn">Group by Console</button>
+            </div>
+        </div>
+    </header>
+    <div id="main-content" class="content-area"></div>
+    <div id="auth-modal" class="modal" style="display:none; backdrop-filter: blur(15px);">
+        <div class="modal-content" style="width: 350px; text-align: center;">
+            <img src="LOGO.png" style="width: 150px; margin-bottom: 20px;">
+            <div class="modal-header"><span id="auth-title">Login</span></div>
+            <p id="auth-desc" style="font-size: 0.9em; color: #9e9e9e; margin-bottom: 20px;">Please login to access your
+                library.</p>
+            <div class="input-group" id="auth-url-group" style="display:none;"><label>Server URL</label><input
+                    type="text" id="auth-server-url" placeholder="http://192.168.1.100:1567"></div>
+            <div class="input-group"><label>Username</label><input type="text" id="auth-username"
+                    placeholder="Username"></div>
+            <div class="input-group"><label>Password</label><input type="password" id="auth-password"
+                    placeholder="Password"></div>
+            <div class="input-group" style="text-align: left; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="auth-remember" style="width: auto; margin: 0;">
+                <label for="auth-remember" style="margin: 0; cursor: pointer;">Remember Me</label>
+            </div>
+            <button id="handle-auth-btn" class="action-btn" style="width:100%">Login</button>
+        </div>
+    </div>
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><span>Settings</span><span class="close-btn"
+                    id="close-settings-btn">&times;</span></div>
+            <div id="client-settings-area"
+                style="display:none; border-top: 2px solid var(--accent); padding-top: 20px; margin-bottom: 25px;">
+                <p style="font-size:1.1em; color:var(--accent); font-weight:bold; margin-bottom:10px;">Desktop Client
+                    Settings</p>
+                <div class="input-group">
+                    <label style="display:flex; align-items:center; cursor:pointer;">
+                        <input type="checkbox" id="auto-sync-check" style="width:auto; margin-right:10px;"> Enable
+                        Auto-Sync Saves
+                    </label>
+                    <div style="font-size:0.8em; color:#999; margin-left:25px; line-height: 1.4;">
+                        Automatically uploads local save changes to the cloud and downloads new saves from the
+                        server.<br>
+                        • Creates local backups (.oldsave) before overwriting.<br>
+                        • Maintains version history on the server.<br>
+                        • Syncs automatically on startup and when files change.
+                    </div>
+                </div>
+                <div class="input-group"><label>Local Emulation Directory</label>
+                    <div style="display:flex; gap:10px;"><input type="text" id="client-local-dir" readonly
+                            style="flex:1;"><button id="select-local-dir-btn" class="action-btn">Browse</button></div>
                 </div>
             </div>
-            <div class="input-group"><label>Local Emulation Directory</label>
-                <div style="display:flex; gap:10px;"><input type="text" id="client-local-dir" readonly style="flex:1;"><button id="select-local-dir-btn" class="action-btn">Browse</button></div>
+            <button class="action-btn" id="auto-scan-btn" style="width:100%">✨ Auto Scan Missing Metadata</button>
+        </div>
+    </div>
+    <div id="versions-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><span>Save Versions</span><span class="close-btn"
+                    id="close-versions-btn">&times;</span></div>
+            <div id="versions-list" style="margin-top:20px;">Loading...</div>
+        </div>
+    </div>
+    <div id="conflict-modal" class="modal">
+        <div class="modal-content" style="width: 650px; max-width: 95%;">
+            <div class="modal-header"><span>⚠️ Sync Conflicts</span></div>
+            <p style="color:#ccc; font-size:0.9em; margin-bottom:20px; line-height: 1.5;">
+                The following save files have been modified on both your local machine and the cloud since the last
+                sync.
+                <br>Please choose which version you would like to keep.
+            </p>
+            <div id="conflict-list"
+                style="display:flex; flex-direction:column; gap:15px; max-height:50vh; overflow-y:auto; margin-bottom:20px; padding-right: 5px;">
+                <!-- Conflicts injected here -->
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #333; padding-top:15px;">
+                <button class="action-btn" id="resolve-all-local"
+                    style="background:transparent; border:1px solid #555; font-weight:normal;">Keep All Local</button>
+                <button class="action-btn" id="resolve-all-cloud"
+                    style="background:transparent; border:1px solid #555; font-weight:normal;">Keep All Cloud</button>
             </div>
         </div>
-        <button class="action-btn" id="auto-scan-btn" style="width:100%">✨ Auto Scan Missing Metadata</button>
     </div>
-</div>
-<div id="versions-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header"><span>Save Versions</span><span class="close-btn" id="close-versions-btn">&times;</span></div>
-        <div id="versions-list" style="margin-top:20px;">Loading...</div>
-    </div>
-</div>
-<div id="conflict-modal" class="modal">
-    <div class="modal-content" style="width: 650px; max-width: 95%;">
-        <div class="modal-header"><span>⚠️ Sync Conflicts</span></div>
-        <p style="color:#ccc; font-size:0.9em; margin-bottom:20px; line-height: 1.5;">
-            The following save files have been modified on both your local machine and the cloud since the last sync. 
-            <br>Please choose which version you would like to keep.
-        </p>
-        <div id="conflict-list" style="display:flex; flex-direction:column; gap:15px; max-height:50vh; overflow-y:auto; margin-bottom:20px; padding-right: 5px;">
-            <!-- Conflicts injected here -->
-        </div>
-        <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #333; padding-top:15px;">
-             <button class="action-btn" id="resolve-all-local" style="background:transparent; border:1px solid #555; font-weight:normal;">Keep All Local</button>
-             <button class="action-btn" id="resolve-all-cloud" style="background:transparent; border:1px solid #555; font-weight:normal;">Keep All Cloud</button>
-        </div>
-    </div>
-</div>
-<div id="toast-container"></div>
-<script>
-(function() {
-    const isElectron = !!(window.electronAPI);
-    let serverUrl = '', localDir = '', sessionToken = localStorage.getItem('romstore_token') || '';
-    let currentTab = 'games', rawData = [], activeFilters = new Set(), installedLocalPaths = new Set(), isGrouped = false, isSetupMode = false;
-    let isListView = false, isAutoSync = false;
-    
-    // Sync Manifest: Tracks last known state of files to detect conflicts
-    let syncManifest = {};
-    try { syncManifest = JSON.parse(localStorage.getItem('romstore_sync_manifest') || '{}'); } catch(e) { syncManifest = {}; }
-    function updateManifest(relPath, lTime, sTime) {
-        if (!relPath) return;
-        syncManifest[relPath] = { l: lTime, s: sTime };
-        localStorage.setItem('romstore_sync_manifest', JSON.stringify(syncManifest));
-    }
+    <div id="toast-container"></div>
+    <script>
+        (function () {
+            const isElectron = !!(window.electronAPI);
+            let serverUrl = '', localDir = '', sessionToken = localStorage.getItem('romstore_token') || '';
+            let currentTab = 'games', rawData = [], activeFilters = new Set(), installedLocalPaths = new Set(), isGrouped = false, isSetupMode = false;
+            let isListView = false, isAutoSync = false;
 
-
-    function getApiUrl(endpoint) {
-        if (!isElectron) return endpoint;
-        let base = serverUrl || '';
-        if (base && !base.startsWith('http')) base = 'http://' + base;
-        return base + endpoint;
-    }
-    function getFetchOptions(method, body) {
-        const options = { method: method || 'GET', headers: {}, credentials: 'include' };
-        if (sessionToken) options.headers['X-Session-Token'] = sessionToken;
-        if (body) { options.headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(body); }
-        return options;
-    }
-    function showToast(message, type) {
-        console.log('[Toast]', message);
-        const container = document.getElementById('toast-container');
-        const toast = document.createElement('div');
-        toast.className = 'toast ' + (type || 'info');
-        toast.innerText = message;
-        container.appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
-    }
-    async function scanLocalFiles() {
-        if (isElectron && localDir) {
-            console.log('[Local] Scanning:', localDir);
-            const files = await window.electronAPI.scanLocalEmulation(localDir);
-            installedLocalPaths = new Set(files);
-            console.log('[Local] Found:', installedLocalPaths.size);
-            if (isAutoSync) toggleAutoSync(true); 
-        }
-    }
-    async function checkAuth() {
-        console.log('[Auth] Checking status...');
-        if (isElectron) {
-            document.getElementById('auth-url-group').style.display = 'block';
-            document.getElementById('auth-server-url').value = serverUrl;
-        }
-        if (isElectron && !serverUrl) { document.getElementById('auth-modal').style.display = 'flex'; return; }
-        try {
-            const res = await fetch(getApiUrl('/api/auth/status'), getFetchOptions());
-            const data = await res.json();
-            if (data.needsSetup || !data.authenticated) {
-                isSetupMode = !!data.needsSetup;
-                const titleEl = document.getElementById('auth-title');
-                if (titleEl) titleEl.innerText = isSetupMode ? 'Initial Setup' : 'Login';
-                document.getElementById('auth-modal').style.display = 'flex';
-            } else {
-                document.getElementById('auth-modal').style.display = 'none';
-                loadUIState(); await scanLocalFiles(); loadLibrary();
+            // Sync Manifest: Tracks last known state of files to detect conflicts
+            let syncManifest = {};
+            try { syncManifest = JSON.parse(localStorage.getItem('romstore_sync_manifest') || '{}'); } catch (e) { syncManifest = {}; }
+            function updateManifest(relPath, lTime, sTime) {
+                if (!relPath) return;
+                syncManifest[relPath] = { l: lTime, s: sTime };
+                localStorage.setItem('romstore_sync_manifest', JSON.stringify(syncManifest));
             }
-        } catch (e) { console.error('[Auth] Status check failed', e); document.getElementById('auth-modal').style.display = 'flex'; }
-    }
-    async function handleAuth() {
-        console.log('[Auth] Attempting login...');
-        if (isElectron) {
-            let inputUrl = document.getElementById('auth-server-url').value.trim();
-            if (inputUrl) {
-                if (!inputUrl.startsWith('http')) inputUrl = 'http://' + inputUrl;
-                serverUrl = inputUrl;
-                await window.electronAPI.saveConfig({ serverUrl, localDir });
-            }
-        }
-        const username = document.getElementById('auth-username').value, password = document.getElementById('auth-password').value;
-        if (!username || !password) return showToast('Fields required', 'error');
-        try {
-            const res = await fetch(getApiUrl(isSetupMode ? '/api/auth/setup' : '/api/auth/login'), getFetchOptions('POST', { username, password }));
-            if (res.ok) {
-                const data = await res.json();
-                if (data.token) { sessionToken = data.token; localStorage.setItem('romstore_token', sessionToken); }
-                showToast('Success!', 'success');
-                document.getElementById('auth-modal').style.display = 'none';
-                loadUIState(); await scanLocalFiles(); loadLibrary();
-            } else showToast('Auth failed', 'error');
-        } catch (e) { console.error('[Auth] Error:', e); showToast('Server error', 'error'); }
-    }
-    function saveUIState() { 
-        localStorage.setItem('romstore_ui_state', JSON.stringify({ 
-            currentTab, 
-            activeFilters: Array.from(activeFilters), 
-            isGrouped, 
-            isListView,
-            sortMode: document.getElementById('sort-select').value, 
-            searchVal: document.getElementById('search-filter').value,
-            installedOnly: document.getElementById('installed-only-filter').checked,
-            isAutoSync
-        })); 
-    }
-    function loadUIState() {
-        const saved = localStorage.getItem('romstore_ui_state');
-        if (!saved) return;
-        try {
-            const state = JSON.parse(saved);
-            currentTab = state.currentTab || 'games'; activeFilters = new Set(state.activeFilters || []); isGrouped = !!state.isGrouped;
-            isListView = !!state.isListView;
-            isAutoSync = !!state.isAutoSync;
-            document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
-            const tb = document.getElementById('tab-' + currentTab); if (tb) tb.classList.add('active');
-            document.getElementById('sort-select').value = state.sortMode || 'name_asc';
-            document.getElementById('search-filter').value = state.searchVal || '';
-            document.getElementById('installed-only-filter').checked = !!state.installedOnly;
-            document.getElementById('group-toggle').classList.toggle('active', isGrouped);
-            document.getElementById('view-toggle').classList.toggle('active', isListView);
-            document.getElementById('auto-sync-check').checked = isAutoSync;
-            if(isAutoSync) toggleAutoSync(true);
-        } catch (e) {}
-    }
-    function toggleAutoSync(enable) {
-        if (!isElectron) return;
-        if (enable) {
-            const savesDir = localDir ? localDir + '/saves' : null;
-            if (savesDir) {
-                window.electronAPI.startSaveWatcher(savesDir);
-                syncSaves(); // Trigger initial pull
-            }
-        } else {
-            window.electronAPI.stopSaveWatcher();
-        }
-    }
-    
-    async function uploadSaveDirect(relPath) {
-        const fullPath = `${localDir}/saves/${relPath}`;
-        const res = await window.electronAPI.uploadSave(fullPath, relPath, sessionToken);
-        if (res && res.success) {
-            // Update manifest after successful upload
-            const files = await window.electronAPI.scanDirStat(localDir + '/saves');
-            const f = files.find(x => x.relPath === relPath);
-            if (f) {
-                const t = new Date(f.mtime).getTime();
-                updateManifest(relPath, t, t); 
-            }
-            return true;
-        }
-        return false;
-    }
 
-    async function downloadSaveDirect(relPath) {
-        const dest = `${localDir}/saves/${relPath}`.split('\\').join('/');
-        const url = getApiUrl(`/api/download?type=saves&path=${encodeURIComponent(relPath)}`);
-        try {
-            if (await window.electronAPI.checkLocalFile(dest)) {
-                await window.electronAPI.backupLocalFile(dest);
+
+            function getApiUrl(endpoint) {
+                if (!isElectron) return endpoint;
+                let base = serverUrl || '';
+                if (base && !base.startsWith('http')) base = 'http://' + base;
+                return base + endpoint;
             }
-            await window.electronAPI.downloadFile(url, dest, sessionToken, relPath);
-            
-            // Update manifest after successful download
-            // We need the server's mtime (or assume it's now synced). 
-            // Better to re-scan local to get the exact mtime written to disk.
-            const files = await window.electronAPI.scanDirStat(localDir + '/saves');
-            const f = files.find(x => x.relPath === relPath);
-            if (f) {
-                const t = new Date(f.mtime).getTime();
-                updateManifest(relPath, t, t);
+            function getFetchOptions(method, body) {
+                const options = { method: method || 'GET', headers: {}, credentials: 'include' };
+                if (sessionToken) options.headers['X-Session-Token'] = sessionToken;
+                if (body) { options.headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(body); }
+                return options;
             }
-        } catch (e) { console.error('Download failed', e); }
-    }
-
-    async function syncSaves() {
-        if (!isElectron || !localDir) return;
-        console.log('[Sync] Starting conflict-aware sync...');
-        showToast('Checking for cloud saves...', 'info');
-        
-        try {
-            const res = await fetch(getApiUrl('/api/saves'), getFetchOptions());
-            if (!res.ok) throw new Error('Failed to fetch server saves');
-            const serverSaves = await res.json();
-            const localSaves = await window.electronAPI.scanDirStat(localDir + '/saves');
-            
-            const serverMap = new Map();
-            serverSaves.forEach(s => serverMap.set(s.relPath, new Date(s.mtime).getTime()));
-            
-            const localMap = new Map();
-            localSaves.forEach(l => localMap.set(l.relPath, new Date(l.mtime).getTime()));
-
-            const allPaths = new Set([...serverMap.keys(), ...localMap.keys()]);
-            const conflicts = [];
-            let dlCount = 0, ulCount = 0;
-
-            for (const path of allPaths) {
-                const sTime = serverMap.get(path);
-                const lTime = localMap.get(path);
-                const manifest = syncManifest[path]; 
-
-                // 1. New on Server (Missing Local) -> Download
-                if (lTime === undefined && sTime !== undefined) {
-                    if (!manifest || !manifest.l) { // If never seen locally, download
-                         console.log('[Sync] New on server:', path);
-                         await downloadSaveDirect(path); dlCount++;
+            function showToast(message, type) {
+                console.log('[Toast]', message);
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = 'toast ' + (type || 'info');
+                toast.innerText = message;
+                container.appendChild(toast);
+                setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+            }
+            async function scanLocalFiles() {
+                if (isElectron && localDir) {
+                    console.log('[Local] Scanning:', localDir);
+                    const files = await window.electronAPI.scanLocalEmulation(localDir);
+                    installedLocalPaths = new Set(files);
+                    console.log('[Local] Found:', installedLocalPaths.size);
+                    if (isAutoSync) toggleAutoSync(true);
+                }
+            }
+            async function checkAuth() {
+                console.log('[Auth] Checking status...');
+                if (isElectron) {
+                    document.getElementById('auth-url-group').style.display = 'block';
+                    document.getElementById('auth-server-url').value = serverUrl;
+                }
+                if (isElectron && !serverUrl) { document.getElementById('auth-modal').style.display = 'flex'; return; }
+                try {
+                    const res = await fetch(getApiUrl('/api/auth/status'), getFetchOptions());
+                    const data = await res.json();
+                    if (data.needsSetup || !data.authenticated) {
+                        isSetupMode = !!data.needsSetup;
+                        const titleEl = document.getElementById('auth-title');
+                        if (titleEl) titleEl.innerText = isSetupMode ? 'Initial Setup' : 'Login';
+                        document.getElementById('auth-modal').style.display = 'flex';
                     } else {
-                         // Was deleted locally? If manifest says we had it.
-                         // For now, re-download to be safe, or ignore? 
-                         // Steam usually re-downloads unless you explicitly deleted it.
-                         await downloadSaveDirect(path); dlCount++;
+                        document.getElementById('auth-modal').style.display = 'none';
+                        if (data.user && data.user.username) {
+                            document.getElementById('lib-mode').innerText = data.user.username;
+                        }
+                        loadUIState(); await scanLocalFiles(); loadLibrary();
                     }
-                    continue;
-                }
-
-                // 2. New on Local (Missing Server) -> Upload
-                if (sTime === undefined && lTime !== undefined) {
-                    if (!manifest || !manifest.s) {
-                        console.log('[Sync] New on local:', path);
-                        await uploadSaveDirect(path); ulCount++;
+                } catch (e) { console.error('[Auth] Status check failed', e); document.getElementById('auth-modal').style.display = 'flex'; }
+            }
+            async function handleAuth() {
+                console.log('[Auth] Attempting login...');
+                if (isElectron) {
+                    let inputUrl = document.getElementById('auth-server-url').value.trim();
+                    if (inputUrl) {
+                        if (!inputUrl.startsWith('http')) inputUrl = 'http://' + inputUrl;
+                        serverUrl = inputUrl;
+                        await window.electronAPI.saveConfig({ serverUrl, localDir });
                     }
-                    // If it was on server (manifest.s exists) but is gone now?
-                    // Re-upload.
-                    continue;
                 }
+                const username = document.getElementById('auth-username').value, password = document.getElementById('auth-password').value;
+                if (!username || !password) return showToast('Fields required', 'error');
+                try {
+                    const res = await fetch(getApiUrl(isSetupMode ? '/api/auth/setup' : '/api/auth/login'), getFetchOptions('POST', { username, password }));
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.token) {
+                            sessionToken = data.token;
+                            const remember = document.getElementById('auth-remember').checked;
+                            if (remember) {
+                                localStorage.setItem('romstore_token', sessionToken);
+                            } else {
+                                localStorage.removeItem('romstore_token');
+                            }
+                        }
+                        document.getElementById('lib-mode').innerText = username;
+                        showToast('Success!', 'success');
+                        document.getElementById('auth-modal').style.display = 'none';
+                        loadUIState(); await scanLocalFiles(); loadLibrary();
+                    } else showToast('Auth failed', 'error');
+                } catch (e) { console.error('[Auth] Error:', e); showToast('Server error', 'error'); }
+            }
+            function saveUIState() {
+                localStorage.setItem('romstore_ui_state', JSON.stringify({
+                    currentTab,
+                    activeFilters: Array.from(activeFilters),
+                    isGrouped,
+                    isListView,
+                    sortMode: document.getElementById('sort-select').value,
+                    searchVal: document.getElementById('search-filter').value,
+                    installedOnly: document.getElementById('installed-only-filter').checked,
+                    isAutoSync
+                }));
+            }
+            function loadUIState() {
+                const saved = localStorage.getItem('romstore_ui_state');
+                if (!saved) return;
+                try {
+                    const state = JSON.parse(saved);
+                    currentTab = state.currentTab || 'games'; activeFilters = new Set(state.activeFilters || []); isGrouped = !!state.isGrouped;
+                    isListView = !!state.isListView;
+                    isAutoSync = !!state.isAutoSync;
+                    document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+                    const tb = document.getElementById('tab-' + currentTab); if (tb) tb.classList.add('active');
+                    document.getElementById('sort-select').value = state.sortMode || 'name_asc';
+                    document.getElementById('search-filter').value = state.searchVal || '';
+                    document.getElementById('installed-only-filter').checked = !!state.installedOnly;
+                    document.getElementById('group-toggle').classList.toggle('active', isGrouped);
+                    document.getElementById('view-toggle').classList.toggle('active', isListView);
+                    document.getElementById('auto-sync-check').checked = isAutoSync;
+                    if (isAutoSync) toggleAutoSync(true);
+                } catch (e) { }
+            }
+            function toggleAutoSync(enable) {
+                if (!isElectron) return;
+                if (enable) {
+                    const savesDir = localDir ? localDir + '/saves' : null;
+                    if (savesDir) {
+                        window.electronAPI.startSaveWatcher(savesDir);
+                        syncSaves(); // Trigger initial pull
+                    }
+                } else {
+                    window.electronAPI.stopSaveWatcher();
+                }
+            }
 
-                // 3. Exists on Both -> Check Changes
-                const lastL = manifest ? manifest.l : 0;
-                const lastS = manifest ? manifest.s : 0;
-                
-                // Allow 2s variance
-                const localChanged = lTime !== undefined && Math.abs(lTime - lastL) > 2000;
-                const serverChanged = sTime !== undefined && Math.abs(sTime - lastS) > 2000;
-                
-                // No Manifest (First Run)
-                if (!manifest) {
-                    if (Math.abs(lTime - sTime) > 2000) {
-                        conflicts.push({ path, lTime, sTime });
+            async function uploadSaveDirect(relPath) {
+                const fullPath = `${localDir}/saves/${relPath}`;
+                const res = await window.electronAPI.uploadSave(fullPath, relPath, sessionToken);
+                if (res && res.success) {
+                    // Update manifest after successful upload
+                    const files = await window.electronAPI.scanDirStat(localDir + '/saves');
+                    const f = files.find(x => x.relPath === relPath);
+                    if (f) {
+                        const t = new Date(f.mtime).getTime();
+                        updateManifest(relPath, t, t);
+                    }
+                    return true;
+                }
+                return false;
+            }
+
+            async function downloadSaveDirect(relPath) {
+                const dest = `${localDir}/saves/${relPath}`.split('\\').join('/');
+                const url = getApiUrl(`/api/download?type=saves&path=${encodeURIComponent(relPath)}`);
+                try {
+                    if (await window.electronAPI.checkLocalFile(dest)) {
+                        await window.electronAPI.backupLocalFile(dest);
+                    }
+                    await window.electronAPI.downloadFile(url, dest, sessionToken, relPath);
+
+                    // Update manifest after successful download
+                    // We need the server's mtime (or assume it's now synced). 
+                    // Better to re-scan local to get the exact mtime written to disk.
+                    const files = await window.electronAPI.scanDirStat(localDir + '/saves');
+                    const f = files.find(x => x.relPath === relPath);
+                    if (f) {
+                        const t = new Date(f.mtime).getTime();
+                        updateManifest(relPath, t, t);
+                    }
+                } catch (e) { console.error('Download failed', e); }
+            }
+
+            async function syncSaves() {
+                if (!isElectron || !localDir) return;
+                console.log('[Sync] Starting conflict-aware sync...');
+                showToast('Checking for cloud saves...', 'info');
+
+                try {
+                    const res = await fetch(getApiUrl('/api/saves'), getFetchOptions());
+                    if (!res.ok) throw new Error('Failed to fetch server saves');
+                    const serverSaves = await res.json();
+                    const localSaves = await window.electronAPI.scanDirStat(localDir + '/saves');
+
+                    const serverMap = new Map();
+                    serverSaves.forEach(s => serverMap.set(s.relPath, new Date(s.mtime).getTime()));
+
+                    const localMap = new Map();
+                    localSaves.forEach(l => localMap.set(l.relPath, new Date(l.mtime).getTime()));
+
+                    const allPaths = new Set([...serverMap.keys(), ...localMap.keys()]);
+                    const conflicts = [];
+                    let dlCount = 0, ulCount = 0;
+
+                    for (const path of allPaths) {
+                        const sTime = serverMap.get(path);
+                        const lTime = localMap.get(path);
+                        const manifest = syncManifest[path];
+
+                        // 1. New on Server (Missing Local) -> Download
+                        if (lTime === undefined && sTime !== undefined) {
+                            if (!manifest || !manifest.l) { // If never seen locally, download
+                                console.log('[Sync] New on server:', path);
+                                await downloadSaveDirect(path); dlCount++;
+                            } else {
+                                // Was deleted locally? If manifest says we had it.
+                                // For now, re-download to be safe, or ignore? 
+                                // Steam usually re-downloads unless you explicitly deleted it.
+                                await downloadSaveDirect(path); dlCount++;
+                            }
+                            continue;
+                        }
+
+                        // 2. New on Local (Missing Server) -> Upload
+                        if (sTime === undefined && lTime !== undefined) {
+                            if (!manifest || !manifest.s) {
+                                console.log('[Sync] New on local:', path);
+                                await uploadSaveDirect(path); ulCount++;
+                            }
+                            // If it was on server (manifest.s exists) but is gone now?
+                            // Re-upload.
+                            continue;
+                        }
+
+                        // 3. Exists on Both -> Check Changes
+                        const lastL = manifest ? manifest.l : 0;
+                        const lastS = manifest ? manifest.s : 0;
+
+                        // Allow 2s variance
+                        const localChanged = lTime !== undefined && Math.abs(lTime - lastL) > 2000;
+                        const serverChanged = sTime !== undefined && Math.abs(sTime - lastS) > 2000;
+
+                        // No Manifest (First Run)
+                        if (!manifest) {
+                            if (Math.abs(lTime - sTime) > 2000) {
+                                conflicts.push({ path, lTime, sTime });
+                            } else {
+                                updateManifest(path, lTime, sTime); // Assumed synced
+                            }
+                            continue;
+                        }
+
+                        if (localChanged && serverChanged) {
+                            conflicts.push({ path, lTime, sTime });
+                        } else if (localChanged) {
+                            console.log('[Sync] Local changed:', path);
+                            await uploadSaveDirect(path); ulCount++;
+                        } else if (serverChanged) {
+                            console.log('[Sync] Server changed:', path);
+                            await downloadSaveDirect(path); dlCount++;
+                        }
+                    }
+
+                    if (conflicts.length > 0) {
+                        showConflictModal(conflicts);
+                    } else if (dlCount > 0 || ulCount > 0) {
+                        showToast(`Sync: ${dlCount} ↓, ${ulCount} ↑`, 'success');
                     } else {
-                        updateManifest(path, lTime, sTime); // Assumed synced
+                        console.log('[Sync] Up to date');
+                        showToast('Saves are up to date', 'info');
                     }
-                    continue;
-                }
 
-                if (localChanged && serverChanged) {
-                    conflicts.push({ path, lTime, sTime });
-                } else if (localChanged) {
-                    console.log('[Sync] Local changed:', path);
-                    await uploadSaveDirect(path); ulCount++;
-                } else if (serverChanged) {
-                    console.log('[Sync] Server changed:', path);
-                    await downloadSaveDirect(path); dlCount++;
+                } catch (e) {
+                    console.error('[Sync] Error:', e);
+                    showToast('Sync check failed', 'error');
                 }
             }
 
-            if (conflicts.length > 0) {
-                showConflictModal(conflicts);
-            } else if (dlCount > 0 || ulCount > 0) {
-                showToast(`Sync: ${dlCount} ↓, ${ulCount} ↑`, 'success');
-            } else {
-                console.log('[Sync] Up to date');
-                showToast('Saves are up to date', 'info');
-            }
-            
-        } catch (e) {
-            console.error('[Sync] Error:', e);
-            showToast('Sync check failed', 'error');
-        }
-    }
+            function showConflictModal(conflicts) {
+                const modal = document.getElementById('conflict-modal');
+                const list = document.getElementById('conflict-list');
+                list.innerHTML = '';
 
-    function showConflictModal(conflicts) {
-        const modal = document.getElementById('conflict-modal');
-        const list = document.getElementById('conflict-list');
-        list.innerHTML = '';
-        
-        conflicts.forEach(c => {
-            const item = document.createElement('div');
-            item.className = 'conflict-item';
-            
-            const lDate = new Date(c.lTime);
-            const sDate = new Date(c.sTime);
-            const lNewer = c.lTime > c.sTime;
-            
-            item.innerHTML = `
+                conflicts.forEach(c => {
+                    const item = document.createElement('div');
+                    item.className = 'conflict-item';
+
+                    const lDate = new Date(c.lTime);
+                    const sDate = new Date(c.sTime);
+                    const lNewer = c.lTime > c.sTime;
+
+                    item.innerHTML = `
                 <div class="conflict-title">${c.path}</div>
                 <div class="conflict-compare">
                     <div class="conflict-side local">
@@ -469,76 +993,76 @@
                     <button class="action-btn-small" style="background:#555" onclick="resolveConflict('${c.path}', 'cloud')">Keep Cloud</button>
                 </div>
             `;
-            list.appendChild(item);
-        });
+                    list.appendChild(item);
+                });
 
-        document.getElementById('resolve-all-local').onclick = () => resolveAll(conflicts, 'local');
-        document.getElementById('resolve-all-cloud').onclick = () => resolveAll(conflicts, 'cloud');
-        
-        modal.style.display = 'flex';
-    }
+                document.getElementById('resolve-all-local').onclick = () => resolveAll(conflicts, 'local');
+                document.getElementById('resolve-all-cloud').onclick = () => resolveAll(conflicts, 'cloud');
 
-    window.resolveConflict = async (path, choice) => {
-        const item = document.querySelector(`.conflict-item:has(.conflict-title)`); // messy selector, better to rebuild list
-        // Actually, just perform action and remove from DOM or refresh
-        document.getElementById('conflict-modal').style.display = 'none'; // Close for now, or refresh
-        showToast(`Resolving ${path}...`, 'info');
-        
-        if (choice === 'local') await uploadSaveDirect(path);
-        else await downloadSaveDirect(path);
-        
-        // Re-run sync to check remaining or verify
-        setTimeout(syncSaves, 500);
-    };
+                modal.style.display = 'flex';
+            }
 
-    window.resolveAll = async (conflicts, choice) => {
-        document.getElementById('conflict-modal').style.display = 'none';
-        showToast(`Resolving all ${conflicts.length} conflicts...`, 'info');
-        for (const c of conflicts) {
-            if (choice === 'local') await uploadSaveDirect(c.path);
-            else await downloadSaveDirect(c.path);
-        }
-        showToast('All conflicts resolved', 'success');
-    };
+            window.resolveConflict = async (path, choice) => {
+                const item = document.querySelector(`.conflict-item:has(.conflict-title)`); // messy selector, better to rebuild list
+                // Actually, just perform action and remove from DOM or refresh
+                document.getElementById('conflict-modal').style.display = 'none'; // Close for now, or refresh
+                showToast(`Resolving ${path}...`, 'info');
+
+                if (choice === 'local') await uploadSaveDirect(path);
+                else await downloadSaveDirect(path);
+
+                // Re-run sync to check remaining or verify
+                setTimeout(syncSaves, 500);
+            };
+
+            window.resolveAll = async (conflicts, choice) => {
+                document.getElementById('conflict-modal').style.display = 'none';
+                showToast(`Resolving all ${conflicts.length} conflicts...`, 'info');
+                for (const c of conflicts) {
+                    if (choice === 'local') await uploadSaveDirect(c.path);
+                    else await downloadSaveDirect(c.path);
+                }
+                showToast('All conflicts resolved', 'success');
+            };
 
 
-    async function loadLibrary() {
-        console.log('[Library] Loading', currentTab);
-        const content = document.getElementById('main-content'); content.innerHTML = 'Scanning...';
-        try {
-            const res = await fetch(getApiUrl('/api/' + currentTab), getFetchOptions());
-            if (res.status === 401) return checkAuth();
-            const data = await res.json();
-            rawData = data.map(item => { if (!item.system) item.system = item.relPath.split('/')[0] || 'Unknown'; return item; });
-            renderFilters(); await renderContent();
-        } catch (err) { console.error('[Library] Load failed', err); content.innerHTML = '<div style="color:red">Error: ' + err.message + '</div>'; }
-    }
-    async function getAuthImg(path) {
-        try {
-            const res = await fetch(getApiUrl('/api/artwork?path=' + encodeURIComponent(path)), getFetchOptions());
-            if (!res.ok) return null;
-            return URL.createObjectURL(await res.blob());
-        } catch (e) { return null; }
-    }
-    async function createCard(item) {
-        const card = document.createElement('div');
-        const typePrefix = currentTab === 'installed' ? (item._type + '/') : (currentTab === 'games' ? 'roms/' : currentTab + '/');
-        const isLocal = installedLocalPaths.has(typePrefix + item.relPath);
-        card.className = 'game-card';
-        card.dataset.relPath = item.relPath; 
-        let imgUrl = null; if (item.artworkPath) imgUrl = await getAuthImg(item.artworkPath);
-        const title = (currentTab === 'saves' && item.gameTitle) ? item.gameTitle : item.name;
-        
-        let actionBtn = `<button class="action-btn-small dl-btn">Download</button>`;
-        if (isLocal) {
-            actionBtn = `<button class="action-btn-small uninstall-btn" style="background-color: #f44336; color: white;">Uninstall</button>`;
-        }
-        let versionsBtn = '';
-        if (currentTab === 'saves' || item._type === 'saves') {
-            versionsBtn = `<button class="action-btn-small versions-btn" style="background:#555; margin-top:5px;">History</button>`;
-        }
+            async function loadLibrary() {
+                console.log('[Library] Loading', currentTab);
+                const content = document.getElementById('main-content'); content.innerHTML = 'Scanning...';
+                try {
+                    const res = await fetch(getApiUrl('/api/' + currentTab), getFetchOptions());
+                    if (res.status === 401) return checkAuth();
+                    const data = await res.json();
+                    rawData = data.map(item => { if (!item.system) item.system = item.relPath.split('/')[0] || 'Unknown'; return item; });
+                    renderFilters(); await renderContent();
+                } catch (err) { console.error('[Library] Load failed', err); content.innerHTML = '<div style="color:red">Error: ' + err.message + '</div>'; }
+            }
+            async function getAuthImg(path) {
+                try {
+                    const res = await fetch(getApiUrl('/api/artwork?path=' + encodeURIComponent(path)), getFetchOptions());
+                    if (!res.ok) return null;
+                    return URL.createObjectURL(await res.blob());
+                } catch (e) { return null; }
+            }
+            async function createCard(item) {
+                const card = document.createElement('div');
+                const typePrefix = currentTab === 'installed' ? (item._type + '/') : (currentTab === 'games' ? 'roms/' : currentTab + '/');
+                const isLocal = installedLocalPaths.has(typePrefix + item.relPath);
+                card.className = 'game-card';
+                card.dataset.relPath = item.relPath;
+                let imgUrl = null; if (item.artworkPath) imgUrl = await getAuthImg(item.artworkPath);
+                const title = (currentTab === 'saves' && item.gameTitle) ? item.gameTitle : item.name;
 
-        card.innerHTML = `
+                let actionBtn = `<button class="action-btn-small dl-btn">Download</button>`;
+                if (isLocal) {
+                    actionBtn = `<button class="action-btn-small uninstall-btn" style="background-color: #f44336; color: white;">Uninstall</button>`;
+                }
+                let versionsBtn = '';
+                if (currentTab === 'saves' || item._type === 'saves') {
+                    versionsBtn = `<button class="action-btn-small versions-btn" style="background:#555; margin-top:5px;">History</button>`;
+                }
+
+                card.innerHTML = `
             <div class="art-wrapper">
                 ${imgUrl ? `<img src="${imgUrl}" class="game-art">` : `<div class="icon-placeholder">${currentTab === 'saves' ? '💾' : '💿'}</div>`}
                 <div class="card-overlay">
@@ -550,34 +1074,34 @@
             </div>
             <div class="progress-container"><div class="progress-bar"></div></div>
             <div class="game-title-below">${title}</div>`;
-        card.onclick = e => { if (e.target.tagName !== 'BUTTON') card.classList.toggle('active'); };
-        if (isLocal) {
-            card.querySelector('.uninstall-btn').onclick = e => { e.stopPropagation(); uninstallGame(item); };
-        } else {
-            card.querySelector('.dl-btn').onclick = e => { e.stopPropagation(); startDownload(item); };
-        }
-        if (versionsBtn) card.querySelector('.versions-btn').onclick = e => { e.stopPropagation(); showVersions(item); };
-        return card;
-    }
-    async function createRow(item) {
-        const row = document.createElement('div');
-        const typePrefix = currentTab === 'installed' ? (item._type + '/') : (currentTab === 'games' ? 'roms/' : currentTab + '/');
-        const isLocal = installedLocalPaths.has(typePrefix + item.relPath);
-        row.className = 'game-row';
-        row.dataset.relPath = item.relPath;
-        let imgUrl = null; if (item.artworkPath) imgUrl = await getAuthImg(item.artworkPath);
-        const title = (currentTab === 'saves' && item.gameTitle) ? item.gameTitle : item.name;
-        
-        let actionBtn = `<button class="action-btn-small dl-btn">Download</button>`;
-        if (isLocal) {
-            actionBtn = `<button class="action-btn-small uninstall-btn" style="background-color: #f44336; color: white;">Uninstall</button>`;
-        }
-        let versionsBtn = '';
-        if (currentTab === 'saves' || item._type === 'saves') {
-            versionsBtn = `<button class="action-btn-small versions-btn" style="background:#555; margin-left:10px;">History</button>`;
-        }
+                card.onclick = e => { if (e.target.tagName !== 'BUTTON') card.classList.toggle('active'); };
+                if (isLocal) {
+                    card.querySelector('.uninstall-btn').onclick = e => { e.stopPropagation(); uninstallGame(item); };
+                } else {
+                    card.querySelector('.dl-btn').onclick = e => { e.stopPropagation(); startDownload(item); };
+                }
+                if (versionsBtn) card.querySelector('.versions-btn').onclick = e => { e.stopPropagation(); showVersions(item); };
+                return card;
+            }
+            async function createRow(item) {
+                const row = document.createElement('div');
+                const typePrefix = currentTab === 'installed' ? (item._type + '/') : (currentTab === 'games' ? 'roms/' : currentTab + '/');
+                const isLocal = installedLocalPaths.has(typePrefix + item.relPath);
+                row.className = 'game-row';
+                row.dataset.relPath = item.relPath;
+                let imgUrl = null; if (item.artworkPath) imgUrl = await getAuthImg(item.artworkPath);
+                const title = (currentTab === 'saves' && item.gameTitle) ? item.gameTitle : item.name;
 
-        row.innerHTML = `
+                let actionBtn = `<button class="action-btn-small dl-btn">Download</button>`;
+                if (isLocal) {
+                    actionBtn = `<button class="action-btn-small uninstall-btn" style="background-color: #f44336; color: white;">Uninstall</button>`;
+                }
+                let versionsBtn = '';
+                if (currentTab === 'saves' || item._type === 'saves') {
+                    versionsBtn = `<button class="action-btn-small versions-btn" style="background:#555; margin-left:10px;">History</button>`;
+                }
+
+                row.innerHTML = `
             ${imgUrl ? `<img src="${imgUrl}" class="row-thumb">` : `<div class="row-thumb" style="display:flex;align-items:center;justify-content:center;font-size:24px;">💿</div>`}
             <div class="row-info">
                 <div class="row-title">${title}</div>
@@ -589,202 +1113,203 @@
                 ${actionBtn}
                 ${versionsBtn}
             </div>`;
-        row.onclick = e => { if (e.target.tagName !== 'BUTTON') row.classList.toggle('active'); };
-        if (isLocal) {
-            row.querySelector('.uninstall-btn').onclick = e => { e.stopPropagation(); uninstallGame(item); };
-        } else {
-            row.querySelector('.dl-btn').onclick = e => { e.stopPropagation(); startDownload(item); };
-        }
-        if (versionsBtn) row.querySelector('.versions-btn').onclick = e => { e.stopPropagation(); showVersions(item); };
-        return row;
-    }
-    async function uninstallGame(item) {
-        if (!confirm('Are you sure you want to uninstall ' + item.name + '?')) return;
-        const type = currentTab === 'installed' ? item._type : (currentTab === 'games' ? 'roms' : currentTab);
-        const dest = localDir ? `${localDir}/${type}/${item.relPath}`.split('\\').join('/') : null;
-        if (isElectron && dest) {
-            const success = await window.electronAPI.deleteFile(dest);
-            if (success) {
-                showToast('Uninstalled', 'success');
-                await scanLocalFiles();
-                await renderContent();
-            } else {
-                showToast('Uninstall failed', 'error');
+                row.onclick = e => { if (e.target.tagName !== 'BUTTON') row.classList.toggle('active'); };
+                if (isLocal) {
+                    row.querySelector('.uninstall-btn').onclick = e => { e.stopPropagation(); uninstallGame(item); };
+                } else {
+                    row.querySelector('.dl-btn').onclick = e => { e.stopPropagation(); startDownload(item); };
+                }
+                if (versionsBtn) row.querySelector('.versions-btn').onclick = e => { e.stopPropagation(); showVersions(item); };
+                return row;
             }
-        }
-    }
-    async function startDownload(item, version = null) {
-        const type = currentTab === 'installed' ? item._type : (currentTab === 'games' ? 'roms' : currentTab);
-        const dest = localDir ? `${localDir}/${type}/${item.relPath}`.split('\\').join('/') : null;
-        if (isElectron && !dest) return showToast('Set local directory in Settings', 'error');
-        
-        if (isElectron && version) {
-             // Backup before version restore
-             await window.electronAPI.backupLocalFile(dest);
-             showToast('Local backup created', 'info');
-        }
-
-        showToast('Downloading...', 'info');
-        try {
-            const url = getApiUrl(`/api/download?type=${type}&path=${encodeURIComponent(item.relPath)}`);
-            if (isElectron) {
-                await window.electronAPI.downloadFile(url, dest, sessionToken, item.relPath);
-                showToast('Done!', 'success'); await scanLocalFiles(); await renderContent();
-            } else { window.open(url, '_blank'); }
-        } catch (e) { showToast('Download failed', 'error'); }
-    }
-    async function showVersions(item) {
-        document.getElementById('versions-modal').style.display = 'flex';
-        const list = document.getElementById('versions-list');
-        list.innerHTML = 'Loading versions...';
-        try {
-            const res = await fetch(getApiUrl(`/api/saves/versions?relPath=${encodeURIComponent(item.relPath)}`), getFetchOptions());
-            const versions = await res.json();
-            if (versions.length === 0) { list.innerHTML = 'No history available.'; return; }
-            list.innerHTML = '';
-            versions.forEach(v => {
-                const row = document.createElement('div'); row.className = 'version-row';
-                const date = new Date(v.time).toLocaleString();
-                row.innerHTML = `<div class="version-info"><div>${date}</div><div style="font-size:0.8em">${v.name}</div></div>
-                                 <button class="action-btn-small restore-btn">Restore</button>`;
-                row.querySelector('.restore-btn').onclick = () => restoreVersion(item, v.name);
-                list.appendChild(row);
-            });
-        } catch (e) { list.innerHTML = 'Error loading versions.'; }
-    }
-    async function restoreVersion(item, versionName) {
-        if (!confirm('Restore this version? Current server version will be backed up.')) return;
-        try {
-            // 1. Tell server to make this version current
-            const res = await fetch(getApiUrl('/api/saves/restore'), getFetchOptions('POST', { relPath: item.relPath, versionName }));
-            if (!res.ok) throw new Error('Server restore failed');
-            // 2. Download the new current version
-            await startDownload(item, versionName); 
-            document.getElementById('versions-modal').style.display = 'none';
-        } catch (e) { showToast('Restore failed', 'error'); }
-    }
-    function renderFilters() {
-        const c = document.getElementById('filter-container'); if (!c) return; c.innerHTML = '';
-        const sys = Array.from(new Set(rawData.map(i => i.system))).sort();
-        const chip = (txt, active, onClick) => { const d = document.createElement('div'); d.className = 'filter-chip ' + (active ? 'active' : ''); d.innerText = txt; d.onclick = onClick; c.appendChild(d); };
-        chip('All Systems', activeFilters.size === 0, () => { activeFilters.clear(); renderFilters(); renderContent(); });
-        sys.forEach(s => chip(s, activeFilters.has(s), () => { if (activeFilters.has(s)) activeFilters.delete(s); else activeFilters.add(s); renderFilters(); renderContent(); }));
-    }
-    async function renderContent() {
-        const c = document.getElementById('main-content'); c.innerHTML = '';
-        let filtered = [...rawData];
-        if (activeFilters.size > 0) filtered = filtered.filter(i => activeFilters.has(i.system));
-        
-        if (document.getElementById('installed-only-filter').checked) {
-             filtered = filtered.filter(item => {
-                 const typePrefix = currentTab === 'installed' ? (item._type + '/') : (currentTab === 'games' ? 'roms/' : currentTab + '/');
-                 return installedLocalPaths.has(typePrefix + item.relPath);
-             });
-        }
-
-        const search = document.getElementById('search-filter').value.toLowerCase();
-        if (search) filtered = filtered.filter(i => (i.gameTitle || i.name).toLowerCase().includes(search));
-        
-        // Sorting Logic
-        const sortMode = document.getElementById('sort-select').value;
-        filtered.sort((a, b) => {
-            if (sortMode === 'name_asc') return (a.gameTitle || a.name).localeCompare(b.gameTitle || b.name);
-            if (sortMode === 'name_desc') return (b.gameTitle || b.name).localeCompare(a.gameTitle || a.name);
-            if (sortMode === 'date_new') return new Date(b.mtime) - new Date(a.mtime);
-            if (sortMode === 'date_old') return new Date(a.mtime) - new Date(b.mtime);
-            return 0;
-        });
-
-        if (filtered.length === 0) { c.innerHTML = '<div style="text-align:center; padding:20px;">No items found</div>'; return; }
-        
-        const renderGroup = async (items) => {
-            const container = document.createElement('div');
-            container.className = isListView ? 'library-list' : 'library-grid';
-            const elements = await Promise.all(items.map(isListView ? createRow : createCard));
-            elements.forEach(el => container.appendChild(el));
-            return container;
-        };
-
-        if (isGrouped) {
-            const groups = {};
-            filtered.forEach(item => {
-                if (!groups[item.system]) groups[item.system] = [];
-                groups[item.system].push(item);
-            });
-            const systems = Object.keys(groups).sort();
-            for (const system of systems) {
-                const header = document.createElement('div');
-                header.className = 'section-header';
-                header.innerText = system;
-                c.appendChild(header);
-                c.appendChild(await renderGroup(groups[system]));
-            }
-        } else {
-            c.appendChild(await renderGroup(filtered));
-        }
-    }
-    function changeTab(t) { currentTab = t; document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.id === 'tab-'+t)); activeFilters.clear(); document.getElementById('search-filter').value = ''; saveUIState(); loadLibrary(); }
-
-    document.addEventListener('DOMContentLoaded', async () => {
-        document.getElementById('logout-btn').onclick = () => { localStorage.removeItem('romstore_token'); sessionToken = ''; location.reload(); };
-        document.getElementById('handle-auth-btn').onclick = handleAuth;
-        document.getElementById('open-settings-btn').onclick = () => { document.getElementById('settings-modal').style.display = 'flex'; };
-        document.getElementById('close-settings-btn').onclick = () => { document.getElementById('settings-modal').style.display = 'none'; };
-        document.getElementById('close-versions-btn').onclick = () => { document.getElementById('versions-modal').style.display = 'none'; };
-        document.getElementById('settings-modal').onclick = (e) => { if(e.target === document.getElementById('settings-modal')) document.getElementById('settings-modal').style.display = 'none'; };
-        document.getElementById('versions-modal').onclick = (e) => { if(e.target === document.getElementById('versions-modal')) document.getElementById('versions-modal').style.display = 'none'; };
-        document.getElementById('conflict-modal').onclick = (e) => { if(e.target === document.getElementById('conflict-modal')) document.getElementById('conflict-modal').style.display = 'none'; };
-        document.getElementById('tab-games').onclick = () => { changeTab('games'); };
-        document.getElementById('tab-bios').onclick = () => { changeTab('bios'); };
-        document.getElementById('search-filter').oninput = () => { saveUIState(); renderContent(); };
-        document.getElementById('sort-select').onchange = () => { saveUIState(); renderContent(); };
-        document.getElementById('installed-only-filter').onchange = () => { saveUIState(); renderContent(); };
-        document.getElementById('group-toggle').onclick = function() { isGrouped = !isGrouped; this.classList.toggle('active', isGrouped); saveUIState(); renderContent(); };
-        document.getElementById('view-toggle').onclick = function() { isListView = !isListView; this.classList.toggle('active', isListView); saveUIState(); renderContent(); };
-        
-        const autoSyncCheck = document.getElementById('auto-sync-check');
-        autoSyncCheck.onchange = () => {
-             isAutoSync = autoSyncCheck.checked;
-             toggleAutoSync(isAutoSync);
-             saveUIState();
-        };
-
-        if (isElectron) {
-            document.getElementById('client-settings-area').style.display = 'block';
-            document.getElementById('select-local-dir-btn').onclick = async () => {
-                const p = await window.electronAPI.selectDir(); 
-                if (p) { localDir = p; document.getElementById('client-local-dir').value = p; await window.electronAPI.saveConfig({ serverUrl, localDir }); await scanLocalFiles(); renderContent(); }
-            };
-            const cfg = await window.electronAPI.getConfig(); serverUrl = cfg.serverUrl || ''; localDir = cfg.localDir || ''; document.getElementById('client-local-dir').value = localDir;
-            
-            window.electronAPI.onDownloadProgress((event, { relPath, percent }) => {
-                const el = document.querySelector(`[data-rel-path="${relPath}"]`);
-                if (el) {
-                    el.classList.add('downloading');
-                    const bar = el.querySelector('.progress-bar');
-                    if (bar) bar.style.width = percent + '%';
-                    if (percent >= 100) {
-                        setTimeout(() => { el.classList.remove('downloading'); scanLocalFiles().then(renderContent); }, 1000);
+            async function uninstallGame(item) {
+                if (!confirm('Are you sure you want to uninstall ' + item.name + '?')) return;
+                const type = currentTab === 'installed' ? item._type : (currentTab === 'games' ? 'roms' : currentTab);
+                const dest = localDir ? `${localDir}/${type}/${item.relPath}`.split('\\').join('/') : null;
+                if (isElectron && dest) {
+                    const success = await window.electronAPI.deleteFile(dest);
+                    if (success) {
+                        showToast('Uninstalled', 'success');
+                        await scanLocalFiles();
+                        await renderContent();
+                    } else {
+                        showToast('Uninstall failed', 'error');
                     }
                 }
-            });
-            
-            window.electronAPI.onSaveChange(async (event, { relPath, fullPath }) => {
-                console.log('[AutoSync] Change detected:', relPath);
-                showToast('Syncing save...', 'info');
-                // We need sessionToken here.
-                const result = await window.electronAPI.uploadSave(fullPath, relPath, sessionToken);
-                
-                const isSuccess = (typeof result === 'object' && result !== null) ? result.success : result;
-                const errorMsg = (typeof result === 'object' && result !== null && result.error) ? ': ' + result.error : '';
+            }
+            async function startDownload(item, version = null) {
+                const type = currentTab === 'installed' ? item._type : (currentTab === 'games' ? 'roms' : currentTab);
+                const dest = localDir ? `${localDir}/${type}/${item.relPath}`.split('\\').join('/') : null;
+                if (isElectron && !dest) return showToast('Set local directory in Settings', 'error');
 
-                if (isSuccess) showToast('Save Synced!', 'success');
-                else showToast('Sync failed' + errorMsg, 'error');
+                if (isElectron && version) {
+                    // Backup before version restore
+                    await window.electronAPI.backupLocalFile(dest);
+                    showToast('Local backup created', 'info');
+                }
+
+                showToast('Downloading...', 'info');
+                try {
+                    const url = getApiUrl(`/api/download?type=${type}&path=${encodeURIComponent(item.relPath)}`);
+                    if (isElectron) {
+                        await window.electronAPI.downloadFile(url, dest, sessionToken, item.relPath);
+                        showToast('Done!', 'success'); await scanLocalFiles(); await renderContent();
+                    } else { window.open(url, '_blank'); }
+                } catch (e) { showToast('Download failed', 'error'); }
+            }
+            async function showVersions(item) {
+                document.getElementById('versions-modal').style.display = 'flex';
+                const list = document.getElementById('versions-list');
+                list.innerHTML = 'Loading versions...';
+                try {
+                    const res = await fetch(getApiUrl(`/api/saves/versions?relPath=${encodeURIComponent(item.relPath)}`), getFetchOptions());
+                    const versions = await res.json();
+                    if (versions.length === 0) { list.innerHTML = 'No history available.'; return; }
+                    list.innerHTML = '';
+                    versions.forEach(v => {
+                        const row = document.createElement('div'); row.className = 'version-row';
+                        const date = new Date(v.time).toLocaleString();
+                        row.innerHTML = `<div class="version-info"><div>${date}</div><div style="font-size:0.8em">${v.name}</div></div>
+                                 <button class="action-btn-small restore-btn">Restore</button>`;
+                        row.querySelector('.restore-btn').onclick = () => restoreVersion(item, v.name);
+                        list.appendChild(row);
+                    });
+                } catch (e) { list.innerHTML = 'Error loading versions.'; }
+            }
+            async function restoreVersion(item, versionName) {
+                if (!confirm('Restore this version? Current server version will be backed up.')) return;
+                try {
+                    // 1. Tell server to make this version current
+                    const res = await fetch(getApiUrl('/api/saves/restore'), getFetchOptions('POST', { relPath: item.relPath, versionName }));
+                    if (!res.ok) throw new Error('Server restore failed');
+                    // 2. Download the new current version
+                    await startDownload(item, versionName);
+                    document.getElementById('versions-modal').style.display = 'none';
+                } catch (e) { showToast('Restore failed', 'error'); }
+            }
+            function renderFilters() {
+                const c = document.getElementById('filter-container'); if (!c) return; c.innerHTML = '';
+                const sys = Array.from(new Set(rawData.map(i => i.system))).sort();
+                const chip = (txt, active, onClick) => { const d = document.createElement('div'); d.className = 'filter-chip ' + (active ? 'active' : ''); d.innerText = txt; d.onclick = onClick; c.appendChild(d); };
+                chip('All Systems', activeFilters.size === 0, () => { activeFilters.clear(); renderFilters(); renderContent(); });
+                sys.forEach(s => chip(s, activeFilters.has(s), () => { if (activeFilters.has(s)) activeFilters.delete(s); else activeFilters.add(s); renderFilters(); renderContent(); }));
+            }
+            async function renderContent() {
+                const c = document.getElementById('main-content'); c.innerHTML = '';
+                let filtered = [...rawData];
+                if (activeFilters.size > 0) filtered = filtered.filter(i => activeFilters.has(i.system));
+
+                if (document.getElementById('installed-only-filter').checked) {
+                    filtered = filtered.filter(item => {
+                        const typePrefix = currentTab === 'installed' ? (item._type + '/') : (currentTab === 'games' ? 'roms/' : currentTab + '/');
+                        return installedLocalPaths.has(typePrefix + item.relPath);
+                    });
+                }
+
+                const search = document.getElementById('search-filter').value.toLowerCase();
+                if (search) filtered = filtered.filter(i => (i.gameTitle || i.name).toLowerCase().includes(search));
+
+                // Sorting Logic
+                const sortMode = document.getElementById('sort-select').value;
+                filtered.sort((a, b) => {
+                    if (sortMode === 'name_asc') return (a.gameTitle || a.name).localeCompare(b.gameTitle || b.name);
+                    if (sortMode === 'name_desc') return (b.gameTitle || b.name).localeCompare(a.gameTitle || a.name);
+                    if (sortMode === 'date_new') return new Date(b.mtime) - new Date(a.mtime);
+                    if (sortMode === 'date_old') return new Date(a.mtime) - new Date(b.mtime);
+                    return 0;
+                });
+
+                if (filtered.length === 0) { c.innerHTML = '<div style="text-align:center; padding:20px;">No items found</div>'; return; }
+
+                const renderGroup = async (items) => {
+                    const container = document.createElement('div');
+                    container.className = isListView ? 'library-list' : 'library-grid';
+                    const elements = await Promise.all(items.map(isListView ? createRow : createCard));
+                    elements.forEach(el => container.appendChild(el));
+                    return container;
+                };
+
+                if (isGrouped) {
+                    const groups = {};
+                    filtered.forEach(item => {
+                        if (!groups[item.system]) groups[item.system] = [];
+                        groups[item.system].push(item);
+                    });
+                    const systems = Object.keys(groups).sort();
+                    for (const system of systems) {
+                        const header = document.createElement('div');
+                        header.className = 'section-header';
+                        header.innerText = system;
+                        c.appendChild(header);
+                        c.appendChild(await renderGroup(groups[system]));
+                    }
+                } else {
+                    c.appendChild(await renderGroup(filtered));
+                }
+            }
+            function changeTab(t) { currentTab = t; document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.id === 'tab-' + t)); activeFilters.clear(); document.getElementById('search-filter').value = ''; saveUIState(); loadLibrary(); }
+
+            document.addEventListener('DOMContentLoaded', async () => {
+                document.getElementById('logout-btn').onclick = () => { localStorage.removeItem('romstore_token'); sessionToken = ''; location.reload(); };
+                document.getElementById('handle-auth-btn').onclick = handleAuth;
+                document.getElementById('open-settings-btn').onclick = () => { document.getElementById('settings-modal').style.display = 'flex'; };
+                document.getElementById('close-settings-btn').onclick = () => { document.getElementById('settings-modal').style.display = 'none'; };
+                document.getElementById('close-versions-btn').onclick = () => { document.getElementById('versions-modal').style.display = 'none'; };
+                document.getElementById('settings-modal').onclick = (e) => { if (e.target === document.getElementById('settings-modal')) document.getElementById('settings-modal').style.display = 'none'; };
+                document.getElementById('versions-modal').onclick = (e) => { if (e.target === document.getElementById('versions-modal')) document.getElementById('versions-modal').style.display = 'none'; };
+                document.getElementById('conflict-modal').onclick = (e) => { if (e.target === document.getElementById('conflict-modal')) document.getElementById('conflict-modal').style.display = 'none'; };
+                document.getElementById('tab-games').onclick = () => { changeTab('games'); };
+                document.getElementById('tab-bios').onclick = () => { changeTab('bios'); };
+                document.getElementById('search-filter').oninput = () => { saveUIState(); renderContent(); };
+                document.getElementById('sort-select').onchange = () => { saveUIState(); renderContent(); };
+                document.getElementById('installed-only-filter').onchange = () => { saveUIState(); renderContent(); };
+                document.getElementById('group-toggle').onclick = function () { isGrouped = !isGrouped; this.classList.toggle('active', isGrouped); saveUIState(); renderContent(); };
+                document.getElementById('view-toggle').onclick = function () { isListView = !isListView; this.classList.toggle('active', isListView); saveUIState(); renderContent(); };
+
+                const autoSyncCheck = document.getElementById('auto-sync-check');
+                autoSyncCheck.onchange = () => {
+                    isAutoSync = autoSyncCheck.checked;
+                    toggleAutoSync(isAutoSync);
+                    saveUIState();
+                };
+
+                if (isElectron) {
+                    document.getElementById('client-settings-area').style.display = 'block';
+                    document.getElementById('select-local-dir-btn').onclick = async () => {
+                        const p = await window.electronAPI.selectDir();
+                        if (p) { localDir = p; document.getElementById('client-local-dir').value = p; await window.electronAPI.saveConfig({ serverUrl, localDir }); await scanLocalFiles(); renderContent(); }
+                    };
+                    const cfg = await window.electronAPI.getConfig(); serverUrl = cfg.serverUrl || ''; localDir = cfg.localDir || ''; document.getElementById('client-local-dir').value = localDir;
+
+                    window.electronAPI.onDownloadProgress((event, { relPath, percent }) => {
+                        const el = document.querySelector(`[data-rel-path="${relPath}"]`);
+                        if (el) {
+                            el.classList.add('downloading');
+                            const bar = el.querySelector('.progress-bar');
+                            if (bar) bar.style.width = percent + '%';
+                            if (percent >= 100) {
+                                setTimeout(() => { el.classList.remove('downloading'); scanLocalFiles().then(renderContent); }, 1000);
+                            }
+                        }
+                    });
+
+                    window.electronAPI.onSaveChange(async (event, { relPath, fullPath }) => {
+                        console.log('[AutoSync] Change detected:', relPath);
+                        showToast('Syncing save...', 'info');
+                        // We need sessionToken here.
+                        const result = await window.electronAPI.uploadSave(fullPath, relPath, sessionToken);
+
+                        const isSuccess = (typeof result === 'object' && result !== null) ? result.success : result;
+                        const errorMsg = (typeof result === 'object' && result !== null && result.error) ? ': ' + result.error : '';
+
+                        if (isSuccess) showToast('Save Synced!', 'success');
+                        else showToast('Sync failed' + errorMsg, 'error');
+                    });
+                }
+                checkAuth();
             });
-        }
-        checkAuth();
-    });
-})();
-</script>
+        })();
+    </script>
 </body>
+
 </html>

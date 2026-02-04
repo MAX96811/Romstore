@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const multer = require('multer');
-const https = require('https'); 
+const https = require('https');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
@@ -55,19 +55,19 @@ function getFileHash(filePath) {
     try {
         const stats = fs.statSync(filePath);
         const mtime = stats.mtimeMs.toString();
-        
+
         // Use cache if mtime hasn't changed
         if (hashCache[filePath] && hashCache[filePath].mtime === mtime) {
             return hashCache[filePath].hash;
         }
 
         // Calculate MD5 of first 1MB + last 1MB for speed on large files
-        const buffer = Buffer.alloc(Math.min(stats.size, 1024 * 1024 * 2)); 
+        const buffer = Buffer.alloc(Math.min(stats.size, 1024 * 1024 * 2));
         const fd = fs.openSync(filePath, 'r');
-        
+
         // Read first 1MB
         let bytesRead = fs.readSync(fd, buffer, 0, Math.min(stats.size, 1024 * 1024), 0);
-        
+
         // Read last 1MB
         if (stats.size > 1024 * 1024) {
             const offset = stats.size - 1024 * 1024;
@@ -76,7 +76,7 @@ function getFileHash(filePath) {
         fs.closeSync(fd);
 
         const hash = crypto.createHash('md5').update(buffer.slice(0, bytesRead)).digest('hex');
-        
+
         hashCache[filePath] = { hash, mtime };
         saveHashCache();
         return hash;
@@ -117,16 +117,23 @@ app.use(cors({
 }));
 app.use(express.json());
 
+const FileStore = require('session-file-store')(session);
+
 app.use(session({
+    store: new FileStore({
+        path: path.join(__dirname, 'data', 'sessions'),
+        ttl: 30 * 24 * 60 * 60, // 30 days
+        retries: 0
+    }),
     secret: 'romstore-secret-key-12345',
-    resave: true,
-    saveUninitialized: true,
+    resave: false, // Recommended for FileStore
+    saveUninitialized: false, // Recommended for FileStore
     rolling: true,
-    cookie: { 
+    cookie: {
         secure: false, // Must be false for HTTP
         httpOnly: true,
         sameSite: 'lax',
-        maxAge: 30 * 24 * 60 * 60 * 1000 
+        maxAge: 30 * 24 * 60 * 60 * 1000
     }
 }));
 
@@ -134,7 +141,7 @@ app.use(session({
 const requireAuth = (req, res, next) => {
     const token = req.get('X-Session-Token');
     console.log(`[AuthCheck] URL: ${req.url}, Method: ${req.method}, Token: ${token || 'None'}`);
-    
+
     if (token && !req.session.user) {
         req.sessionStore.get(token, (err, sess) => {
             if (sess && sess.user) {
@@ -173,7 +180,7 @@ const storage = multer.diskStorage({
 
         // Use a .tmp directory for initial uploads to avoid collisions
         const targetPath = path.join(baseDir, '.tmp');
-        
+
         if (!fs.existsSync(targetPath)) fs.mkdirSync(targetPath, { recursive: true });
         cb(null, targetPath);
     }
@@ -186,10 +193,10 @@ const upload = multer({ storage: storage });
 function scanDir(baseDir, relativePath = '') {
     const fullPath = path.join(baseDir, relativePath);
     if (!fs.existsSync(fullPath)) return [];
-    
+
     let results = [];
     const list = fs.readdirSync(fullPath, { withFileTypes: true });
-    
+
     for (const file of list) {
         if (file.name.startsWith('.') || file.name.toLowerCase().endsWith('.txt')) continue;
 
@@ -218,7 +225,7 @@ async function getIgdbToken() {
     const url = `https://id.twitch.tv/oauth2/token?client_id=${apiKeys.clientId}&client_secret=${apiKeys.clientSecret}&grant_type=client_credentials`;
     const res = await fetch(url, { method: 'POST' });
     if (!res.ok) throw new Error("Failed to authenticate with Twitch/IGDB");
-    
+
     const data = await res.json();
     igdbAccessToken = data.access_token;
     tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000; // Buffer 1 min
@@ -232,20 +239,20 @@ async function downloadFile(url, destPath) {
     if (!res.ok) throw new Error(`Failed to download ${url}`);
     const arrayBuffer = await res.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    
+
     const targetDir = path.dirname(destPath);
-    
+
     // Robust Directory Creation with Conflict Resolution
     const parts = targetDir.split(path.sep);
     let currentPath = parts[0];
-    if (targetDir.startsWith('/')) currentPath = '/'; 
+    if (targetDir.startsWith('/')) currentPath = '/';
 
     for (let i = 0; i < parts.length; i++) {
-        if (!parts[i]) continue; 
-        if (i > 0 || !targetDir.startsWith('/')) { 
+        if (!parts[i]) continue;
+        if (i > 0 || !targetDir.startsWith('/')) {
             currentPath = path.join(currentPath, parts[i]);
         }
-        
+
         try {
             fs.mkdirSync(currentPath);
         } catch (e) {
@@ -286,12 +293,32 @@ async function downloadFile(url, destPath) {
 
 // --- AUTH ROUTES ---
 
+// Helper to restore session from token
+const tryRestoreSession = (req, cb) => {
+    const token = req.get('X-Session-Token');
+    if (token && !req.session.user) {
+        req.sessionStore.get(token, (err, sess) => {
+            if (sess && sess.user) {
+                req.session.user = sess.user;
+                req.session.save(); // Ensure it sticks
+                cb(true);
+            } else {
+                cb(false);
+            }
+        });
+    } else {
+        cb(!!(req.session && req.session.user));
+    }
+};
+
 app.get('/api/auth/status', (req, res) => {
-    const users = getUsers();
-    res.json({
-        needsSetup: users.length === 0,
-        authenticated: !!(req.session && req.session.user),
-        user: req.session ? req.session.user : null
+    tryRestoreSession(req, (isAuthenticated) => {
+        const users = getUsers();
+        res.json({
+            needsSetup: users.length === 0,
+            authenticated: isAuthenticated,
+            user: req.session ? req.session.user : null
+        });
     });
 });
 
@@ -304,7 +331,7 @@ app.post('/api/auth/setup', (req, res) => {
 
     const hashedPassword = bcrypt.hashSync(password, 10);
     const newUser = { id: Date.now(), username, password: hashedPassword };
-    
+
     fs.writeFileSync(USERS_FILE, JSON.stringify([newUser], null, 2));
     req.session.user = { id: newUser.id, username: newUser.username };
     res.json({ success: true, token: req.sessionID });
@@ -335,7 +362,7 @@ app.get('/api/games', requireAuth, (req, res) => {
     if (!fs.existsSync(ROMS_DIR)) return res.json([]);
     const systems = fs.readdirSync(ROMS_DIR, { withFileTypes: true }).filter(d => d.isDirectory());
     const games = [];
-    
+
     const findArtwork = (systemPath, gameName) => {
         const baseName = path.parse(gameName).name;
         // Priority: Metadata-downloaded > Local folders
@@ -364,7 +391,7 @@ app.get('/api/games', requireAuth, (req, res) => {
             const systemPath = path.join(ROMS_DIR, system.name);
             const files = fs.readdirSync(systemPath, { withFileTypes: true }).filter(f => !f.isDirectory());
             files.forEach(file => {
-                if (file.name.startsWith('.') || file.name.toLowerCase().endsWith('.txt')) return; 
+                if (file.name.startsWith('.') || file.name.toLowerCase().endsWith('.txt')) return;
 
                 const relPath = path.join(system.name, file.name).replace(/\\/g, '/');
                 const stats = fs.statSync(path.join(systemPath, file.name));
@@ -394,7 +421,7 @@ app.get('/api/games', requireAuth, (req, res) => {
                     hasMetadata: !!meta
                 });
             });
-        } catch (e) {}
+        } catch (e) { }
     });
     res.json(games);
 });
@@ -421,7 +448,7 @@ app.get('/api/saves', requireAuth, (req, res) => {
                 } catch (e) { gameTitle = `Wii ID: ${hexId}`; }
             }
         }
-        
+
         if (!system) {
             const switchId = parts.find(p => /^[0-9A-Fa-f]{16}$/.test(p));
             if (switchId) { system = 'Switch'; gameTitle = `Switch TitleID: ${switchId}`; }
@@ -463,7 +490,7 @@ app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
 // --- SAVE MANAGEMENT (Versioning) ---
 
 app.post('/api/saves/upload', requireAuth, upload.single('file'), (req, res) => {
-    const relPath = req.body.relPath; 
+    const relPath = req.body.relPath;
     if (!relPath) {
         if (req.file) fs.unlinkSync(req.file.path);
         return res.status(400).json({ error: 'Missing relPath' });
@@ -497,10 +524,10 @@ app.post('/api/saves/upload', requireAuth, upload.single('file'), (req, res) => 
             const versions = fs.readdirSync(versionDir)
                 .map(f => ({ name: f, time: fs.statSync(path.join(versionDir, f)).mtime.getTime() }))
                 .sort((a, b) => b.time - a.time);
-            
+
             if (versions.length > 5) {
                 versions.slice(5).forEach(v => {
-                    try { fs.unlinkSync(path.join(versionDir, v.name)); } catch(e) {}
+                    try { fs.unlinkSync(path.join(versionDir, v.name)); } catch (e) { }
                 });
             }
         }
@@ -576,9 +603,9 @@ app.get('/api/systems', requireAuth, (req, res) => {
 
 // Get Keys Status
 app.get('/api/settings/keys', requireAuth, (req, res) => {
-    res.json({ 
-        hasClientId: !!apiKeys.clientId, 
-        hasClientSecret: !!apiKeys.clientSecret 
+    res.json({
+        hasClientId: !!apiKeys.clientId,
+        hasClientSecret: !!apiKeys.clientSecret
     });
 });
 
@@ -598,14 +625,14 @@ app.get('/api/metadata/search', requireAuth, async (req, res) => {
 
     // Clean Query Logic
     console.log(`[IGDB] Original Query: "${query}"`);
-    
+
     // 1. Remove extension
     query = path.parse(query).name;
-    
+
     // 2. Remove things in brackets/parentheses e.g. (USA), [v1.0]
     // Also remove common dump info like "En,Fr,Es", "Rev 1" if inside brackets
     query = query.replace(/\s*[\(\[].*?[\)\]]/g, '');
-    
+
     // 3. Trim extra spaces
     query = query.trim();
 
@@ -622,16 +649,16 @@ app.get('/api/metadata/search', requireAuth, async (req, res) => {
             },
             body: `search "${query}"; fields name, cover.url, summary, first_release_date, platforms.name; limit 10;`
         });
-        
+
         if (!response.ok) throw new Error("IGDB Request Failed");
         const data = await response.json();
-        
+
         // Fix cover URLs (they come as //images.igdb.com...)
         const results = data.map(g => ({
             ...g,
             coverUrl: g.cover ? `https:${g.cover.url}`.replace('t_thumb', 't_cover_big') : null
         }));
-        
+
         res.json(results);
     } catch (err) {
         console.error(err);
@@ -643,7 +670,7 @@ app.get('/api/metadata/search', requireAuth, async (req, res) => {
 app.post('/api/metadata/apply', requireAuth, async (req, res) => {
     const { relPath, igdbData } = req.body;
     if (!relPath || !igdbData) return res.status(400).json({ error: "Missing data" });
-    
+
     console.log(`[Apply] Applying to ${relPath}`);
 
     try {
@@ -655,7 +682,7 @@ app.post('/api/metadata/apply', requireAuth, async (req, res) => {
             // Target: roms/[system]/media/boxart/[gameName].png
             const targetDir = path.join(ROMS_DIR, system, 'media', 'boxart');
             console.log(`[Apply] Target Dir: ${targetDir}`);
-            
+
             // Check ext from url
             const ext = path.extname(igdbData.coverUrl) || '.jpg';
             const finalPath = path.join(targetDir, `${gameBaseName}${ext}`);
@@ -693,12 +720,12 @@ app.get('/api/sync/manifest', requireAuth, (req, res) => {
             const systemPath = path.join(ROMS_DIR, system.name);
             const files = fs.readdirSync(systemPath, { withFileTypes: true }).filter(f => !f.isDirectory());
             files.forEach(file => {
-                if (file.name.startsWith('.') || file.name.toLowerCase().endsWith('.txt')) return; 
+                if (file.name.startsWith('.') || file.name.toLowerCase().endsWith('.txt')) return;
                 const relPath = path.join(system.name, file.name).replace(/\\/g, '/');
                 const fullPath = path.join(systemPath, file.name);
                 const stats = fs.statSync(fullPath);
                 const meta = gameMetadata[relPath] || {};
-                
+
                 manifest.games.push({
                     name: meta.title || file.name,
                     filename: file.name,
