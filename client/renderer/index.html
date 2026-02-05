@@ -646,6 +646,15 @@
                         • Syncs automatically on startup and when files change.
                     </div>
                 </div>
+                <div class="input-group">
+                    <button class="action-btn" id="daemon-mode-btn"
+                        style="width: 100%; background: #333; border: 1px solid #555; margin-bottom: 10px;">
+                        🌙 Switch to Background Mode
+                    </button>
+                    <div style="font-size:0.8em; color:#999; margin-left:5px;">
+                        Hides the window and runs silently in the system tray. Ideal for always-on sync.
+                    </div>
+                </div>
                 <div class="input-group"><label>Local Emulation Directory</label>
                     <div style="display:flex; gap:10px;"><input type="text" id="client-local-dir" readonly
                             style="flex:1;"><button id="select-local-dir-btn" class="action-btn">Browse</button></div>
@@ -689,15 +698,7 @@
             let currentTab = 'games', rawData = [], activeFilters = new Set(), installedLocalPaths = new Set(), isGrouped = false, isSetupMode = false;
             let isListView = false, isAutoSync = false;
 
-            // Sync Manifest: Tracks last known state of files to detect conflicts
-            let syncManifest = {};
-            try { syncManifest = JSON.parse(localStorage.getItem('romstore_sync_manifest') || '{}'); } catch (e) { syncManifest = {}; }
-            function updateManifest(relPath, lTime, sTime) {
-                if (!relPath) return;
-                syncManifest[relPath] = { l: lTime, s: sTime };
-                localStorage.setItem('romstore_sync_manifest', JSON.stringify(syncManifest));
-            }
-
+            // Sync Manifest is now handled by Main Process
 
             function getApiUrl(endpoint) {
                 if (!isElectron) return endpoint;
@@ -734,6 +735,13 @@
                 if (isElectron) {
                     document.getElementById('auth-url-group').style.display = 'block';
                     document.getElementById('auth-server-url').value = serverUrl;
+                    // Check main process session
+                    const midSession = await window.electronAPI.checkSession();
+                    if (!sessionToken && midSession) {
+                        // We might not have token in memory, but main does. 
+                        // Actually, Main stores it. We usually don't need it in Renderer if Main does all sync.
+                        // But we might need it for Library loading fetches.
+                    }
                 }
                 if (isElectron && !serverUrl) { document.getElementById('auth-modal').style.display = 'flex'; return; }
                 try {
@@ -777,6 +785,9 @@
                             } else {
                                 localStorage.removeItem('romstore_token');
                             }
+                            if (isElectron) {
+                                await window.electronAPI.setSession(sessionToken);
+                            }
                         }
                         document.getElementById('lib-mode').innerText = username;
                         showToast('Success!', 'success');
@@ -818,147 +829,39 @@
             }
             function toggleAutoSync(enable) {
                 if (!isElectron) return;
+                // In refactor, AutoSync primarily means "Sync Now" + "Enable Watcher"
+                // Watcher is now managed by visibility mostly, but we can still gate it here.
                 if (enable) {
                     const savesDir = localDir ? localDir + '/saves' : null;
                     if (savesDir) {
                         window.electronAPI.startSaveWatcher(savesDir);
-                        syncSaves(); // Trigger initial pull
+                        // syncSaves(); // Removed to prevent loop (scan->toggle->sync->status->scan)
                     }
                 } else {
                     window.electronAPI.stopSaveWatcher();
                 }
             }
 
-            async function uploadSaveDirect(relPath) {
-                const fullPath = `${localDir}/saves/${relPath}`;
-                const res = await window.electronAPI.uploadSave(fullPath, relPath, sessionToken);
-                if (res && res.success) {
-                    // Update manifest after successful upload
-                    const files = await window.electronAPI.scanDirStat(localDir + '/saves');
-                    const f = files.find(x => x.relPath === relPath);
-                    if (f) {
-                        const t = new Date(f.mtime).getTime();
-                        updateManifest(relPath, t, t);
-                    }
-                    return true;
-                }
-                return false;
+            async function syncSaves(silent = false) {
+                if (!isElectron) return;
+                // Delegate to Main
+                if (!silent) showToast('Starting sync...', 'info');
+                window.electronAPI.triggerManualSync();
             }
 
-            async function downloadSaveDirect(relPath) {
-                const dest = `${localDir}/saves/${relPath}`.split('\\').join('/');
-                const url = getApiUrl(`/api/download?type=saves&path=${encodeURIComponent(relPath)}`);
-                try {
-                    if (await window.electronAPI.checkLocalFile(dest)) {
-                        await window.electronAPI.backupLocalFile(dest);
+            // IPC Listeners for Sync Feedback
+            if (isElectron) {
+                window.electronAPI.onSyncStatus((event, { msg, type }) => {
+                    showToast(msg, type);
+                    // If sync success, refresh view?
+                    if (type === 'success' || type === 'info') {
+                        scanLocalFiles().then(renderContent);
                     }
-                    await window.electronAPI.downloadFile(url, dest, sessionToken, relPath);
+                });
 
-                    // Update manifest after successful download
-                    // We need the server's mtime (or assume it's now synced). 
-                    // Better to re-scan local to get the exact mtime written to disk.
-                    const files = await window.electronAPI.scanDirStat(localDir + '/saves');
-                    const f = files.find(x => x.relPath === relPath);
-                    if (f) {
-                        const t = new Date(f.mtime).getTime();
-                        updateManifest(relPath, t, t);
-                    }
-                } catch (e) { console.error('Download failed', e); }
-            }
-
-            async function syncSaves() {
-                if (!isElectron || !localDir) return;
-                console.log('[Sync] Starting conflict-aware sync...');
-                showToast('Checking for cloud saves...', 'info');
-
-                try {
-                    const res = await fetch(getApiUrl('/api/saves'), getFetchOptions());
-                    if (!res.ok) throw new Error('Failed to fetch server saves');
-                    const serverSaves = await res.json();
-                    const localSaves = await window.electronAPI.scanDirStat(localDir + '/saves');
-
-                    const serverMap = new Map();
-                    serverSaves.forEach(s => serverMap.set(s.relPath, new Date(s.mtime).getTime()));
-
-                    const localMap = new Map();
-                    localSaves.forEach(l => localMap.set(l.relPath, new Date(l.mtime).getTime()));
-
-                    const allPaths = new Set([...serverMap.keys(), ...localMap.keys()]);
-                    const conflicts = [];
-                    let dlCount = 0, ulCount = 0;
-
-                    for (const path of allPaths) {
-                        const sTime = serverMap.get(path);
-                        const lTime = localMap.get(path);
-                        const manifest = syncManifest[path];
-
-                        // 1. New on Server (Missing Local) -> Download
-                        if (lTime === undefined && sTime !== undefined) {
-                            if (!manifest || !manifest.l) { // If never seen locally, download
-                                console.log('[Sync] New on server:', path);
-                                await downloadSaveDirect(path); dlCount++;
-                            } else {
-                                // Was deleted locally? If manifest says we had it.
-                                // For now, re-download to be safe, or ignore? 
-                                // Steam usually re-downloads unless you explicitly deleted it.
-                                await downloadSaveDirect(path); dlCount++;
-                            }
-                            continue;
-                        }
-
-                        // 2. New on Local (Missing Server) -> Upload
-                        if (sTime === undefined && lTime !== undefined) {
-                            if (!manifest || !manifest.s) {
-                                console.log('[Sync] New on local:', path);
-                                await uploadSaveDirect(path); ulCount++;
-                            }
-                            // If it was on server (manifest.s exists) but is gone now?
-                            // Re-upload.
-                            continue;
-                        }
-
-                        // 3. Exists on Both -> Check Changes
-                        const lastL = manifest ? manifest.l : 0;
-                        const lastS = manifest ? manifest.s : 0;
-
-                        // Allow 2s variance
-                        const localChanged = lTime !== undefined && Math.abs(lTime - lastL) > 2000;
-                        const serverChanged = sTime !== undefined && Math.abs(sTime - lastS) > 2000;
-
-                        // No Manifest (First Run)
-                        if (!manifest) {
-                            if (Math.abs(lTime - sTime) > 2000) {
-                                conflicts.push({ path, lTime, sTime });
-                            } else {
-                                updateManifest(path, lTime, sTime); // Assumed synced
-                            }
-                            continue;
-                        }
-
-                        if (localChanged && serverChanged) {
-                            conflicts.push({ path, lTime, sTime });
-                        } else if (localChanged) {
-                            console.log('[Sync] Local changed:', path);
-                            await uploadSaveDirect(path); ulCount++;
-                        } else if (serverChanged) {
-                            console.log('[Sync] Server changed:', path);
-                            await downloadSaveDirect(path); dlCount++;
-                        }
-                    }
-
-                    if (conflicts.length > 0) {
-                        showConflictModal(conflicts);
-                    } else if (dlCount > 0 || ulCount > 0) {
-                        showToast(`Sync: ${dlCount} ↓, ${ulCount} ↑`, 'success');
-                    } else {
-                        console.log('[Sync] Up to date');
-                        showToast('Saves are up to date', 'info');
-                    }
-
-                } catch (e) {
-                    console.error('[Sync] Error:', e);
-                    showToast('Sync check failed', 'error');
-                }
+                window.electronAPI.onSyncConflict((event, conflicts) => {
+                    showConflictModal(conflicts);
+                });
             }
 
             function showConflictModal(conflicts) {
@@ -1003,27 +906,21 @@
             }
 
             window.resolveConflict = async (path, choice) => {
-                const item = document.querySelector(`.conflict-item:has(.conflict-title)`); // messy selector, better to rebuild list
-                // Actually, just perform action and remove from DOM or refresh
-                document.getElementById('conflict-modal').style.display = 'none'; // Close for now, or refresh
+                document.getElementById('conflict-modal').style.display = 'none';
                 showToast(`Resolving ${path}...`, 'info');
 
-                if (choice === 'local') await uploadSaveDirect(path);
-                else await downloadSaveDirect(path);
-
-                // Re-run sync to check remaining or verify
-                setTimeout(syncSaves, 500);
+                await window.electronAPI.resolveConflict(path, choice);
+                // Main will trigger sync again if needed, or we rely on status updates
             };
 
             window.resolveAll = async (conflicts, choice) => {
                 document.getElementById('conflict-modal').style.display = 'none';
                 showToast(`Resolving all ${conflicts.length} conflicts...`, 'info');
                 for (const c of conflicts) {
-                    if (choice === 'local') await uploadSaveDirect(c.path);
-                    else await downloadSaveDirect(c.path);
+                    await window.electronAPI.resolveConflict(c.path, choice);
                 }
-                showToast('All conflicts resolved', 'success');
             };
+
 
 
             async function loadLibrary() {
@@ -1273,6 +1170,14 @@
                     saveUIState();
                 };
 
+                document.getElementById('daemon-mode-btn').onclick = () => {
+                    if (isElectron) {
+                        if (confirm('Run in background mode? The app will close to the tray and keeping syncing.')) {
+                            window.electronAPI.enterDaemonMode();
+                        }
+                    }
+                };
+
                 if (isElectron) {
                     document.getElementById('client-settings-area').style.display = 'block';
                     document.getElementById('select-local-dir-btn').onclick = async () => {
@@ -1305,6 +1210,27 @@
                         if (isSuccess) showToast('Save Synced!', 'success');
                         else showToast('Sync failed' + errorMsg, 'error');
                     });
+
+                    window.electronAPI.onVisibilityChanged((event, isVisible) => {
+                        console.log('[App] Visibility changed:', isVisible);
+                        if (isVisible) {
+                            // Foreground: Start watcher, Manual Sync
+                            if (isAutoSync) toggleAutoSync(true);
+                            syncSaves(false); // Manual sync with UI
+                        } else {
+                            // Background: Stop watcher to save resources
+                            toggleAutoSync(false);
+                        }
+                    });
+
+                    window.electronAPI.onTriggerSync((event, { explicit }) => {
+                        console.log('[App] Sync Triggered. Explicit:', explicit);
+                        // If explicit (Tray menu), show UI. If background (Timer), silent.
+                        syncSaves(!explicit);
+                    });
+
+                    // Initial manual sync on load if electron
+                    setTimeout(() => syncSaves(true), 2000);
                 }
                 checkAuth();
             });

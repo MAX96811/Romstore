@@ -539,6 +539,16 @@ app.post('/api/saves/upload', requireAuth, upload.single('file'), (req, res) => 
         // Robust move: copy + unlink to handle cross-device issues if any
         fs.copyFileSync(req.file.path, fullPath);
         fs.unlinkSync(req.file.path);
+
+        // Apply Client Mtime if provided (Prevents sync loops)
+        if (req.body.mtime) {
+            try {
+                const t = new Date(parseInt(req.body.mtime));
+                fs.utimesSync(fullPath, t, t);
+                console.log(`[SaveSync] Applied mtime: ${t.toISOString()}`);
+            } catch (ex) { console.warn('[SaveSync] Failed to set mtime:', ex.message); }
+        }
+
         console.log(`[SaveSync] Successfully saved: ${relPath}`);
         res.json({ success: true, message: 'Save uploaded and versioned' });
     } catch (e) {
