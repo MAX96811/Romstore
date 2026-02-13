@@ -30,7 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Session Management (New)
     checkSession: () => ipcRenderer.invoke('check-session'),
-    setSession: (token) => ipcRenderer.invoke('set-session', token),
+    setSession: (payload) => ipcRenderer.invoke('set-session', payload),
     enterDaemonMode: () => ipcRenderer.invoke('enter-daemon-mode'),
 
     // Version Control

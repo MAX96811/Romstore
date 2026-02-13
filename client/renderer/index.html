@@ -616,6 +616,11 @@ input[type='password']:focus,
         <div class="input-group" id="auth-url-group" style="display:none;"><label>Server URL</label><input type="text" id="auth-server-url" placeholder="http://192.168.1.100:1567"></div>
         <div class="input-group"><label>Username</label><input type="text" id="auth-username" placeholder="Username"></div>
         <div class="input-group"><label>Password</label><input type="password" id="auth-password" placeholder="Password"></div>
+        <div class="input-group" style="text-align:left;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                <input type="checkbox" id="remember-me-check" style="width:auto;" checked> Remember me
+            </label>
+        </div>
         <button id="handle-auth-btn" class="action-btn" style="width:100%">Login</button>
     </div>
 </div>
@@ -637,6 +642,26 @@ input[type='password']:focus,
             </div>
             <div class="input-group"><label>Local Emulation Directory</label>
                 <div style="display:flex; gap:10px;"><input type="text" id="client-local-dir" readonly style="flex:1;"><button id="select-local-dir-btn" class="action-btn">Browse</button></div>
+            </div>
+            <div class="input-group">
+                <label style="display:flex; align-items:center; cursor:pointer;">
+                    <input type="checkbox" id="keep-background-check" style="width:auto; margin-right:10px;"> Keep running in background when window closes
+                </label>
+            </div>
+            <div class="input-group">
+                <label style="display:flex; align-items:center; cursor:pointer;">
+                    <input type="checkbox" id="minimize-to-tray-check" style="width:auto; margin-right:10px;"> Minimize to tray
+                </label>
+            </div>
+            <div class="input-group">
+                <label style="display:flex; align-items:center; cursor:pointer;">
+                    <input type="checkbox" id="start-with-system-check" style="width:auto; margin-right:10px;"> Start with system
+                </label>
+            </div>
+            <div class="input-group">
+                <label style="display:flex; align-items:center; cursor:pointer;">
+                    <input type="checkbox" id="launch-to-tray-check" style="width:auto; margin-right:10px;"> Launch to tray
+                </label>
             </div>
         </div>
         <button class="action-btn" id="auto-scan-btn" style="width:100%">✨ Auto Scan Missing Metadata</button>
@@ -678,6 +703,11 @@ input[type='password']:focus,
     let currentTab = 'games', rawData = [], activeFilters = new Set(), installedLocalPaths = new Set(), isGrouped = false, isSetupMode = false;
     let isListView = false, isAutoSync = false;
     let isAuthenticated = false;
+    let rememberMe = true;
+    let keepInBackground = false;
+    let minimizeToTray = false;
+    let startWithSystem = false;
+    let launchToTray = false;
     
     // Sync Manifest: Tracks last known state of files to detect conflicts
     let syncManifest = {};
@@ -686,6 +716,36 @@ input[type='password']:focus,
         if (!relPath) return;
         syncManifest[relPath] = { l: lTime, s: sTime };
         localStorage.setItem('romstore_sync_manifest', JSON.stringify(syncManifest));
+    }
+
+    function setStoredToken(token) {
+        sessionToken = token || '';
+        if (!rememberMe) {
+            localStorage.removeItem('romstore_token');
+            return;
+        }
+        if (sessionToken) localStorage.setItem('romstore_token', sessionToken);
+        else localStorage.removeItem('romstore_token');
+    }
+
+    async function persistSessionToken(token) {
+        setStoredToken(token);
+        if (isElectron) {
+            await window.electronAPI.setSession({ token: sessionToken, rememberMe });
+        }
+    }
+
+    async function persistClientConfig() {
+        if (!isElectron) return;
+        await window.electronAPI.saveConfig({
+            serverUrl,
+            localDir,
+            keepInBackground,
+            minimizeToTray,
+            startWithSystem,
+            launchToTray,
+            rememberMe
+        });
     }
 
 
@@ -806,8 +866,7 @@ input[type='password']:focus,
                 if (isElectron) window.electronAPI.stopSaveWatcher();
                 document.getElementById('conflict-modal').style.display = 'none';
                 if (!data.needsSetup && sessionToken) {
-                    sessionToken = '';
-                    localStorage.removeItem('romstore_token');
+                    await persistSessionToken('');
                 }
                 isSetupMode = !!data.needsSetup;
                 const titleEl = document.getElementById('auth-title');
@@ -835,7 +894,7 @@ input[type='password']:focus,
             if (inputUrl) {
                 if (!inputUrl.startsWith('http')) inputUrl = 'http://' + inputUrl;
                 serverUrl = inputUrl;
-                await window.electronAPI.saveConfig({ serverUrl, localDir });
+                await persistClientConfig();
             }
         }
         const username = document.getElementById('auth-username').value, password = document.getElementById('auth-password').value;
@@ -844,7 +903,8 @@ input[type='password']:focus,
             const res = await fetch(getApiUrl(isSetupMode ? '/api/auth/setup' : '/api/auth/login'), getFetchOptions('POST', { username, password }));
             if (res.ok) {
                 const data = await res.json();
-                if (data.token) { sessionToken = data.token; localStorage.setItem('romstore_token', sessionToken); }
+                rememberMe = !!document.getElementById('remember-me-check').checked;
+                if (data.token) await persistSessionToken(data.token);
                 isAuthenticated = true;
                 showToast('Success!', 'success');
                 document.getElementById('auth-modal').style.display = 'none';
@@ -1420,8 +1480,7 @@ input[type='password']:focus,
     document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('logout-btn').onclick = async () => {
             if (isElectron) await window.electronAPI.stopSaveWatcher();
-            localStorage.removeItem('romstore_token');
-            sessionToken = '';
+            await persistSessionToken('');
             isAuthenticated = false;
             location.reload();
         };
@@ -1443,19 +1502,65 @@ input[type='password']:focus,
         document.getElementById('view-toggle').onclick = function() { isListView = !isListView; this.classList.toggle('active', isListView); saveUIState(); renderContent(); };
         
         const autoSyncCheck = document.getElementById('auto-sync-check');
+        const rememberMeCheck = document.getElementById('remember-me-check');
+        const keepBackgroundCheck = document.getElementById('keep-background-check');
+        const minimizeToTrayCheck = document.getElementById('minimize-to-tray-check');
+        const startWithSystemCheck = document.getElementById('start-with-system-check');
+        const launchToTrayCheck = document.getElementById('launch-to-tray-check');
         autoSyncCheck.onchange = () => {
              isAutoSync = autoSyncCheck.checked;
              toggleAutoSync(isAutoSync);
              saveUIState();
         };
+        rememberMeCheck.onchange = async () => {
+            rememberMe = rememberMeCheck.checked;
+            if (rememberMe) {
+                if (sessionToken) localStorage.setItem('romstore_token', sessionToken);
+                if (isElectron) await window.electronAPI.setSession({ token: sessionToken, rememberMe: true });
+            } else {
+                localStorage.removeItem('romstore_token');
+                if (isElectron) await window.electronAPI.setSession({ token: '', rememberMe: false });
+            }
+            await persistClientConfig();
+        };
+        keepBackgroundCheck.onchange = async () => { keepInBackground = keepBackgroundCheck.checked; await persistClientConfig(); };
+        minimizeToTrayCheck.onchange = async () => { minimizeToTray = minimizeToTrayCheck.checked; await persistClientConfig(); };
+        startWithSystemCheck.onchange = async () => { startWithSystem = startWithSystemCheck.checked; await persistClientConfig(); };
+        launchToTrayCheck.onchange = async () => { launchToTray = launchToTrayCheck.checked; await persistClientConfig(); };
 
         if (isElectron) {
             document.getElementById('client-settings-area').style.display = 'block';
             document.getElementById('select-local-dir-btn').onclick = async () => {
                 const p = await window.electronAPI.selectDir(); 
-                if (p) { localDir = p; document.getElementById('client-local-dir').value = p; await window.electronAPI.saveConfig({ serverUrl, localDir }); await scanLocalFiles(); renderContent(); }
+                if (p) { localDir = p; document.getElementById('client-local-dir').value = p; await persistClientConfig(); await scanLocalFiles(); renderContent(); }
             };
-            const cfg = await window.electronAPI.getConfig(); serverUrl = cfg.serverUrl || ''; localDir = cfg.localDir || ''; document.getElementById('client-local-dir').value = localDir;
+            const cfg = await window.electronAPI.getConfig();
+            serverUrl = cfg.serverUrl || '';
+            localDir = cfg.localDir || '';
+            rememberMe = typeof cfg.rememberMe === 'boolean' ? cfg.rememberMe : true;
+            keepInBackground = !!cfg.keepInBackground;
+            minimizeToTray = !!cfg.minimizeToTray;
+            startWithSystem = !!cfg.startWithSystem;
+            launchToTray = !!cfg.launchToTray;
+            document.getElementById('client-local-dir').value = localDir;
+            rememberMeCheck.checked = rememberMe;
+            keepBackgroundCheck.checked = keepInBackground;
+            minimizeToTrayCheck.checked = minimizeToTray;
+            startWithSystemCheck.checked = startWithSystem;
+            launchToTrayCheck.checked = launchToTray;
+
+            const sessionInfo = await window.electronAPI.checkSession();
+            if (sessionInfo) {
+                if (typeof sessionInfo.rememberMe === 'boolean') {
+                    rememberMe = sessionInfo.rememberMe;
+                    rememberMeCheck.checked = rememberMe;
+                }
+                if (sessionInfo.token) {
+                    setStoredToken(sessionInfo.token);
+                } else if (!rememberMe) {
+                    setStoredToken('');
+                }
+            }
             
             window.electronAPI.onDownloadProgress((event, { relPath, percent }) => {
                 const el = document.querySelector(`[data-rel-path="${relPath}"]`);
@@ -1467,6 +1572,9 @@ input[type='password']:focus,
                         setTimeout(() => { el.classList.remove('downloading'); scanLocalFiles().then(renderContent); }, 1000);
                     }
                 }
+            });
+            window.electronAPI.onVisibilityChanged((event, payload) => {
+                if (payload && payload.hidden) showToast('RomStore is running in background (tray)', 'info');
             });
             
             window.electronAPI.onSaveChange(async (event, { relPath, fullPath }) => {
