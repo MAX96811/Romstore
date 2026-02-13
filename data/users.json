@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1768342048144,
+    "username": "MAX96811",
+    "password": "$2a$10$4U/CLq7M.Xpa8i0/aVLaC.XdLgtdEUkfyhaShxcsmoShiY6nC/PWS",
+    "role": "admin",
+    "mustChangePassword": false,
+    "lastLoginAt": "2026-02-13T16:53:17.862Z"
+  },
+  {
+    "id": 1771001553696,
+    "username": "dorium",
+    "password": "$2a$10$9HR90niaZss4j/OfiFd0huuBDg2lEfVentaoM/IlZfhyXkjrH4Roi",
+    "role": "user",
+    "mustChangePassword": false,
+    "createdAt": "2026-02-13T16:52:27.774Z",
+    "lastLoginAt": "2026-02-13T16:52:36.533Z",
+    "passwordUpdatedAt": "2026-02-13T16:52:44.567Z"
+  }
+]

@@ -5,384 +5,580 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RomStore Library</title>
         <style>
-            :root {
-                --bg-color: #121212;
-                --card-bg: #1e1e1e;
-                --text-color: #e0e0e0;
-                --accent: #ff9800;
-                --btn-bg: #ff9800;
-                --btn-text: #121212;
-                --success: #4caf50;
-                --error: #f44336;
-            }
-            body {
-                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                background-color: var(--bg-color);
-                color: var(--text-color);
-                margin: 0;
-                padding: 0;
-            }
-            header {
-                background-color: #1e1e1e;
-                padding: 20px 40px;
-                display: flex;
-                flex-direction: column;
-                gap: 15px;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-                position: sticky;
-                top: 0;
-                z-index: 100;
-            }
-            .header-top {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                width: 100%;
-            }
-            h1 { margin: 0; color: var(--accent); letter-spacing: 2px; }
-            
-            .tabs {
-                display: flex;
-                gap: 20px;
-            }
-            .tabs button {
-                background: none;
-                border: none;
-                color: #9e9e9e;
-                font-size: 1.1em;
-                font-weight: bold;
-                cursor: pointer;
-                padding: 5px 10px;
-                border-bottom: 3px solid transparent;
-                transition: all 0.2s;
-            }
-            .tabs button:hover { color: #fff; }
-            .tabs button.active {
-                color: #fff;
-                border-bottom-color: var(--accent);
-            }
-    
-            /* Controls Bar */
-            .controls {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding-top: 10px;
-                border-top: 1px solid rgba(255,255,255,0.1);
-                width: 100%;
-                flex-wrap: wrap;
-                gap: 10px;
-            }
-            .filter-group {
-                display: flex;
-                gap: 10px;
-                align-items: center;
-                overflow-x: auto;
-                max-width: 60%;
-                padding-bottom: 5px;
-            }
-            .filter-group::-webkit-scrollbar { height: 4px; }
-            .filter-group::-webkit-scrollbar-thumb { background: #424242; border-radius: 2px; }
-    
-            .filter-chip {
-                background: rgba(255,255,255,0.05);
-                border: 1px solid rgba(255,255,255,0.1);
-                color: #9e9e9e;
-                font-size: 0.85em;
-                cursor: pointer;
-                padding: 4px 12px;
-                border-radius: 15px;
-                white-space: nowrap;
-                transition: all 0.2s;
-                user-select: none;
-            }
-            .filter-chip:hover { background: rgba(255,255,255,0.1); color: #fff; }
-            .filter-chip.active {
-                background: var(--accent);
-                color: var(--btn-text);
-                border-color: var(--accent);
-                font-weight: bold;
-            }
-    
-            .view-options {
-                display: flex;
-                gap: 15px;
-                align-items: center;
-            }
-            select, .toggle-btn {
-                background: #333;
-                color: #fff;
-                border: 1px solid #444;
-                padding: 5px 10px;
-                border-radius: 3px;
-                font-size: 0.9em;
-                cursor: pointer;
-            }
-            .toggle-btn.active {
-                background: var(--accent);
-                color: var(--btn-text);
-            }
-    
-            /* Content Area */
-            .content-area { padding: 40px; }
-            .section-header {
-                color: #fff;
-                font-size: 1.5em;
-                border-bottom: 1px solid #444;
-                padding-bottom: 10px;
-                margin-bottom: 20px;
-                margin-top: 30px;
-                text-transform: capitalize;
-            }
-            .section-header:first-child { margin-top: 0; }
-    
-            .library-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-                gap: 30px;
-            }
-            
-            /* Game Card Design */
-            .game-card {
-                background-color: transparent;
-                display: flex;
-                flex-direction: column;
-                cursor: pointer;
-                position: relative;
-                transition: transform 0.2s;
-            }
-            .game-card:hover { transform: scale(1.03); }
-    
-            .art-wrapper {
-                position: relative;
-                width: 100%;
-                padding-top: 140%; 
-                background-color: #333;
-                border-radius: 4px;
-                overflow: hidden;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            }
-    
-            .game-art {
-                position: absolute;
-                top: 0; left: 0;
-                width: 100%; height: 100%;
-                object-fit: cover;
-            }
-    
-            .icon-placeholder {
-                position: absolute;
-                top: 0; left: 0;
-                width: 100%; height: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 60px;
-                background: #333;
-            }
-    
-            .card-overlay {
-                position: absolute;
-                top: 0; left: 0;
-                width: 100%; height: 100%;
-                background: rgba(30, 30, 30, 0.9);
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                padding: 20px;
-                text-align: center;
-                opacity: 0;
-                transition: opacity 0.2s ease;
-                pointer-events: none; 
-                box-sizing: border-box;
-            }
-    
-            .game-card.active .card-overlay {
-                opacity: 1;
-                pointer-events: auto; 
-            }
-    
-            .overlay-info {
-                margin-bottom: 20px;
-            }
-            .overlay-system {
-                font-size: 0.8em;
-                color: var(--accent);
-                text-transform: uppercase;
-                font-weight: bold;
-                margin-bottom: 5px;
-            }
-            .overlay-meta {
-                font-size: 0.85em;
-                color: #9e9e9e;
-                margin-top: 4px;
-            }
-    
-            .download-btn {
-                background-color: var(--btn-bg);
-                color: var(--btn-text);
-                text-decoration: none;
-                padding: 10px 20px;
-                font-weight: bold;
-                border-radius: 2px;
-                transition: background 0.2s;
-                display: inline-block;
-            }
-            .download-btn:hover { background-color: #ffa726; }
-    
-            .game-title-below {
-                margin-top: 10px;
-                font-weight: bold;
-                font-size: 0.95em;
-                color: #fff;
-                text-align: center;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                padding: 0 5px;
-            }
-    
-            .edit-btn {
-                position: absolute;
-                top: 8px;
-                right: 8px;
-                background: rgba(0,0,0,0.6);
-                color: #fff;
-                border: none;
-                border-radius: 50%;
-                width: 28px;
-                height: 28px;
-                cursor: pointer;
-                z-index: 10;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: background 0.2s;
-            }
-            .edit-btn:hover { background: var(--accent); color: #000; }
-    
-            /* Modals */
-            .modal {
-                display: none;
-                position: fixed;
-                z-index: 200;
-                left: 0; top: 0;
-                width: 100%; height: 100%;
-                background-color: rgba(0,0,0,0.7);
-                align-items: center;
-                justify-content: center;
-            }
-            .modal-content {
-                background-color: #1e1e1e;
-                padding: 20px;
-                border-radius: 5px;
-                width: 500px;
-                max-width: 90%;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-                color: #e0e0e0;
-                position: relative;
-                max-height: 90vh;
-                overflow-y: auto;
-            }
-            .modal-header { font-size: 1.2em; margin-bottom: 15px; color: var(--accent); display:flex; justify-content:space-between; }
-            .close-btn { cursor: pointer; font-size: 1.5em; line-height: 20px; }
-            .input-group { margin-bottom: 15px; }
-            .input-group label { display: block; margin-bottom: 5px; font-size: 0.9em; }
-            .input-group input, .input-group select { 
-                width: 100%; padding: 8px; 
-                background: #333; border: 1px solid #444; 
-                color: #fff; border-radius: 3px;
-                box-sizing: border-box;
-            }
-            .action-btn {
-                background-color: var(--accent);
-                color: var(--btn-text);
-                border: none;
-                padding: 8px 16px;
-                cursor: pointer;
-                border-radius: 3px;
-                font-weight: bold;
-            }
-            .action-btn:disabled { background-color: #424242; color: #9e9e9e; cursor: not-allowed; }
-            .results-list {
-                max-height: 300px;
-                overflow-y: auto;
-                margin-top: 15px;
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-            }
-            .result-item {
-                display: flex; background: #333;
-                padding: 10px; gap: 10px;
-                cursor: pointer; transition: background 0.2s;
-            }
-            .result-item:hover { background: #383838; }
-            .result-img { width: 50px; height: 70px; object-fit: cover; background: #000; }
-            .result-info { display: flex; flex-direction: column; justify-content: center; }
-            .result-title { font-weight: bold; color: #fff; }
-            .result-year { font-size: 0.8em; color: #9e9e9e; }
-    
-            /* Notifications */
-            #toast-container {
-                position: fixed;
-                bottom: 20px; right: 20px;
-                z-index: 300;
-                display: flex; flex-direction: column; gap: 10px;
-            }
-            .toast {
-                background-color: #333;
-                color: #fff;
-                padding: 12px 20px;
-                border-radius: 4px;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-                border-left: 5px solid var(--accent);
-                min-width: 250px;
-                animation: slideIn 0.3s ease-out;
-                display: flex; align-items: center; justify-content: space-between;
-            }
-            .toast.success { border-left-color: var(--success); }
-            .toast.error { border-left-color: var(--error); }
-            @keyframes slideIn {
-                from { transform: translateX(100%); opacity: 0; }
-                to { transform: translateX(0); opacity: 1; }
-            }
-    
-            /* Upload Progress Area */
-            #upload-progress-area {
-                margin-top: 15px;
-                padding: 15px;
-                background: rgba(0,0,0,0.2);
-                border-radius: 4px;
-                border: 1px solid #444;
-            }
-            .progress-label {
-                font-size: 0.8em;
-                color: #9e9e9e;
-                margin-bottom: 5px;
-                display: flex;
-                justify-content: space-between;
-            }
-            .progress-bar-bg {
-                width: 100%; height: 8px;
-                background: #333; border-radius: 4px;
-                overflow: hidden; margin-bottom: 15px;
-            }
-            .progress-bar-fill {
-                width: 0%; height: 100%;
-                background: var(--accent);
-                transition: width 0.1s linear;
-            }
-            #current-file-name {
-                font-size: 0.85em;
-                color: #fff;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                margin-bottom: 10px;
-            }
-        </style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+
+:root {
+  --bg-color: #080808;
+  --bg-elev: #0f0f0f;
+  --bg-panel: #121212;
+  --card-bg: #141414;
+  --card-border: #232323;
+  --text-color: #f4f4f4;
+  --text-dim: #9a9a9a;
+  --text-soft: #c8c8c8;
+  --accent: #ff6600;
+  --accent-soft: #ff8a3d;
+  --accent-glow: rgba(255, 102, 0, 0.35);
+  --btn-bg: #ff6600;
+  --btn-text: #111111;
+  --success: #33d17a;
+  --error: #ff5f5f;
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { min-height: 100%; }
+
+body {
+  margin: 0;
+  color: var(--text-color);
+  font-family: 'Inter', sans-serif;
+  background:
+    radial-gradient(circle at 15% -10%, rgba(255, 102, 0, 0.16), transparent 35%),
+    radial-gradient(circle at 95% 5%, rgba(255, 102, 0, 0.10), transparent 30%),
+    linear-gradient(180deg, #0b0b0b 0%, #070707 100%);
+  overflow-x: hidden;
+}
+
+::selection { background: var(--accent); color: #fff; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 rgba(255, 102, 0, 0); }
+  50% { box-shadow: 0 0 24px var(--accent-glow); }
+}
+
+@keyframes toastIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 36px;
+  border-bottom: 1px solid #1d1d1d;
+  background: rgba(8, 8, 8, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+h1 {
+  margin: 0;
+  color: var(--accent);
+  text-transform: uppercase;
+  font-size: clamp(1.6rem, 2.6vw, 2.2rem);
+  letter-spacing: 0.08em;
+  font-weight: 900;
+}
+
+#current-user-label,
+#lib-mode {
+  color: var(--text-dim) !important;
+  font-family: 'Space Mono', monospace;
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tabs button {
+  border: 1px solid #242424;
+  background: #101010;
+  color: var(--text-dim);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tabs button:hover {
+  color: #fff;
+  border-color: #3a3a3a;
+  transform: translateY(-1px);
+}
+
+.tabs button.active {
+  color: #fff;
+  border-color: var(--accent);
+  background: linear-gradient(180deg, #29180c, #1a120d);
+  box-shadow: inset 0 0 0 1px rgba(255, 102, 0, 0.25);
+}
+
+.controls {
+  width: 100%;
+  padding-top: 12px;
+  border-top: 1px solid #1e1e1e;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: 58%;
+  overflow-x: auto;
+  padding-bottom: 5px;
+}
+
+.filter-group::-webkit-scrollbar { height: 5px; }
+.filter-group::-webkit-scrollbar-thumb { background: #2c2c2c; border-radius: 999px; }
+
+.filter-chip {
+  border: 1px solid #262626;
+  background: #111111;
+  color: var(--text-dim);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 6px 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-chip:hover { color: #fff; border-color: #3b3b3b; }
+
+.filter-chip.active {
+  color: #fff;
+  background: #1c120c;
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(255, 102, 0, 0.25);
+}
+
+.view-options {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+select,
+.toggle-btn,
+#search-filter,
+input[type='text'],
+input[type='password'],
+.input-group input,
+.input-group select {
+  background: #111111;
+  color: #fff;
+  border: 1px solid #2a2a2a;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 0.9em;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+select:focus,
+.toggle-btn:focus,
+#search-filter:focus,
+input[type='text']:focus,
+input[type='password']:focus,
+.input-group input:focus,
+.input-group select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 102, 0, 0.2);
+}
+
+.toggle-btn.active {
+  color: #fff;
+  border-color: var(--accent);
+  background: #1a120d;
+}
+
+.content-area { padding: 34px; }
+
+.section-header {
+  margin: 28px 0 18px;
+  padding-bottom: 8px;
+  color: #fff;
+  font-family: 'Space Mono', monospace;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid #232323;
+  animation: fadeInUp 0.35s ease both;
+}
+
+.section-header:first-child { margin-top: 0; }
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(204px, 1fr));
+  gap: 24px;
+}
+
+.game-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  animation: fadeInUp 0.28s ease both;
+}
+
+.game-card:hover { transform: translateY(-3px); }
+
+.art-wrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 140%;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: linear-gradient(165deg, #171717 0%, #101010 100%);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-lg);
+}
+
+.game-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.icon-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 60px;
+  color: #ddd;
+  background: radial-gradient(circle at 30% 20%, #252525, #121212 55%);
+}
+
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(12, 12, 12, 0.15) 8%, rgba(8, 8, 8, 0.95) 72%);
+  padding: 16px;
+  opacity: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  transition: opacity 0.2s ease;
+}
+
+.game-card.active .card-overlay { opacity: 1; pointer-events: auto; }
+
+.overlay-info { margin-bottom: 16px; }
+
+.overlay-system {
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-family: 'Space Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 6px;
+}
+
+.overlay-meta {
+  color: var(--text-soft);
+  opacity: 0.88;
+  font-size: 0.82rem;
+  margin-top: 3px;
+}
+
+.download-btn,
+.action-btn,
+.action-btn-small {
+  border: 1px solid var(--accent);
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border-radius: 9px;
+  padding: 9px 15px;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.download-btn:hover,
+.action-btn:hover,
+.action-btn-small:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.game-title-below {
+  margin-top: 11px;
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 4px;
+}
+
+.edit-btn {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  z-index: 10;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #3b3b3b;
+  border-radius: 999px;
+  background: rgba(12, 12, 12, 0.85);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 4, 4, 0.84);
+}
+
+.modal-content {
+  width: 540px;
+  max-width: 95%;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid #2a2a2a;
+  background:
+    radial-gradient(circle at 88% -10%, rgba(255, 102, 0, 0.12), transparent 28%),
+    linear-gradient(180deg, #121212 0%, #0d0d0d 100%);
+  color: #f0f0f0;
+  padding: 22px;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  font-family: 'Space Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.close-btn {
+  color: #bbb;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+}
+.close-btn:hover { color: #fff; }
+
+.input-group { margin-bottom: 12px; }
+.input-group label { display: block; margin-bottom: 6px; color: #ddd; font-size: 0.86rem; }
+
+.results-list { margin-top: 14px; display: grid; gap: 9px; }
+.result-item {
+  border: 1px solid #292929;
+  border-radius: 10px;
+  background: #121212;
+  padding: 9px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.result-img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; }
+.result-title { font-weight: 700; color: #fff; }
+.result-year { color: #aaa; font-size: 0.85rem; }
+
+.version-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #222;
+  padding: 11px 6px;
+}
+
+.version-info { color: #d2d2d2; font-size: 0.9rem; }
+
+.library-list { display: flex; flex-direction: column; gap: 9px; }
+
+.game-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #232323;
+  border-radius: 12px;
+  background: #111111;
+  padding: 10px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.game-row:hover { border-color: #343434; transform: translateY(-1px); }
+.game-row.active { border-color: var(--accent); animation: pulseGlow 1.4s ease-in-out infinite; }
+
+.game-row .row-thumb { width: 62px; height: 62px; object-fit: cover; border-radius: 8px; background: #151515; }
+.game-row .row-info { flex: 1; min-width: 0; }
+.game-row .row-title { font-size: 1rem; font-weight: 700; color: #fff; }
+.game-row .row-meta { display: flex; gap: 9px; color: #aaa; font-size: 0.82rem; flex-wrap: wrap; }
+.game-row .row-actions { display: flex; align-items: center; gap: 8px; }
+
+.progress-container, .progress-bar-bg {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: #252525;
+  overflow: hidden;
+}
+
+.progress-bar,
+
+
+.progress-container { display: none; }
+.downloading .progress-container { display: block; }
+
+.progress-label {
+  margin-bottom: 6px;
+  font-family: 'Space Mono', monospace;
+  color: #cbcbcb;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  min-width: 250px;
+  z-index: 320;
+  border-radius: 10px;
+  border: 1px solid #343434;
+  border-left: 4px solid var(--accent);
+  background: #101010;
+  color: #fff;
+  padding: 12px 14px;
+  box-shadow: var(--shadow-lg);
+  animation: toastIn 0.24s ease;
+}
+
+.conflict-item {
+  border: 1px solid #2b2b2b;
+  border-radius: 12px;
+  background: #111111;
+  padding: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.conflict-title {
+  border-bottom: 1px solid #252525;
+  padding-bottom: 7px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.conflict-compare {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.conflict-side { flex: 1; }
+.conflict-side.local { border-right: 1px solid #282828; padding-right: 12px; }
+.conflict-side.cloud { text-align: right; padding-left: 12px; }
+
+.c-label {
+  color: #a9a9a9;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.73rem;
+  margin-bottom: 4px;
+}
+
+.c-date { color: #f0f0f0; font-family: 'Space Mono', monospace; font-size: 0.82rem; }
+
+.c-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.69rem;
+  font-weight: 700;
+}
+
+.c-newer { background: rgba(51, 209, 122, 0.2); color: #9ef1c5; border: 1px solid rgba(51, 209, 122, 0.35); }
+.c-older { background: rgba(255, 95, 95, 0.2); color: #ffb1b1; border: 1px solid rgba(255, 95, 95, 0.35); }
+
+.conflict-actions { display: flex; justify-content: center; gap: 10px; margin-top: 8px; }
+
+#resolve-all-local,
+#resolve-all-cloud {
+  color: #fff !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+}
+
+#resolve-all-local {
+  background: #27445a !important;
+  border-color: #355c79 !important;
+}
+
+#resolve-all-cloud {
+  background: #2f5b3f !important;
+  border-color: #3e7954 !important;
+}
+
+#resolve-all-local:hover,
+#resolve-all-cloud:hover { filter: brightness(1.08); }
+
+@media (max-width: 900px) {
+  header { padding: 16px; }
+  .header-top { align-items: flex-start; flex-direction: column; }
+  .controls { align-items: stretch; }
+  .filter-group { max-width: 100%; }
+  .view-options { width: 100%; }
+  .content-area { padding: 18px; }
+  .library-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+}
+</style>
 </head>
 <body>
 
@@ -391,23 +587,24 @@
         <h1>ROMSTORE</h1>
         <div style="display:flex; gap: 15px; align-items: center;">
             <button onclick="logout()" class="action-btn" style="background:transparent; border: 1px solid #c23c2a; color: #c23c2a;">Logout</button>
-            <button onclick="openSettings()" class="action-btn" style="background:transparent; border: 1px solid #3d5a73; color: #8b9bb4;">⚙ Settings</button>
+            <button onclick="openSettings()" class="action-btn" style="background:transparent; border: 1px solid #3a2b1f; color: #9a9a9a;">⚙ Settings</button>
             <nav class="tabs">
                 <button onclick="changeTab('games')" id="tab-games" class="active">Games</button>
                 <button onclick="changeTab('saves')" id="tab-saves">Saves</button>
                 <button onclick="changeTab('bios')" id="tab-bios">Bios</button>
+                <button onclick="changeTab('admin')" id="tab-admin" style="display:none;">Admin</button>
             </nav>
         </div>
-        <div style="color: #8b9bb4; font-size: 0.9em;">Library Mode: Native</div>
+        <div id="current-user-label" style="color: #9a9a9a; font-size: 0.9em;">Library Mode: Native</div>
     </div>
     
     <div class="controls">
         <div class="filter-group" id="filter-container">
-            <span style="color:#8b9bb4; font-size:0.9em;">Loading filters...</span>
+            <span style="color:#9a9a9a; font-size:0.9em;">Loading filters...</span>
         </div>
 
         <div class="view-options">
-            <input type="text" id="search-filter" placeholder="Search files..." oninput="applyViewSettings()" style="background:#2a475e; color:#fff; border:1px solid #3d5a73; padding:5px 10px; border-radius:3px; font-size:0.9em;">
+            <input type="text" id="search-filter" placeholder="Search files..." oninput="applyViewSettings()" style="background:#121212; color:#fff; border:1px solid #3a2b1f; padding:5px 10px; border-radius:3px; font-size:0.9em;">
             <select id="sort-select" onchange="applyViewSettings()">
                 <option value="name_asc">Name (A-Z)</option>
                 <option value="name_desc">Name (Z-A)</option>
@@ -429,15 +626,19 @@
         <div class="modal-header">
             <span id="auth-title">Login</span>
         </div>
-        <p id="auth-desc" style="font-size: 0.9em; color: #8b9bb4; margin-bottom: 20px;">Please login to access your library.</p>
+        <p id="auth-desc" style="font-size: 0.9em; color: #9a9a9a; margin-bottom: 20px;">Please login to access your library.</p>
         
         <div class="input-group">
             <label>Username</label>
             <input type="text" id="auth-username" placeholder="Username">
         </div>
         <div class="input-group">
-            <label>Password</label>
+            <label id="auth-password-label">Password</label>
             <input type="password" id="auth-password" placeholder="Password">
+        </div>
+        <div class="input-group" id="auth-new-password-group" style="display:none;">
+            <label id="auth-new-password-label">New Password</label>
+            <input type="password" id="auth-new-password" placeholder="New Password">
         </div>
         <button onclick="handleAuth()" id="auth-btn" class="action-btn" style="width:100%">Login</button>
     </div>
@@ -454,7 +655,7 @@
         <div style="margin-bottom: 25px;">
             <p style="font-size:0.95em; color:#fff; margin-bottom:10px;">Bulk Upload Games</p>
             <div class="input-group">
-                <button onclick="document.getElementById('file-input').click()" class="action-btn" style="background:#3d5a73; width:100%;">📁 Select Files</button>
+                <button onclick="document.getElementById('file-input').click()" class="action-btn" style="background:#3a2b1f; width:100%;">📁 Select Files</button>
                 <input type="file" id="file-input" multiple style="display:none;" onchange="handleFileSelect()">
             </div>
             
@@ -489,7 +690,7 @@
             </div>
         </div>
 
-        <div style="border-top: 1px solid #3d5a73; padding-top: 20px; margin-bottom: 25px;">
+        <div style="border-top: 1px solid #3a2b1f; padding-top: 20px; margin-bottom: 25px;">
             <p style="font-size:0.95em; color:#fff; margin-bottom:10px;">IGDB Metadata API</p>
             <div class="input-group">
                 <label>Client ID</label>
@@ -502,7 +703,7 @@
             <button onclick="saveSettings()" class="action-btn" style="width:100%">Save Credentials</button>
         </div>
         
-        <div style="border-top: 1px solid #3d5a73; padding-top: 20px;">
+        <div style="border-top: 1px solid #3a2b1f; padding-top: 20px;">
             <p style="font-size:0.95em; color:#fff; margin-bottom:10px;">Maintenance</p>
             <button onclick="autoScanLibrary()" class="action-btn" id="auto-scan-btn" style="width:100%">✨ Auto Scan Missing Metadata</button>
         </div>
@@ -517,7 +718,7 @@
             <span class="close-btn" onclick="closeModal('metadata-modal')">&times;</span>
         </div>
         <div style="display:flex; gap:10px;">
-            <input type="text" id="search-query" style="flex:1; padding:8px; border-radius:3px; border:1px solid #3d5a73; background:#2a475e; color:#fff;" placeholder="Search Game Name...">
+            <input type="text" id="search-query" style="flex:1; padding:8px; border-radius:3px; border:1px solid #3a2b1f; background:#121212; color:#fff;" placeholder="Search Game Name...">
             <button onclick="searchMetadata()" class="action-btn">Search</button>
         </div>
         <div style="margin-top:10px; display:none;" id="skip-container">
@@ -568,6 +769,7 @@
     let activeFilters = new Set(); 
     let isGrouped = false;
     let editingGamePath = null;
+    let currentUser = null;
     
     // Auto Scan State
     let isAutoScanning = false;
@@ -577,6 +779,78 @@
     // Upload State
     let selectedFiles = [];
     let isSetupMode = false;
+    let isPasswordChangeMode = false;
+
+    function setAuthMode(mode, user = null) {
+        const titleEl = document.getElementById('auth-title');
+        const descEl = document.getElementById('auth-desc');
+        const btnEl = document.getElementById('auth-btn');
+        const usernameEl = document.getElementById('auth-username');
+        const passwordLabelEl = document.getElementById('auth-password-label');
+        const passwordEl = document.getElementById('auth-password');
+        const newGroupEl = document.getElementById('auth-new-password-group');
+        const newPasswordEl = document.getElementById('auth-new-password');
+
+        isSetupMode = mode === 'setup';
+        isPasswordChangeMode = mode === 'password_change';
+        newPasswordEl.value = '';
+        passwordEl.value = '';
+
+        if (mode === 'setup') {
+            titleEl.innerText = 'Initial Setup';
+            descEl.innerText = 'Create your administrator account.';
+            btnEl.innerText = 'Create Account';
+            usernameEl.disabled = false;
+            usernameEl.value = '';
+            passwordLabelEl.innerText = 'Password';
+            passwordEl.placeholder = 'Password';
+            newGroupEl.style.display = 'none';
+            return;
+        }
+
+        if (mode === 'password_change') {
+            titleEl.innerText = 'Password Update Required';
+            descEl.innerText = 'Use your temporary password, then set your own.';
+            btnEl.innerText = 'Update Password';
+            usernameEl.disabled = true;
+            usernameEl.value = user ? user.username : '';
+            passwordLabelEl.innerText = 'Temporary Password';
+            passwordEl.placeholder = 'Temporary Password';
+            newGroupEl.style.display = 'block';
+            return;
+        }
+
+        titleEl.innerText = 'Login';
+        descEl.innerText = 'Please login to access your library.';
+        btnEl.innerText = 'Login';
+        usernameEl.disabled = false;
+        usernameEl.value = '';
+        passwordLabelEl.innerText = 'Password';
+        passwordEl.placeholder = 'Password';
+        newGroupEl.style.display = 'none';
+    }
+
+    function updateRoleUI() {
+        const adminTab = document.getElementById('tab-admin');
+        const userLabel = document.getElementById('current-user-label');
+        const isAdmin = !!(currentUser && currentUser.role === 'admin');
+
+        adminTab.style.display = isAdmin ? 'inline-block' : 'none';
+        if (currentUser) {
+            userLabel.innerText = `${currentUser.username} (${currentUser.role || 'user'})`;
+        } else {
+            userLabel.innerText = 'Library Mode: Native';
+        }
+
+        if (!isAdmin && currentTab === 'admin') {
+            currentTab = 'games';
+        }
+
+        document.querySelector('.controls').style.display = currentTab === 'admin' ? 'none' : 'flex';
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+        const activeTabEl = document.getElementById(`tab-${currentTab}`);
+        if (activeTabEl) activeTabEl.classList.add('active');
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
         checkAuth();
@@ -588,20 +862,26 @@
             const data = await res.json();
             
             if (data.needsSetup) {
-                isSetupMode = true;
-                document.getElementById('auth-title').innerText = 'Initial Setup';
-                document.getElementById('auth-desc').innerText = 'Create your administrator account.';
-                document.getElementById('auth-btn').innerText = 'Create Account';
+                currentUser = null;
+                updateRoleUI();
+                setAuthMode('setup');
                 document.getElementById('auth-modal').style.display = 'flex';
             } else if (!data.authenticated) {
-                isSetupMode = false;
-                document.getElementById('auth-title').innerText = 'Login';
-                document.getElementById('auth-desc').innerText = 'Please login to access your library.';
-                document.getElementById('auth-btn').innerText = 'Login';
+                currentUser = null;
+                updateRoleUI();
+                setAuthMode('login');
                 document.getElementById('auth-modal').style.display = 'flex';
             } else {
+                currentUser = data.user || null;
+                updateRoleUI();
+                if (currentUser && currentUser.mustChangePassword) {
+                    setAuthMode('password_change', currentUser);
+                    document.getElementById('auth-modal').style.display = 'flex';
+                    return;
+                }
                 document.getElementById('auth-modal').style.display = 'none';
                 loadUIState();
+                updateRoleUI();
                 loadLibrary();
             }
         } catch (e) {
@@ -612,20 +892,31 @@
     async function handleAuth() {
         const username = document.getElementById('auth-username').value;
         const password = document.getElementById('auth-password').value;
+        const newPassword = document.getElementById('auth-new-password').value;
         
-        if (!username || !password) return showToast('Please enter both fields', 'error');
-        
-        const endpoint = isSetupMode ? '/api/auth/setup' : '/api/auth/login';
+        if (isPasswordChangeMode) {
+            if (!password || !newPassword) return showToast('Please enter both password fields', 'error');
+            if (newPassword.length < 6) return showToast('New password must be at least 6 characters', 'error');
+        } else {
+            if (!username || !password) return showToast('Please enter both fields', 'error');
+        }
+
+        const endpoint = isSetupMode ? '/api/auth/setup' : (isPasswordChangeMode ? '/api/auth/password' : '/api/auth/login');
+        const body = isPasswordChangeMode
+            ? { currentPassword: password, newPassword }
+            : { username, password };
         
         try {
             const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify(body)
             });
             
             if (res.ok) {
-                showToast(isSetupMode ? 'Account Created!' : 'Welcome back!', 'success');
+                if (isSetupMode) showToast('Account Created!', 'success');
+                else if (isPasswordChangeMode) showToast('Password updated.', 'success');
+                else showToast('Welcome back!', 'success');
                 checkAuth();
             } else {
                 const err = await res.json();
@@ -933,11 +1224,109 @@
         }
     }
 
+    async function loadAdminPanel() {
+        const content = document.getElementById('main-content');
+        if (!currentUser || currentUser.role !== 'admin') {
+            content.innerHTML = '<div style="text-align:center; color:#ff6b6b;">Admin access required.</div>';
+            return;
+        }
+
+        content.innerHTML = '<div style="text-align:center;">Loading users...</div>';
+        try {
+            const res = await fetch('/api/admin/users');
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Failed to load users');
+            }
+
+            const users = await res.json();
+            const rows = users.map(u => `
+                <tr>
+                    <td style="padding:10px; border-bottom:1px solid #2b3d4d;">${u.username}</td>
+                    <td style="padding:10px; border-bottom:1px solid #2b3d4d; text-transform:capitalize;">${u.role}</td>
+                    <td style="padding:10px; border-bottom:1px solid #2b3d4d;">${u.mustChangePassword ? 'Yes' : 'No'}</td>
+                    <td style="padding:10px; border-bottom:1px solid #2b3d4d;">${u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString() : 'Never'}</td>
+                </tr>
+            `).join('');
+
+            content.innerHTML = `
+                <div style="max-width:900px; margin:0 auto;">
+                    <h2 style="margin-top:0;">Admin Panel</h2>
+                    <p style="color:#9a9a9a; margin-top:0;">Create users with temporary passwords. New users must update password on first login.</p>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr auto; gap:10px; margin-bottom:20px;">
+                        <input type="text" id="admin-new-username" placeholder="Username" style="background:#121212; color:#fff; border:1px solid #3a2b1f; padding:10px; border-radius:4px;">
+                        <input type="text" id="admin-temp-password" placeholder="Temporary Password" style="background:#121212; color:#fff; border:1px solid #3a2b1f; padding:10px; border-radius:4px;">
+                        <select id="admin-new-role" style="background:#121212; color:#fff; border:1px solid #3a2b1f; padding:10px; border-radius:4px;">
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <button id="admin-create-user-btn" class="action-btn">Create User</button>
+                    </div>
+                    <div style="background:#1c2f40; border:1px solid #2b3d4d; border-radius:6px; overflow:hidden;">
+                        <table style="width:100%; border-collapse:collapse;">
+                            <thead>
+                                <tr style="background:#182937; text-align:left;">
+                                    <th style="padding:10px;">Username</th>
+                                    <th style="padding:10px;">Role</th>
+                                    <th style="padding:10px;">Must Change Password</th>
+                                    <th style="padding:10px;">Last Login</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('admin-create-user-btn').onclick = createAdminUser;
+        } catch (err) {
+            content.innerHTML = `<div style="text-align:center; color:#ff6b6b;">${err.message}</div>`;
+        }
+    }
+
+    async function createAdminUser() {
+        const username = document.getElementById('admin-new-username').value.trim();
+        const tempPassword = document.getElementById('admin-temp-password').value.trim();
+        const role = document.getElementById('admin-new-role').value;
+        if (!username || !tempPassword) {
+            showToast('Username and temporary password are required', 'error');
+            return;
+        }
+        if (tempPassword.length < 6) {
+            showToast('Temporary password must be at least 6 characters', 'error');
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, tempPassword, role })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                showToast(data.error || 'Failed to create user', 'error');
+                return;
+            }
+
+            showToast(`User ${data.user.username} created`, 'success');
+            loadAdminPanel();
+        } catch (e) {
+            showToast('Failed to create user', 'error');
+        }
+    }
+
     // --- Core Logic ---
     function changeTab(tab) {
+        if (tab === 'admin' && (!currentUser || currentUser.role !== 'admin')) {
+            showToast('Admin access required', 'error');
+            return;
+        }
+
         currentTab = tab;
         document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
         document.getElementById(`tab-${tab}`).classList.add('active');
+        document.querySelector('.controls').style.display = tab === 'admin' ? 'none' : 'flex';
         activeFilters.clear();
         document.getElementById('search-filter').value = '';
         saveUIState();
@@ -954,8 +1343,21 @@
     async function loadLibrary() {
         const content = document.getElementById('main-content');
         content.innerHTML = '<div style="text-align:center;">Scanning...</div>';
+
+        if (currentTab === 'admin') {
+            await loadAdminPanel();
+            return;
+        }
+
         try {
             const res = await fetch(`/api/${currentTab}?t=${Date.now()}`);
+            if (res.status === 403) {
+                const err = await res.json();
+                if (err.mustChangePassword) {
+                    checkAuth();
+                    return;
+                }
+            }
             if (res.status === 401) return checkAuth();
             rawData = await res.json();
             rawData = rawData.map(item => {
@@ -1126,3 +1528,6 @@
 
 </body>
 </html>
+
+
+

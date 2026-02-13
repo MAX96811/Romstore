@@ -12,7 +12,6 @@ services:
       - PORT=3000
     networks:
       - app-network
-
   frontend:
     build: ./frontend
     image: max96811/romstore-frontend:latest

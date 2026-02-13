@@ -1,6 +1,6 @@
 {
   "name": "romstore-client",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "RomStore Desktop Client",
   "author": "RomStore Team",
   "main": "main.js",
@@ -23,7 +23,9 @@
       "target": "AppImage",
       "icon": "renderer/LOGO.png",
       "category": "Game",
-      "executableArgs": ["--no-sandbox"]
+      "executableArgs": [
+        "--no-sandbox"
+      ]
     },
     "files": [
       "**/*"
