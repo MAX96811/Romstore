@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.0.1 - 2026-02-13
+
+### Added
+- Electron login `Remember me` option restored and persisted through config/session IPC.
+- Background daemon behavior restored in Electron:
+  - Run in background on close (optional).
+  - Minimize to tray (optional).
+  - Launch to tray (optional).
+  - Start with system toggle wiring.
+- Tray menu actions restored (`Open`, `Hide To Tray`, `Quit`).
+
+### Fixed
+- Session persistence flow in Electron no longer depends only on `localStorage`.
+- Duplicate app instance behavior reduced with single-instance lock in Electron.
+
 ## v2.0.0 - 2026-02-13
 
 ### Added
@@ -57,4 +72,3 @@
 ### Migration / Notes
 - Existing installs continue to work; legacy saves are migrated to user-scoped storage.
 - If Switch saves use abstract slot IDs (for example `000000000000000X`), add mappings in `data/switch_save_map.json` so game-to-save linking is accurate.
-

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
@@ -6,8 +6,91 @@ const axios = require('axios');
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
 app.commandLine.appendSwitch('disable-http-cache');
 
+let mainWindow = null;
+let tray = null;
+let isQuitting = false;
+
+const singleInstanceLock = app.requestSingleInstanceLock();
+if (!singleInstanceLock) {
+    app.quit();
+}
+
+function getConfigPath() {
+    return path.join(app.getPath('userData'), 'config.json');
+}
+
+function getConfig() {
+    const configPath = getConfigPath();
+    if (!fs.existsSync(configPath)) return {};
+    try {
+        return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    } catch (e) {
+        console.error('[Config] Failed to parse config.json:', e.message);
+        return {};
+    }
+}
+
+function saveConfig(configPatch) {
+    const configPath = getConfigPath();
+    const current = getConfig();
+    const next = { ...current, ...(configPatch || {}) };
+    fs.writeFileSync(configPath, JSON.stringify(next, null, 2));
+    return next;
+}
+
+function getTrayIconPath() {
+    const lower = path.join(__dirname, '..', 'lOGO.png');
+    const upper = path.join(__dirname, '..', 'LOGO.png');
+    return fs.existsSync(lower) ? lower : upper;
+}
+
+function ensureTray() {
+    if (tray) return tray;
+    tray = new Tray(getTrayIconPath());
+    tray.setToolTip('RomStore');
+    tray.on('double-click', () => {
+        if (!mainWindow) return;
+        mainWindow.show();
+        mainWindow.focus();
+        mainWindow.webContents.send('visibility-changed', { hidden: false });
+    });
+    return tray;
+}
+
+function updateTrayMenu() {
+    if (!tray) return;
+    const menu = Menu.buildFromTemplate([
+        {
+            label: 'Open RomStore',
+            click: () => {
+                if (!mainWindow) return;
+                mainWindow.show();
+                mainWindow.focus();
+                mainWindow.webContents.send('visibility-changed', { hidden: false });
+            }
+        },
+        {
+            label: 'Hide To Tray',
+            click: () => {
+                if (!mainWindow) return;
+                mainWindow.hide();
+                mainWindow.webContents.send('visibility-changed', { hidden: true });
+            }
+        },
+        { type: 'separator' },
+        {
+            label: 'Quit',
+            click: () => {
+                isQuitting = true;
+                app.quit();
+            }
+        }
+    ]);
+    tray.setContextMenu(menu);
+}
+
 function createWindow() {
-    const win = new BrowserWindow({
+    mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
         backgroundColor: '#121212',
@@ -21,19 +104,70 @@ function createWindow() {
 
     // In production we would load the file. 
     // For now, it will load our local copy of the UI
-    win.loadFile('renderer/index.html');
-    // win.webContents.openDevTools();
+    mainWindow.loadFile('renderer/index.html');
+    // mainWindow.webContents.openDevTools();
+
+    mainWindow.on('close', (event) => {
+        const cfg = getConfig();
+        const keepInBackground = !!cfg.keepInBackground;
+        if (!isQuitting && keepInBackground) {
+            event.preventDefault();
+            mainWindow.hide();
+            ensureTray();
+            updateTrayMenu();
+            mainWindow.webContents.send('visibility-changed', { hidden: true });
+        }
+    });
+
+    mainWindow.on('minimize', (event) => {
+        const cfg = getConfig();
+        if (cfg.minimizeToTray) {
+            event.preventDefault();
+            mainWindow.hide();
+            ensureTray();
+            updateTrayMenu();
+            mainWindow.webContents.send('visibility-changed', { hidden: true });
+        }
+    });
+
+    mainWindow.on('show', () => {
+        if (!mainWindow) return;
+        mainWindow.webContents.send('visibility-changed', { hidden: false });
+    });
 }
+
+app.on('second-instance', () => {
+    if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+    }
+});
 
 app.whenReady().then(() => {
     const sessionDataPath = path.join(app.getPath('userData'), 'session-data');
     if (!fs.existsSync(sessionDataPath)) fs.mkdirSync(sessionDataPath, { recursive: true });
     app.setPath('sessionData', sessionDataPath);
     createWindow();
+
+    const cfg = getConfig();
+    app.setLoginItemSettings({ openAtLogin: !!cfg.startWithSystem });
+    if (cfg.keepInBackground || cfg.minimizeToTray) {
+        ensureTray();
+        updateTrayMenu();
+    }
+    if (cfg.launchToTray && mainWindow) {
+        mainWindow.hide();
+        mainWindow.webContents.send('visibility-changed', { hidden: true });
+    }
 });
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+    isQuitting = true;
 });
 
 // IPC Handlers for Local File Operations
@@ -178,17 +312,46 @@ ipcMain.handle('backup-local-file', async (event, filePath) => {
     }
 });
 
-ipcMain.handle('get-config', () => {
-    const configPath = path.join(app.getPath('userData'), 'config.json');
-    if (fs.existsSync(configPath)) {
-        return JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    }
-    return {};
-});
+ipcMain.handle('get-config', () => getConfig());
 
 ipcMain.handle('save-config', (event, config) => {
-    const configPath = path.join(app.getPath('userData'), 'config.json');
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    const next = saveConfig(config);
+    app.setLoginItemSettings({ openAtLogin: !!next.startWithSystem });
+    if (next.keepInBackground || next.minimizeToTray) {
+        ensureTray();
+        updateTrayMenu();
+    } else if (tray) {
+        tray.destroy();
+        tray = null;
+    }
+    return next;
+});
+
+ipcMain.handle('check-session', () => {
+    const cfg = getConfig();
+    return {
+        token: cfg.rememberMe ? (cfg.savedSessionToken || '') : '',
+        rememberMe: !!cfg.rememberMe
+    };
+});
+
+ipcMain.handle('set-session', (event, payload) => {
+    const data = (payload && typeof payload === 'object') ? payload : { token: payload };
+    const rememberMe = !!data.rememberMe;
+    const token = data.token || '';
+    saveConfig({
+        rememberMe,
+        savedSessionToken: rememberMe && token ? token : ''
+    });
+    return true;
+});
+
+ipcMain.handle('enter-daemon-mode', () => {
+    if (!mainWindow) return false;
+    ensureTray();
+    updateTrayMenu();
+    mainWindow.hide();
+    mainWindow.webContents.send('visibility-changed', { hidden: true });
     return true;
 });
 
