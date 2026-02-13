@@ -5,85 +5,580 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RomStore Library</title>
     <style>
-        :root {
-            --bg-color: #121212; --card-bg: #1e1e1e; --text-color: #e0e0e0; --accent: #ff9800;
-            --btn-bg: #ff9800; --btn-text: #121212; --success: #4caf50; --error: #f44336;
-        }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 0; }
-        header { background-color: #1e1e1e; padding: 20px 40px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); position: sticky; top: 0; z-index: 100; }
-        .header-top { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-        h1 { margin: 0; color: var(--accent); letter-spacing: 2px; }
-        .tabs { display: flex; gap: 20px; }
-        .tabs button { background: none; border: none; color: #9e9e9e; font-size: 1.1em; font-weight: bold; cursor: pointer; padding: 5px 10px; border-bottom: 3px solid transparent; transition: all 0.2s; }
-        .tabs button:hover { color: #fff; }
-        .tabs button.active { color: #fff; border-bottom-color: var(--accent); }
-        .controls { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); width: 100%; flex-wrap: wrap; gap: 10px; }
-        .filter-group { display: flex; gap: 10px; align-items: center; overflow-x: auto; max-width: 60%; padding-bottom: 5px; }
-        .filter-chip { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #9e9e9e; font-size: 0.85em; cursor: pointer; padding: 4px 12px; border-radius: 15px; white-space: nowrap; transition: all 0.2s; user-select: none; }
-        .filter-chip.active { background: var(--accent); color: var(--btn-text); border-color: var(--accent); font-weight: bold; }
-        .view-options { display: flex; gap: 15px; align-items: center; }
-        select, .toggle-btn, #search-filter { background: #333; color: #fff; border: 1px solid #444; padding: 5px 10px; border-radius: 3px; font-size: 0.9em; cursor: pointer; }
-        .content-area { padding: 40px; }
-        .section-header { color: #fff; font-size: 1.5em; border-bottom: 1px solid #444; padding-bottom: 10px; margin-bottom: 20px; margin-top: 30px; text-transform: capitalize; }
-        .library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 30px; }
-        .game-card { background-color: transparent; display: flex; flex-direction: column; cursor: pointer; position: relative; transition: transform 0.2s; }
-        .game-card:hover { transform: scale(1.03); }
-        .art-wrapper { position: relative; width: 100%; padding-top: 140%; background-color: #333; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .game-art { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-        .icon-placeholder { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 60px; background: #333; }
-        .card-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(30, 30, 30, 0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; box-sizing: border-box; }
-        .game-card.active .card-overlay { opacity: 1; pointer-events: auto; }
-        .overlay-system { font-size: 0.8em; color: var(--accent); text-transform: uppercase; font-weight: bold; margin-bottom: 5px; }
-        .overlay-meta { font-size: 0.85em; color: #9e9e9e; margin-top: 4px; }
-        .action-btn-small { background-color: var(--btn-bg); color: var(--btn-text); padding: 8px 16px; font-weight: bold; border-radius: 2px; border: none; cursor: pointer; font-size: 0.9em; margin-top: 10px; }
-        .game-title-below { margin-top: 10px; font-weight: bold; font-size: 0.95em; color: #fff; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; }
-        .edit-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: #fff; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; z-index: 10; display: flex; align-items: center; justify-content: center; }
-        .close-btn { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; line-height: 20px; }
-        .close-btn:hover { color: #fff; }
-        .modal { display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); align-items: center; justify-content: center; }
-        .modal-content { background-color: #1e1e1e; padding: 20px; border-radius: 5px; width: 500px; max-width: 90%; box-shadow: 0 4px 10px rgba(0,0,0,0.5); color: #e0e0e0; position: relative; max-height: 90vh; overflow-y: auto; }
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; margin-bottom: 5px; font-size: 0.9em; }
-        .input-group input, .input-group select { width: 100%; padding: 8px; background: #333; border: 1px solid #444; color: #fff; border-radius: 3px; box-sizing: border-box; }
-        .action-btn { background-color: var(--accent); color: var(--btn-text); border: none; padding: 8px 16px; cursor: pointer; border-radius: 3px; font-weight: bold; }
-        .version-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #333; }
-        .version-row:last-child { border-bottom: none; }
-        .version-info { font-size: 0.9em; color: #ccc; }
-        
-        /* List View Styles */
-        .library-list { display: flex; flex-direction: column; gap: 10px; }
-        .game-row { display: flex; align-items: center; background: #2a2a2a; padding: 10px; border-radius: 4px; gap: 15px; transition: background 0.2s; cursor: pointer; position: relative; }
-        .game-row:hover { background: #333; }
-        .game-row .row-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 3px; background: #111; flex-shrink: 0; }
-        .game-row .row-info { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-        .game-row .row-title { font-weight: bold; font-size: 1.1em; color: #fff; }
-        .game-row .row-meta { font-size: 0.85em; color: #9e9e9e; display: flex; gap: 10px; }
-        .game-row .row-actions { display: flex; align-items: center; gap: 10px; }
-        .game-row.active { border: 1px solid var(--accent); }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
 
-        /* Progress Bar */
-        .progress-container { width: 100%; background-color: #333; height: 6px; border-radius: 3px; margin-top: 8px; display: none; overflow: hidden; }
-        .progress-bar { width: 0%; height: 100%; background-color: var(--accent); transition: width 0.2s; }
-        .downloading .progress-container { display: block; }
-        
-        .toast { background-color: #333; color: #fff; padding: 12px 20px; border-radius: 4px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); border-left: 5px solid var(--accent); min-width: 250px; animation: slideIn 0.3s ease-out; display: flex; align-items: center; justify-content: space-between; position: fixed; bottom: 20px; right: 20px; z-index: 300; }
-        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+:root {
+  --bg-color: #080808;
+  --bg-elev: #0f0f0f;
+  --bg-panel: #121212;
+  --card-bg: #141414;
+  --card-border: #232323;
+  --text-color: #f4f4f4;
+  --text-dim: #9a9a9a;
+  --text-soft: #c8c8c8;
+  --accent: #ff6600;
+  --accent-soft: #ff8a3d;
+  --accent-glow: rgba(255, 102, 0, 0.35);
+  --btn-bg: #ff6600;
+  --btn-text: #111111;
+  --success: #33d17a;
+  --error: #ff5f5f;
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+}
 
-        /* Conflict Modal Styles */
-        .conflict-item { background: #252525; padding: 15px; border-radius: 4px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #333; }
-        .conflict-title { font-weight: bold; color: var(--accent); font-size: 1em; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; margin-bottom: 5px; }
-        .conflict-compare { display: flex; justify-content: space-between; align-items: flex-start; }
-        .conflict-side { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-        .conflict-side.local { border-right: 1px solid #444; padding-right: 15px; }
-        .conflict-side.cloud { padding-left: 15px; text-align: right; }
-        .c-label { font-size: 0.75em; text-transform: uppercase; color: #888; letter-spacing: 1px; margin-bottom: 3px; }
-        .c-date { font-size: 0.9em; color: #e0e0e0; font-family: monospace; }
-        .c-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 0.7em; margin-top: 5px; align-self: flex-start; }
-        .conflict-side.cloud .c-badge { align-self: flex-end; }
-        .c-newer { background: rgba(76, 175, 80, 0.2); color: #81c784; border: 1px solid rgba(76, 175, 80, 0.3); }
-        .c-older { background: rgba(244, 67, 54, 0.2); color: #e57373; border: 1px solid rgba(244, 67, 54, 0.3); }
-        .conflict-actions { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
-    </style>
+* { box-sizing: border-box; }
+
+html, body { min-height: 100%; }
+
+body {
+  margin: 0;
+  color: var(--text-color);
+  font-family: 'Inter', sans-serif;
+  background:
+    radial-gradient(circle at 15% -10%, rgba(255, 102, 0, 0.16), transparent 35%),
+    radial-gradient(circle at 95% 5%, rgba(255, 102, 0, 0.10), transparent 30%),
+    linear-gradient(180deg, #0b0b0b 0%, #070707 100%);
+  overflow-x: hidden;
+}
+
+::selection { background: var(--accent); color: #fff; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 rgba(255, 102, 0, 0); }
+  50% { box-shadow: 0 0 24px var(--accent-glow); }
+}
+
+@keyframes toastIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 36px;
+  border-bottom: 1px solid #1d1d1d;
+  background: rgba(8, 8, 8, 0.92);
+  backdrop-filter: blur(8px);
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+h1 {
+  margin: 0;
+  color: var(--accent);
+  text-transform: uppercase;
+  font-size: clamp(1.6rem, 2.6vw, 2.2rem);
+  letter-spacing: 0.08em;
+  font-weight: 900;
+}
+
+#current-user-label,
+#lib-mode {
+  color: var(--text-dim) !important;
+  font-family: 'Space Mono', monospace;
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tabs button {
+  border: 1px solid #242424;
+  background: #101010;
+  color: var(--text-dim);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tabs button:hover {
+  color: #fff;
+  border-color: #3a3a3a;
+  transform: translateY(-1px);
+}
+
+.tabs button.active {
+  color: #fff;
+  border-color: var(--accent);
+  background: linear-gradient(180deg, #29180c, #1a120d);
+  box-shadow: inset 0 0 0 1px rgba(255, 102, 0, 0.25);
+}
+
+.controls {
+  width: 100%;
+  padding-top: 12px;
+  border-top: 1px solid #1e1e1e;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: 58%;
+  overflow-x: auto;
+  padding-bottom: 5px;
+}
+
+.filter-group::-webkit-scrollbar { height: 5px; }
+.filter-group::-webkit-scrollbar-thumb { background: #2c2c2c; border-radius: 999px; }
+
+.filter-chip {
+  border: 1px solid #262626;
+  background: #111111;
+  color: var(--text-dim);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 6px 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-chip:hover { color: #fff; border-color: #3b3b3b; }
+
+.filter-chip.active {
+  color: #fff;
+  background: #1c120c;
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(255, 102, 0, 0.25);
+}
+
+.view-options {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+select,
+.toggle-btn,
+#search-filter,
+input[type='text'],
+input[type='password'],
+.input-group input,
+.input-group select {
+  background: #111111;
+  color: #fff;
+  border: 1px solid #2a2a2a;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 0.9em;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+select:focus,
+.toggle-btn:focus,
+#search-filter:focus,
+input[type='text']:focus,
+input[type='password']:focus,
+.input-group input:focus,
+.input-group select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(255, 102, 0, 0.2);
+}
+
+.toggle-btn.active {
+  color: #fff;
+  border-color: var(--accent);
+  background: #1a120d;
+}
+
+.content-area { padding: 34px; }
+
+.section-header {
+  margin: 28px 0 18px;
+  padding-bottom: 8px;
+  color: #fff;
+  font-family: 'Space Mono', monospace;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid #232323;
+  animation: fadeInUp 0.35s ease both;
+}
+
+.section-header:first-child { margin-top: 0; }
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(204px, 1fr));
+  gap: 24px;
+}
+
+.game-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  animation: fadeInUp 0.28s ease both;
+}
+
+.game-card:hover { transform: translateY(-3px); }
+
+.art-wrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 140%;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: linear-gradient(165deg, #171717 0%, #101010 100%);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-lg);
+}
+
+.game-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.icon-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 60px;
+  color: #ddd;
+  background: radial-gradient(circle at 30% 20%, #252525, #121212 55%);
+}
+
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(12, 12, 12, 0.15) 8%, rgba(8, 8, 8, 0.95) 72%);
+  padding: 16px;
+  opacity: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  transition: opacity 0.2s ease;
+}
+
+.game-card.active .card-overlay { opacity: 1; pointer-events: auto; }
+
+.overlay-info { margin-bottom: 16px; }
+
+.overlay-system {
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-family: 'Space Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 6px;
+}
+
+.overlay-meta {
+  color: var(--text-soft);
+  opacity: 0.88;
+  font-size: 0.82rem;
+  margin-top: 3px;
+}
+
+.download-btn,
+.action-btn,
+.action-btn-small {
+  border: 1px solid var(--accent);
+  background: var(--btn-bg);
+  color: var(--btn-text);
+  border-radius: 9px;
+  padding: 9px 15px;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.download-btn:hover,
+.action-btn:hover,
+.action-btn-small:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.game-title-below {
+  margin-top: 11px;
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 4px;
+}
+
+.edit-btn {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  z-index: 10;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #3b3b3b;
+  border-radius: 999px;
+  background: rgba(12, 12, 12, 0.85);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 4, 4, 0.84);
+}
+
+.modal-content {
+  width: 540px;
+  max-width: 95%;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid #2a2a2a;
+  background:
+    radial-gradient(circle at 88% -10%, rgba(255, 102, 0, 0.12), transparent 28%),
+    linear-gradient(180deg, #121212 0%, #0d0d0d 100%);
+  color: #f0f0f0;
+  padding: 22px;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  font-family: 'Space Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.close-btn {
+  color: #bbb;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+}
+.close-btn:hover { color: #fff; }
+
+.input-group { margin-bottom: 12px; }
+.input-group label { display: block; margin-bottom: 6px; color: #ddd; font-size: 0.86rem; }
+
+.results-list { margin-top: 14px; display: grid; gap: 9px; }
+.result-item {
+  border: 1px solid #292929;
+  border-radius: 10px;
+  background: #121212;
+  padding: 9px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.result-img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; }
+.result-title { font-weight: 700; color: #fff; }
+.result-year { color: #aaa; font-size: 0.85rem; }
+
+.version-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #222;
+  padding: 11px 6px;
+}
+
+.version-info { color: #d2d2d2; font-size: 0.9rem; }
+
+.library-list { display: flex; flex-direction: column; gap: 9px; }
+
+.game-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid #232323;
+  border-radius: 12px;
+  background: #111111;
+  padding: 10px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.game-row:hover { border-color: #343434; transform: translateY(-1px); }
+.game-row.active { border-color: var(--accent); animation: pulseGlow 1.4s ease-in-out infinite; }
+
+.game-row .row-thumb { width: 62px; height: 62px; object-fit: cover; border-radius: 8px; background: #151515; }
+.game-row .row-info { flex: 1; min-width: 0; }
+.game-row .row-title { font-size: 1rem; font-weight: 700; color: #fff; }
+.game-row .row-meta { display: flex; gap: 9px; color: #aaa; font-size: 0.82rem; flex-wrap: wrap; }
+.game-row .row-actions { display: flex; align-items: center; gap: 8px; }
+
+.progress-container, .progress-bar-bg {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: #252525;
+  overflow: hidden;
+}
+
+.progress-bar,
+
+
+.progress-container { display: none; }
+.downloading .progress-container { display: block; }
+
+.progress-label {
+  margin-bottom: 6px;
+  font-family: 'Space Mono', monospace;
+  color: #cbcbcb;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  min-width: 250px;
+  z-index: 320;
+  border-radius: 10px;
+  border: 1px solid #343434;
+  border-left: 4px solid var(--accent);
+  background: #101010;
+  color: #fff;
+  padding: 12px 14px;
+  box-shadow: var(--shadow-lg);
+  animation: toastIn 0.24s ease;
+}
+
+.conflict-item {
+  border: 1px solid #2b2b2b;
+  border-radius: 12px;
+  background: #111111;
+  padding: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.conflict-title {
+  border-bottom: 1px solid #252525;
+  padding-bottom: 7px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.conflict-compare {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.conflict-side { flex: 1; }
+.conflict-side.local { border-right: 1px solid #282828; padding-right: 12px; }
+.conflict-side.cloud { text-align: right; padding-left: 12px; }
+
+.c-label {
+  color: #a9a9a9;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.73rem;
+  margin-bottom: 4px;
+}
+
+.c-date { color: #f0f0f0; font-family: 'Space Mono', monospace; font-size: 0.82rem; }
+
+.c-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.69rem;
+  font-weight: 700;
+}
+
+.c-newer { background: rgba(51, 209, 122, 0.2); color: #9ef1c5; border: 1px solid rgba(51, 209, 122, 0.35); }
+.c-older { background: rgba(255, 95, 95, 0.2); color: #ffb1b1; border: 1px solid rgba(255, 95, 95, 0.35); }
+
+.conflict-actions { display: flex; justify-content: center; gap: 10px; margin-top: 8px; }
+
+#resolve-all-local,
+#resolve-all-cloud {
+  color: #fff !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+}
+
+#resolve-all-local {
+  background: #27445a !important;
+  border-color: #355c79 !important;
+}
+
+#resolve-all-cloud {
+  background: #2f5b3f !important;
+  border-color: #3e7954 !important;
+}
+
+#resolve-all-local:hover,
+#resolve-all-cloud:hover { filter: brightness(1.08); }
+
+@media (max-width: 900px) {
+  header { padding: 16px; }
+  .header-top { align-items: flex-start; flex-direction: column; }
+  .controls { align-items: stretch; }
+  .filter-group { max-width: 100%; }
+  .view-options { width: 100%; }
+  .content-area { padding: 18px; }
+  .library-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+}
+</style>
 </head>
 <body>
 <header>
@@ -153,6 +648,12 @@
         <div id="versions-list" style="margin-top:20px;">Loading...</div>
     </div>
 </div>
+<div id="game-saves-modal" class="modal">
+    <div class="modal-content" style="width: 760px; max-width: 95%;">
+        <div class="modal-header"><span id="game-saves-title">Game Saves</span><span class="close-btn" id="close-game-saves-btn">&times;</span></div>
+        <div id="game-saves-list" style="margin-top:20px;">Loading...</div>
+    </div>
+</div>
 <div id="conflict-modal" class="modal">
     <div class="modal-content" style="width: 650px; max-width: 95%;">
         <div class="modal-header"><span>⚠️ Sync Conflicts</span></div>
@@ -164,8 +665,8 @@
             <!-- Conflicts injected here -->
         </div>
         <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #333; padding-top:15px;">
-             <button class="action-btn" id="resolve-all-local" style="background:transparent; border:1px solid #555; font-weight:normal;">Keep All Local</button>
-             <button class="action-btn" id="resolve-all-cloud" style="background:transparent; border:1px solid #555; font-weight:normal;">Keep All Cloud</button>
+             <button class="action-btn" id="resolve-all-local" style="background:#3d5f7d; color:#ffffff; border:1px solid #4b6f8f; font-weight:700;">Keep All Local</button>
+             <button class="action-btn" id="resolve-all-cloud" style="background:#285d49; color:#ffffff; border:1px solid #36735b; font-weight:700;">Keep All Cloud</button>
         </div>
     </div>
 </div>
@@ -176,6 +677,7 @@
     let serverUrl = '', localDir = '', sessionToken = localStorage.getItem('romstore_token') || '';
     let currentTab = 'games', rawData = [], activeFilters = new Set(), installedLocalPaths = new Set(), isGrouped = false, isSetupMode = false;
     let isListView = false, isAutoSync = false;
+    let isAuthenticated = false;
     
     // Sync Manifest: Tracks last known state of files to detect conflicts
     let syncManifest = {};
@@ -208,13 +710,85 @@
         container.appendChild(toast);
         setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
     }
+    function normalizeTitle(value) {
+        return (value || '')
+            .toLowerCase()
+            .replace(/^(wii|switch):\s*/i, '')
+            .replace(/\s*\([a-z0-9]+\)\s*$/i, '')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim();
+    }
+    function shouldSyncSavePath(relPath) {
+        const p = String(relPath || '').replace(/\\/g, '/');
+        if (!p) return false;
+
+        const blockedPatterns = [
+            /(^|\/)\.oldsave(\/|$)/i,
+            /(^|\/)backup(\/|$)/i,
+            /(^|\/)dolphin\/wii\/shared2\/sys(\/|$)/i,
+            /(^|\/)dolphin\/wii\/shared2\/wc24(\/|$)/i,
+            /(^|\/)dolphin\/wii\/sys(\/|$)/i,
+            /(^|\/)dolphin\/wii\/title\/00000001\/00000002(\/|$)/i,
+            /(^|\/)dolphin\/gc\/sram\.raw$/i,
+            /(^|\/)dolphin\/wii\/fst\.bin$/i,
+            /(^|\/)eden\/profiles(\/|$)/i,
+            /(^|\/)ryujinx\/system(\/|$)/i,
+            /(^|\/)ryujinx\/system_saves(\/|$)/i,
+            /(^|\/)ryujinx\/savemeta(\/|$)/i,
+            /(^|\/)es-de\/gamelists(\/|$)/i,
+            /(^|\/)(prod|title)\.keys$/i,
+            /(^|\/)profiles\.json$/i,
+            /(^|\/)title\.tmd$/i,
+            /(^|\/)banner\.bin$/i,
+            /(^|\/)(loop_test|test_sync|testsave)\.sav$/i
+        ];
+
+        return !blockedPatterns.some(re => re.test(p));
+    }
+    async function enrichConflictMetadata(conflicts, serverSaves) {
+        const byPath = new Map();
+        serverSaves.forEach(s => byPath.set(s.relPath, s));
+
+        let games = [];
+        try {
+            const gamesRes = await fetch(getApiUrl('/api/games'), getFetchOptions());
+            if (gamesRes.ok) games = await gamesRes.json();
+        } catch (e) {}
+
+        const gameByNorm = new Map();
+        games.forEach(g => {
+            const norm = normalizeTitle(g.name);
+            if (norm && !gameByNorm.has(norm)) gameByNorm.set(norm, g);
+        });
+
+        for (const c of conflicts) {
+            const serverSave = byPath.get(c.path);
+            if (!serverSave) continue;
+
+            c.system = serverSave.system || 'Unknown';
+            c.savePath = serverSave.relPath || c.path;
+            c.displayName = serverSave.gameTitle || serverSave.name || c.path;
+
+            const normSave = normalizeTitle(c.displayName);
+            let matchedGame = gameByNorm.get(normSave);
+            if (!matchedGame && normSave) {
+                for (const g of games) {
+                    const n = normalizeTitle(g.name);
+                    if (!n) continue;
+                    if (n.includes(normSave) || normSave.includes(n)) { matchedGame = g; break; }
+                }
+            }
+
+            c.coverPath = matchedGame ? matchedGame.artworkPath : null;
+            c.gameName = matchedGame ? matchedGame.name : c.displayName;
+        }
+    }
     async function scanLocalFiles() {
         if (isElectron && localDir) {
             console.log('[Local] Scanning:', localDir);
             const files = await window.electronAPI.scanLocalEmulation(localDir);
             installedLocalPaths = new Set(files);
             console.log('[Local] Found:', installedLocalPaths.size);
-            if (isAutoSync) toggleAutoSync(true); 
         }
     }
     async function checkAuth() {
@@ -228,15 +802,31 @@
             const res = await fetch(getApiUrl('/api/auth/status'), getFetchOptions());
             const data = await res.json();
             if (data.needsSetup || !data.authenticated) {
+                isAuthenticated = false;
+                if (isElectron) window.electronAPI.stopSaveWatcher();
+                document.getElementById('conflict-modal').style.display = 'none';
+                if (!data.needsSetup && sessionToken) {
+                    sessionToken = '';
+                    localStorage.removeItem('romstore_token');
+                }
                 isSetupMode = !!data.needsSetup;
                 const titleEl = document.getElementById('auth-title');
                 if (titleEl) titleEl.innerText = isSetupMode ? 'Initial Setup' : 'Login';
                 document.getElementById('auth-modal').style.display = 'flex';
             } else {
+                isAuthenticated = true;
                 document.getElementById('auth-modal').style.display = 'none';
-                loadUIState(); await scanLocalFiles(); loadLibrary();
+                loadUIState();
+                await scanLocalFiles();
+                if (isAutoSync) toggleAutoSync(true);
+                loadLibrary();
             }
-        } catch (e) { console.error('[Auth] Status check failed', e); document.getElementById('auth-modal').style.display = 'flex'; }
+        } catch (e) {
+            console.error('[Auth] Status check failed', e);
+            isAuthenticated = false;
+            if (isElectron) window.electronAPI.stopSaveWatcher();
+            document.getElementById('auth-modal').style.display = 'flex';
+        }
     }
     async function handleAuth() {
         console.log('[Auth] Attempting login...');
@@ -255,9 +845,13 @@
             if (res.ok) {
                 const data = await res.json();
                 if (data.token) { sessionToken = data.token; localStorage.setItem('romstore_token', sessionToken); }
+                isAuthenticated = true;
                 showToast('Success!', 'success');
                 document.getElementById('auth-modal').style.display = 'none';
-                loadUIState(); await scanLocalFiles(); loadLibrary();
+                loadUIState();
+                await scanLocalFiles();
+                if (isAutoSync) toggleAutoSync(true);
+                loadLibrary();
             } else showToast('Auth failed', 'error');
         } catch (e) { console.error('[Auth] Error:', e); showToast('Server error', 'error'); }
     }
@@ -289,12 +883,18 @@
             document.getElementById('group-toggle').classList.toggle('active', isGrouped);
             document.getElementById('view-toggle').classList.toggle('active', isListView);
             document.getElementById('auto-sync-check').checked = isAutoSync;
-            if(isAutoSync) toggleAutoSync(true);
         } catch (e) {}
     }
     function toggleAutoSync(enable) {
         if (!isElectron) return;
         if (enable) {
+            if (!isAuthenticated || !sessionToken) {
+                showToast('Login required for auto-sync', 'error');
+                document.getElementById('auto-sync-check').checked = false;
+                isAutoSync = false;
+                saveUIState();
+                return;
+            }
             const savesDir = localDir ? localDir + '/saves' : null;
             if (savesDir) {
                 window.electronAPI.startSaveWatcher(savesDir);
@@ -306,6 +906,7 @@
     }
     
     async function uploadSaveDirect(relPath) {
+        if (!shouldSyncSavePath(relPath)) return false;
         const fullPath = `${localDir}/saves/${relPath}`;
         const res = await window.electronAPI.uploadSave(fullPath, relPath, sessionToken);
         if (res && res.success) {
@@ -322,6 +923,7 @@
     }
 
     async function downloadSaveDirect(relPath) {
+        if (!shouldSyncSavePath(relPath)) return;
         const dest = `${localDir}/saves/${relPath}`.split('\\').join('/');
         const url = getApiUrl(`/api/download?type=saves&path=${encodeURIComponent(relPath)}`);
         try {
@@ -343,18 +945,28 @@
     }
 
     async function syncSaves() {
-        if (!isElectron || !localDir) return;
+        if (!isElectron || !localDir || !isAuthenticated || !sessionToken) return;
         console.log('[Sync] Starting conflict-aware sync...');
         showToast('Checking for cloud saves...', 'info');
+        const timeToleranceMs = 120000; // tolerate small cloud/local mtime skew
         
         try {
             const res = await fetch(getApiUrl('/api/saves'), getFetchOptions());
+            if (res.status === 401) {
+                isAuthenticated = false;
+                window.electronAPI.stopSaveWatcher();
+                document.getElementById('auth-modal').style.display = 'flex';
+                return;
+            }
             if (!res.ok) throw new Error('Failed to fetch server saves');
             const serverSaves = await res.json();
-            const localSaves = await window.electronAPI.scanDirStat(localDir + '/saves');
-            
+            const localSaves = (await window.electronAPI.scanDirStat(localDir + '/saves'))
+                .filter(l => shouldSyncSavePath(l.relPath));
+             
             const serverMap = new Map();
-            serverSaves.forEach(s => serverMap.set(s.relPath, new Date(s.mtime).getTime()));
+            serverSaves
+                .filter(s => shouldSyncSavePath(s.relPath))
+                .forEach(s => serverMap.set(s.relPath, new Date(s.mtime).getTime()));
             
             const localMap = new Map();
             localSaves.forEach(l => localMap.set(l.relPath, new Date(l.mtime).getTime()));
@@ -397,22 +1009,31 @@
                 const lastL = manifest ? manifest.l : 0;
                 const lastS = manifest ? manifest.s : 0;
                 
-                // Allow 2s variance
-                const localChanged = lTime !== undefined && Math.abs(lTime - lastL) > 2000;
-                const serverChanged = sTime !== undefined && Math.abs(sTime - lastS) > 2000;
+                // Allow tolerance for filesystem timestamp precision and network copy drift
+                const localChanged = lTime !== undefined && Math.abs(lTime - lastL) > timeToleranceMs;
+                const serverChanged = sTime !== undefined && Math.abs(sTime - lastS) > timeToleranceMs;
                 
                 // No Manifest (First Run)
                 if (!manifest) {
-                    if (Math.abs(lTime - sTime) > 2000) {
-                        conflicts.push({ path, lTime, sTime });
+                    if (Math.abs(lTime - sTime) <= timeToleranceMs) {
+                        updateManifest(path, lTime, sTime); // close enough, treat as synced
+                    } else if (sTime > lTime) {
+                        await downloadSaveDirect(path); dlCount++;
+                    } else if (lTime > sTime) {
+                        await uploadSaveDirect(path); ulCount++;
                     } else {
-                        updateManifest(path, lTime, sTime); // Assumed synced
+                        updateManifest(path, lTime, sTime);
                     }
                     continue;
                 }
 
                 if (localChanged && serverChanged) {
-                    conflicts.push({ path, lTime, sTime });
+                    // Both changed but nearly same timestamp: assume same logical save state.
+                    if (Math.abs(lTime - sTime) <= timeToleranceMs) {
+                        updateManifest(path, lTime, sTime);
+                    } else {
+                        conflicts.push({ path, lTime, sTime });
+                    }
                 } else if (localChanged) {
                     console.log('[Sync] Local changed:', path);
                     await uploadSaveDirect(path); ulCount++;
@@ -423,7 +1044,8 @@
             }
 
             if (conflicts.length > 0) {
-                showConflictModal(conflicts);
+                await enrichConflictMetadata(conflicts, serverSaves);
+                await showConflictModal(conflicts);
             } else if (dlCount > 0 || ulCount > 0) {
                 showToast(`Sync: ${dlCount} ↓, ${ulCount} ↑`, 'success');
             } else {
@@ -437,21 +1059,31 @@
         }
     }
 
-    function showConflictModal(conflicts) {
+    async function showConflictModal(conflicts) {
         const modal = document.getElementById('conflict-modal');
         const list = document.getElementById('conflict-list');
         list.innerHTML = '';
         
-        conflicts.forEach(c => {
+        for (const c of conflicts) {
             const item = document.createElement('div');
             item.className = 'conflict-item';
             
             const lDate = new Date(c.lTime);
             const sDate = new Date(c.sTime);
             const lNewer = c.lTime > c.sTime;
+            const coverUrl = c.coverPath ? await getAuthImg(c.coverPath) : null;
             
             item.innerHTML = `
-                <div class="conflict-title">${c.path}</div>
+                <div style="display:flex; gap:12px; align-items:flex-start;">
+                    ${coverUrl
+                        ? `<img src="${coverUrl}" style="width:72px;height:96px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.15);">`
+                        : `<div style="width:72px;height:96px;border-radius:6px;background:#1a2d42;display:flex;align-items:center;justify-content:center;font-size:28px;">🎮</div>`
+                    }
+                    <div style="flex:1;">
+                        <div class="conflict-title">${c.gameName || c.displayName || c.path}</div>
+                        <div style="font-size:0.8em; color:#9fb2c9; margin-bottom:8px;">${c.system || 'System'} save • ${c.savePath || c.path}</div>
+                    </div>
+                </div>
                 <div class="conflict-compare">
                     <div class="conflict-side local">
                         <div class="c-label">Local Device</div>
@@ -465,12 +1097,12 @@
                     </div>
                 </div>
                 <div class="conflict-actions">
-                    <button class="action-btn-small" style="background:#555" onclick="resolveConflict('${c.path}', 'local')">Keep Local</button>
-                    <button class="action-btn-small" style="background:#555" onclick="resolveConflict('${c.path}', 'cloud')">Keep Cloud</button>
+                    <button class="action-btn-small" style="background:#2a4458; color:#ffffff; border:1px solid #40637e;" onclick="resolveConflict('${c.path}', 'local')">Keep Local</button>
+                    <button class="action-btn-small" style="background:#2f5b3f; color:#ffffff; border:1px solid #3e7954;" onclick="resolveConflict('${c.path}', 'cloud')">Keep Cloud</button>
                 </div>
             `;
             list.appendChild(item);
-        });
+        }
 
         document.getElementById('resolve-all-local').onclick = () => resolveAll(conflicts, 'local');
         document.getElementById('resolve-all-cloud').onclick = () => resolveAll(conflicts, 'cloud');
@@ -537,6 +1169,9 @@
         if (currentTab === 'saves' || item._type === 'saves') {
             versionsBtn = `<button class="action-btn-small versions-btn" style="background:#555; margin-top:5px;">History</button>`;
         }
+        const gameSavesBtn = currentTab === 'games'
+            ? `<button class="action-btn-small game-saves-btn" style="background:#2f1d10; color:#ffd8be; margin-top:5px; border:1px solid #6e3c1d;">Game Saves</button>`
+            : '';
 
         card.innerHTML = `
             <div class="art-wrapper">
@@ -546,6 +1181,7 @@
                     ${isLocal ? '<span style="color:var(--success); font-weight:bold; margin-bottom:5px;">✓ Installed</span>' : ''}
                     ${actionBtn}
                     ${versionsBtn}
+                    ${gameSavesBtn}
                 </div>
             </div>
             <div class="progress-container"><div class="progress-bar"></div></div>
@@ -557,6 +1193,7 @@
             card.querySelector('.dl-btn').onclick = e => { e.stopPropagation(); startDownload(item); };
         }
         if (versionsBtn) card.querySelector('.versions-btn').onclick = e => { e.stopPropagation(); showVersions(item); };
+        if (gameSavesBtn) card.querySelector('.game-saves-btn').onclick = e => { e.stopPropagation(); showGameSaves(item); };
         return card;
     }
     async function createRow(item) {
@@ -576,6 +1213,9 @@
         if (currentTab === 'saves' || item._type === 'saves') {
             versionsBtn = `<button class="action-btn-small versions-btn" style="background:#555; margin-left:10px;">History</button>`;
         }
+        const gameSavesBtn = currentTab === 'games'
+            ? `<button class="action-btn-small game-saves-btn" style="background:#2f1d10; color:#ffd8be; margin-left:10px; border:1px solid #6e3c1d;">Game Saves</button>`
+            : '';
 
         row.innerHTML = `
             ${imgUrl ? `<img src="${imgUrl}" class="row-thumb">` : `<div class="row-thumb" style="display:flex;align-items:center;justify-content:center;font-size:24px;">💿</div>`}
@@ -588,6 +1228,7 @@
                 ${isLocal ? '<span style="color:var(--success); font-weight:bold;">✓</span>' : ''}
                 ${actionBtn}
                 ${versionsBtn}
+                ${gameSavesBtn}
             </div>`;
         row.onclick = e => { if (e.target.tagName !== 'BUTTON') row.classList.toggle('active'); };
         if (isLocal) {
@@ -596,6 +1237,7 @@
             row.querySelector('.dl-btn').onclick = e => { e.stopPropagation(); startDownload(item); };
         }
         if (versionsBtn) row.querySelector('.versions-btn').onclick = e => { e.stopPropagation(); showVersions(item); };
+        if (gameSavesBtn) row.querySelector('.game-saves-btn').onclick = e => { e.stopPropagation(); showGameSaves(item); };
         return row;
     }
     async function uninstallGame(item) {
@@ -613,8 +1255,8 @@
             }
         }
     }
-    async function startDownload(item, version = null) {
-        const type = currentTab === 'installed' ? item._type : (currentTab === 'games' ? 'roms' : currentTab);
+    async function startDownload(item, version = null, forcedType = null) {
+        const type = forcedType || (currentTab === 'installed' ? item._type : (currentTab === 'games' ? 'roms' : currentTab));
         const dest = localDir ? `${localDir}/${type}/${item.relPath}`.split('\\').join('/') : null;
         if (isElectron && !dest) return showToast('Set local directory in Settings', 'error');
         
@@ -632,6 +1274,56 @@
                 showToast('Done!', 'success'); await scanLocalFiles(); await renderContent();
             } else { window.open(url, '_blank'); }
         } catch (e) { showToast('Download failed', 'error'); }
+    }
+    async function showGameSaves(game) {
+        document.getElementById('game-saves-modal').style.display = 'flex';
+        document.getElementById('game-saves-title').innerText = `Saves for ${game.name}`;
+        const list = document.getElementById('game-saves-list');
+        list.innerHTML = 'Loading save files...';
+        try {
+            const res = await fetch(getApiUrl(`/api/game-saves?relPath=${encodeURIComponent(game.relPath)}`), getFetchOptions());
+            if (!res.ok) {
+                const raw = await res.text();
+                let message = 'Failed to load game saves';
+                try {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && parsed.error) message = parsed.error;
+                } catch (e) {
+                    if (raw && raw.trim().startsWith('<')) {
+                        message = 'Server returned HTML instead of JSON. Restart backend/frontend with latest code.';
+                    } else if (raw && raw.trim()) {
+                        message = raw.trim();
+                    }
+                }
+                throw new Error(message);
+            }
+            const saves = await res.json();
+            if (saves.length === 0) {
+                list.innerHTML = '<div style="color:#9fb2c9;">No matching saves found for this game.</div>';
+                return;
+            }
+            list.innerHTML = '';
+            saves.forEach(save => {
+                const row = document.createElement('div');
+                row.className = 'version-row';
+                row.innerHTML = `
+                    <div class="version-info">
+                        <div style="font-weight:600; color:#fff;">${save.relPath}</div>
+                        <div style="font-size:0.8em; color:#9fb2c9;">Updated: ${new Date(save.mtime).toLocaleString()}</div>
+                        <div style="font-size:0.8em; color:#9fb2c9;">Versions: ${save.versionsCount || 0}</div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="action-btn-small dl-save-btn">Download</button>
+                        <button class="action-btn-small history-btn" style="background:#3a566f; color:#dbeeff;">History</button>
+                    </div>
+                `;
+                row.querySelector('.dl-save-btn').onclick = () => startDownload(save, null, 'saves');
+                row.querySelector('.history-btn').onclick = () => showVersions(save);
+                list.appendChild(row);
+            });
+        } catch (e) {
+            list.innerHTML = `<div style="color:#ff8f8f;">${e.message}</div>`;
+        }
     }
     async function showVersions(item) {
         document.getElementById('versions-modal').style.display = 'flex';
@@ -659,7 +1351,7 @@
             const res = await fetch(getApiUrl('/api/saves/restore'), getFetchOptions('POST', { relPath: item.relPath, versionName }));
             if (!res.ok) throw new Error('Server restore failed');
             // 2. Download the new current version
-            await startDownload(item, versionName); 
+            await startDownload(item, versionName, 'saves'); 
             document.getElementById('versions-modal').style.display = 'none';
         } catch (e) { showToast('Restore failed', 'error'); }
     }
@@ -726,13 +1418,21 @@
     function changeTab(t) { currentTab = t; document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.id === 'tab-'+t)); activeFilters.clear(); document.getElementById('search-filter').value = ''; saveUIState(); loadLibrary(); }
 
     document.addEventListener('DOMContentLoaded', async () => {
-        document.getElementById('logout-btn').onclick = () => { localStorage.removeItem('romstore_token'); sessionToken = ''; location.reload(); };
+        document.getElementById('logout-btn').onclick = async () => {
+            if (isElectron) await window.electronAPI.stopSaveWatcher();
+            localStorage.removeItem('romstore_token');
+            sessionToken = '';
+            isAuthenticated = false;
+            location.reload();
+        };
         document.getElementById('handle-auth-btn').onclick = handleAuth;
         document.getElementById('open-settings-btn').onclick = () => { document.getElementById('settings-modal').style.display = 'flex'; };
         document.getElementById('close-settings-btn').onclick = () => { document.getElementById('settings-modal').style.display = 'none'; };
         document.getElementById('close-versions-btn').onclick = () => { document.getElementById('versions-modal').style.display = 'none'; };
+        document.getElementById('close-game-saves-btn').onclick = () => { document.getElementById('game-saves-modal').style.display = 'none'; };
         document.getElementById('settings-modal').onclick = (e) => { if(e.target === document.getElementById('settings-modal')) document.getElementById('settings-modal').style.display = 'none'; };
         document.getElementById('versions-modal').onclick = (e) => { if(e.target === document.getElementById('versions-modal')) document.getElementById('versions-modal').style.display = 'none'; };
+        document.getElementById('game-saves-modal').onclick = (e) => { if(e.target === document.getElementById('game-saves-modal')) document.getElementById('game-saves-modal').style.display = 'none'; };
         document.getElementById('conflict-modal').onclick = (e) => { if(e.target === document.getElementById('conflict-modal')) document.getElementById('conflict-modal').style.display = 'none'; };
         document.getElementById('tab-games').onclick = () => { changeTab('games'); };
         document.getElementById('tab-bios').onclick = () => { changeTab('bios'); };
@@ -770,6 +1470,8 @@
             });
             
             window.electronAPI.onSaveChange(async (event, { relPath, fullPath }) => {
+                if (!isAuthenticated || !sessionToken || !isAutoSync) return;
+                if (!shouldSyncSavePath(relPath)) return;
                 console.log('[AutoSync] Change detected:', relPath);
                 showToast('Syncing save...', 'info');
                 // We need sessionToken here.
@@ -788,3 +1490,6 @@
 </script>
 </body>
 </html>
+
+
+

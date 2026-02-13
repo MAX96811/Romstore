@@ -542,5 +542,913 @@
   "/emulation/saves/ryujinx/saves/0000000000000004/1/GameData.bin": {
     "hash": "0cc63e28803aa51ed065703f1eddefbd",
     "mtime": "1768414913557.3196"
+  },
+  "/emulation/bios/eden/firmware/004c8823e33982b4c09e3421da785c5f.cnmt.nca": {
+    "hash": "e27e1a24a441f50cf9f48d6072a96571",
+    "mtime": "1769980328492.872"
+  },
+  "/emulation/bios/eden/firmware/01f681ef7ffec100dcae94494ee032e2.cnmt.nca": {
+    "hash": "b4e58d230f5055333a08cbdd8a84483a",
+    "mtime": "1769980328493.3755"
+  },
+  "/emulation/bios/eden/firmware/02a888f423c58d8ae79121766556ed13.nca": {
+    "hash": "9e4df353f443f8f8f128b7ca79fd7b00",
+    "mtime": "1769980328495.8748"
+  },
+  "/emulation/bios/eden/firmware/0339fe95482084946327e57affe76995.cnmt.nca": {
+    "hash": "a16ba9e290d6c15f0bca1e3d7b857403",
+    "mtime": "1769980328496.8757"
+  },
+  "/emulation/bios/eden/firmware/0511ab71d06b9fa5e6bab378d96d5d55.cnmt.nca": {
+    "hash": "350066ba2312931c958fbbcc2002c44e",
+    "mtime": "1769980328508.3838"
+  },
+  "/emulation/bios/eden/firmware/0573ee0039458be6f240d1a1283f85e0.cnmt.nca": {
+    "hash": "0422ee56ad6df7c6300927324ed79d57",
+    "mtime": "1769980328508.8833"
+  },
+  "/emulation/bios/eden/firmware/05c0432d5ee864e37a50c3996dd84c43.nca": {
+    "hash": "e923d0554c3aa1738d479f3f65334578",
+    "mtime": "1769980328511.3828"
+  },
+  "/emulation/bios/eden/firmware/0606f268b595e85d49180ea177d381d8.nca": {
+    "hash": "d244207f1d3296051b184a0367c7434b",
+    "mtime": "1769980328544.398"
+  },
+  "/emulation/bios/eden/firmware/08037db306869f740f69137f9cc37e88.cnmt.nca": {
+    "hash": "85aad81c8d1e49e6ae0d2f4cd69e67fd",
+    "mtime": "1769980328544.8977"
+  },
+  "/emulation/bios/eden/firmware/080a2578e2b35c4ed3048e55493e0fd4.cnmt.nca": {
+    "hash": "64247388f8d9184f092770289fbfded5",
+    "mtime": "1769980328545.8992"
+  },
+  "/emulation/bios/eden/firmware/0a02c03e9358144880dbc199a706dcdf.nca": {
+    "hash": "9a98b24c2f303f196d5e5ae0ef880a4c",
+    "mtime": "1769980328579.9373"
+  },
+  "/emulation/bios/eden/firmware/0a932d55efded1bdadd0ba70268f7a46.cnmt.nca": {
+    "hash": "fa40a25322e7069eb28c08233286a23e",
+    "mtime": "1769980328580.4373"
+  },
+  "/emulation/bios/eden/firmware/0cdb721db8023b1d209dc189112cb561.nca": {
+    "hash": "3e438ee1d90cda22314212580a040292",
+    "mtime": "1769980328585.4524"
+  },
+  "/emulation/bios/eden/firmware/0cf95a44b4b0b70c6d37477909f3c529.cnmt.nca": {
+    "hash": "1de1cd53b36f9b85776b80f1332a22a4",
+    "mtime": "1769980328585.9497"
+  },
+  "/emulation/bios/eden/firmware/0d2516ac51a57f1cb4e140810df18ba8.nca": {
+    "hash": "cbdfdf09ed35221582ef06514e6afed0",
+    "mtime": "1769980328588.9482"
+  },
+  "/emulation/bios/eden/firmware/0d53a87b0c8efb61c23adc7264009795.cnmt.nca": {
+    "hash": "ed0c271835d17bfcae24e5bc647127b9",
+    "mtime": "1769980328592.9558"
+  },
+  "/emulation/bios/eden/firmware/0e42f66f6c4e850b57ea1fd45fd59611.cnmt.nca": {
+    "hash": "8b3f971135cb3af7595b7568d0722d8c",
+    "mtime": "1769980328593.4568"
+  },
+  "/emulation/bios/eden/firmware/0e7ff0424bcd16865130730caef9843e.cnmt.nca": {
+    "hash": "bbc5388d52e0d502dc0f4e283b74bdde",
+    "mtime": "1769980328593.9573"
+  },
+  "/emulation/bios/eden/firmware/0f768bf89a3e491e270031a5ac1d421c.nca": {
+    "hash": "5492fcc25e3dfa9924693e3f4cc2912f",
+    "mtime": "1769980328595.956"
+  },
+  "/emulation/bios/eden/firmware/10ce2cc872134c2c56eaf11653f5ea79.cnmt.nca": {
+    "hash": "e5a9633c49da7ba99a9c66b0007391be",
+    "mtime": "1769980328596.9583"
+  },
+  "/emulation/bios/eden/firmware/130bcafd94bc3487e3fbbb97591da2e9.nca": {
+    "hash": "893aa55511b25653367d070caeb31fd5",
+    "mtime": "1769980328638.487"
+  },
+  "/emulation/bios/eden/firmware/139564b77b61ac721567b2b99526282d.cnmt.nca": {
+    "hash": "feefe4c18958e14245624639238af31d",
+    "mtime": "1769980328639.993"
+  },
+  "/emulation/bios/eden/firmware/13e40aa387a954cb276e7eb803e34bda.cnmt.nca": {
+    "hash": "c8c23f32eb2db42579109a1cafdb0e49",
+    "mtime": "1769980328640.4915"
+  },
+  "/emulation/bios/eden/firmware/140fbf36bf78fca75566ed68708205d3.nca": {
+    "hash": "74d8a1c5c1857f7e34fbc3998f72c4be",
+    "mtime": "1769980328642.4905"
+  },
+  "/emulation/bios/eden/firmware/14b27e8daee1e9dfc5d099c015f48aab.nca": {
+    "hash": "2f7cfe5af41f74c59797bc639486719e",
+    "mtime": "1769980328645.5015"
+  },
+  "/emulation/bios/eden/firmware/17fa59c50df892d83de59d16be2c7c77.nca": {
+    "hash": "809ebb02353f81be3d87fefea83a0915",
+    "mtime": "1769980328650.0007"
+  },
+  "/emulation/bios/eden/firmware/1882b3454a0a3ded0e9dab9189049197.cnmt.nca": {
+    "hash": "ad719a501eb28dec4026568dea726b80",
+    "mtime": "1769980328650.5022"
+  },
+  "/emulation/bios/eden/firmware/18889bd7d3702f7049b9228909714dbe.nca": {
+    "hash": "72ccefbf85dfd75197f0919741f7a8f3",
+    "mtime": "1769980328688.5151"
+  },
+  "/emulation/bios/eden/firmware/1a8a7947f0f52e6634878fcc61f0baa4.nca": {
+    "hash": "38a9b9a7c6b48100fcbfd8efba0bda58",
+    "mtime": "1769980328691.0254"
+  },
+  "/emulation/bios/eden/firmware/1d533347e78225ba1ca76674f7607655.cnmt.nca": {
+    "hash": "6d9ddd1e87759a9960a4b88b7273dcd7",
+    "mtime": "1769980328691.5269"
+  },
+  "/emulation/bios/eden/firmware/1e1a4d7b22b52ce080abea68450b768d.cnmt.nca": {
+    "hash": "ed96ab98401db98e7c76152995e57b6f",
+    "mtime": "1769980328692.025"
+  },
+  "/emulation/bios/eden/firmware/1f2cfea82e1cc1f46eb651c9ca20534f.nca": {
+    "hash": "c1bcf7b084c4284948c63cdfe9e1ee7c",
+    "mtime": "1769980328840.6594"
+  },
+  "/emulation/bios/eden/firmware/1fda02826618c2ce3031c73ed1b7f197.nca": {
+    "hash": "da2cabac076516fc75f23a769ed12898",
+    "mtime": "1769980328844.6602"
+  },
+  "/emulation/bios/eden/firmware/2019fcbac85e97ecd02f29a8d796521c.nca": {
+    "hash": "41bec6729983e136643944e48c8a227e",
+    "mtime": "1769980328852.1682"
+  },
+  "/emulation/bios/eden/firmware/20b90ed7929c0b2e711ea5460f68d927.nca": {
+    "hash": "26afa7a0055730c199af5d22ef2f5e46",
+    "mtime": "1769980328855.1682"
+  },
+  "/emulation/bios/eden/firmware/20d23fec329d27245dfd5f9c9c5254ab.nca": {
+    "hash": "f48b927d895858c60f07b02e3384f36e",
+    "mtime": "1769980328858.1755"
+  },
+  "/emulation/bios/eden/firmware/21678b28b1a543518a5c9cf468398887.nca": {
+    "hash": "a58295728cd76e1f6e119ccdfa8d0af4",
+    "mtime": "1769980328891.2139"
+  },
+  "/emulation/bios/eden/firmware/21d4fd8094eb850c70ebefc3371f323a.nca": {
+    "hash": "9d78f324269a2b49f9be5e0f8c634dde",
+    "mtime": "1769980329208.5088"
+  },
+  "/emulation/bios/eden/firmware/221b2e1772850d73d6281f23e92d5c99.cnmt.nca": {
+    "hash": "a4b79c2cb1cb4e2bea5f918974817540",
+    "mtime": "1769980329210.0076"
+  },
+  "/emulation/bios/eden/firmware/23b417405f71b9ebde0dc50a055f5c9c.nca": {
+    "hash": "ee009bf0320051706297f8cc3b1ad4bb",
+    "mtime": "1769980329211.5105"
+  },
+  "/emulation/bios/eden/firmware/23ce01f1fc55e55a783162d456e5ca58.nca": {
+    "hash": "90079c67ee9d90a9f632388007cfb7fb",
+    "mtime": "1769980329213.0073"
+  },
+  "/emulation/bios/eden/firmware/24920b4d4262fa20df1781c776e53d04.cnmt.nca": {
+    "hash": "56aae997eca8e51b501e56e5da14a8b1",
+    "mtime": "1769980329214.5076"
+  },
+  "/emulation/bios/eden/firmware/24db71debbd9835983b0743b8f89f62a.cnmt.nca": {
+    "hash": "a1c2c2f62e4fdb5838ad547bd78d1bff",
+    "mtime": "1769980329217.543"
+  },
+  "/emulation/bios/eden/firmware/25ae67387f0b538e6aa769331bc73efb.nca": {
+    "hash": "0379e5e80ca753dcf400891661b63dfd",
+    "mtime": "1769980329219.5593"
+  },
+  "/emulation/bios/eden/firmware/2759db649c7cac7141990840ada9dedc.cnmt.nca": {
+    "hash": "5147d58c1cf8a6241489ab98a26ab385",
+    "mtime": "1769980329220.5618"
+  },
+  "/emulation/bios/eden/firmware/2847d01de183ffaca42c07ed9ac6a08a.cnmt.nca": {
+    "hash": "f97e102a869127338bd43b2de4d0ffb2",
+    "mtime": "1769980329221.5593"
+  },
+  "/emulation/bios/eden/firmware/294347793944d29b382996ee56c14fdc.nca": {
+    "hash": "a5f9262a0732628fb1220c1a7358bb2c",
+    "mtime": "1769980329247.0754"
+  },
+  "/emulation/bios/eden/firmware/2de564718e4f95d7072fc0673b97d40b.nca": {
+    "hash": "9dac2b5b29fb9a29e39743244a9bf9b1",
+    "mtime": "1769980329251.0881"
+  },
+  "/emulation/bios/eden/firmware/2e0ec33c7059fea7780badcb852ca90a.cnmt.nca": {
+    "hash": "5af8f364ed6105be44942564eab54081",
+    "mtime": "1769980329252.0874"
+  },
+  "/emulation/bios/eden/firmware/2edc68ea5df5ee79ffe54a2fa5312b86.cnmt.nca": {
+    "hash": "3c5b1ee5c7f8ee6c018ea5448b50181a",
+    "mtime": "1769980329252.5928"
+  },
+  "/emulation/bios/eden/firmware/2f121eec064e358ce4a8ed5f7d5a609b.cnmt.nca": {
+    "hash": "ff39ee5fee41054d717a7db4875ab05e",
+    "mtime": "1769980329254.0874"
+  },
+  "/emulation/bios/eden/firmware/30b5f1b32e7e75d7197b140f78ef08af.cnmt.nca": {
+    "hash": "0ca9f9e8663d943b3ea87558c42a6db0",
+    "mtime": "1769980329254.5876"
+  },
+  "/emulation/bios/eden/firmware/334d501619ff5fca3ba6d99206a85727.nca": {
+    "hash": "cf27c26ba64d5631a0ddfa653137a721",
+    "mtime": "1769980329268.5967"
+  },
+  "/emulation/bios/eden/firmware/33634ccef75c6ea51edf85271265ef3c.nca": {
+    "hash": "5484726b79daa7f9473342e748814780",
+    "mtime": "1769980329275.5977"
+  },
+  "/emulation/bios/eden/firmware/33f86aa17bbcfd0f318902261c4391fc.cnmt.nca": {
+    "hash": "4518f3a5004659f4f808f7f2a42549b9",
+    "mtime": "1769980329276.0957"
+  },
+  "/emulation/bios/eden/firmware/35749c0b20bf07994bbc6677edf7fb45.cnmt.nca": {
+    "hash": "9900b3001e19f9b87de12ad33ab23f3d",
+    "mtime": "1769980329277.1016"
+  },
+  "/emulation/bios/eden/firmware/35797b5be6295cfe102c56c81684288d.nca": {
+    "hash": "e47fdc0f576f10cfc5986892cb7d7250",
+    "mtime": "1769980329305.136"
+  },
+  "/emulation/bios/eden/firmware/358f37b472d10a4e3da0668507f820f7.cnmt.nca": {
+    "hash": "73aca019c7dc150eb928f75b69e37f7c",
+    "mtime": "1769980329305.6384"
+  },
+  "/emulation/bios/eden/firmware/36c92845f8d3aa3aa13657b7e68150ef.cnmt.nca": {
+    "hash": "8c46b46df24f1844ce60d115f4955745",
+    "mtime": "1769980329306.637"
+  },
+  "/emulation/bios/eden/firmware/36ee3c310929af46409f691fb027be9f.cnmt.nca": {
+    "hash": "f8db09509cf21e209e17de7377c8dc43",
+    "mtime": "1769980329306.637"
+  },
+  "/emulation/bios/eden/firmware/384a7fc1105d1af33c70acd3b887af02.cnmt.nca": {
+    "hash": "908e3c6db898406ef2c5b8a97727eb82",
+    "mtime": "1769980329307.642"
+  },
+  "/emulation/bios/eden/firmware/38f21c8a1b348ca06582d139702406f6.nca": {
+    "hash": "dc39e5709d434f3812913c61bf929ccf",
+    "mtime": "1769980329309.148"
+  },
+  "/emulation/bios/eden/firmware/3db4633fbf4bcdf56745dc9a0ac9b3b0.cnmt.nca": {
+    "hash": "e3634bacc4aa8466630134411e929c1c",
+    "mtime": "1769980329309.148"
+  },
+  "/emulation/bios/eden/firmware/3dfabe123b7ced253e54b8269374b6cf.cnmt.nca": {
+    "hash": "4ec903f178a1993e57f5c9e733c62c73",
+    "mtime": "1769980329310.153"
+  },
+  "/emulation/bios/eden/firmware/3e323bf0f8b427ef508b3cfbb4add2e9.cnmt.nca": {
+    "hash": "82cb53a52de075fb5ab89ed0c79c7502",
+    "mtime": "1769980329311.157"
+  },
+  "/emulation/bios/eden/firmware/3f942ab9fa21370dca757fbb2db848c4.cnmt.nca": {
+    "hash": "c744dd9c705969ff93df44911b6a1bdc",
+    "mtime": "1769980329311.6567"
+  },
+  "/emulation/bios/eden/firmware/40893def0339592eec3149b7ea6c9c2b.nca": {
+    "hash": "fc16fe736c64787314fb1966f81a0667",
+    "mtime": "1769980329361.1833"
+  },
+  "/emulation/bios/eden/firmware/4238ae844c7fd7274818b8f82d1f34f7.nca": {
+    "hash": "7e3750552b098a8fca6648faad9e2ec1",
+    "mtime": "1769980329395.2192"
+  },
+  "/emulation/bios/eden/firmware/431e5d02d4d5de2ed0cf48a8d25a90ef.cnmt.nca": {
+    "hash": "295296daa9d68de36cf9cfb7e16888c7",
+    "mtime": "1769980329396.2202"
+  },
+  "/emulation/bios/eden/firmware/43e4c180830fb7201c3a1238b4d1e92b.nca": {
+    "hash": "63e32b8e46aaee7c0348d8b083595771",
+    "mtime": "1769980329404.234"
+  },
+  "/emulation/bios/eden/firmware/45618384851d526df4d8a85013a08fb9.nca": {
+    "hash": "57d575a484f45d34cbc8297ba512fdf9",
+    "mtime": "1769980329410.734"
+  },
+  "/emulation/bios/eden/firmware/464d798e636738e7533e1b7d6d49d5be.nca": {
+    "hash": "0855f1909b9288471896ecba0cb989e9",
+    "mtime": "1769980329415.2358"
+  },
+  "/emulation/bios/eden/firmware/48232f857356104f23eba427426ff7bf.nca": {
+    "hash": "6321990a7fdbca8f88e32a38d9e7db91",
+    "mtime": "1769980329416.736"
+  },
+  "/emulation/bios/eden/firmware/4873538a7a4fc3e84b8b301292d6d4d6.nca": {
+    "hash": "9f2ecda9ad5b1f774db825e47019e5de",
+    "mtime": "1769980329419.2363"
+  },
+  "/emulation/bios/eden/firmware/489b68735b3fed883360e0a7492337f2.cnmt.nca": {
+    "hash": "5f3655a8ef7f82c29e66f37af0be89a4",
+    "mtime": "1769980329420.2395"
+  },
+  "/emulation/bios/eden/firmware/4a3704fd5f9de3ab87d241cec26273b5.cnmt.nca": {
+    "hash": "d2a9f8187c3203743feb2526a8acbb08",
+    "mtime": "1769980329421.2378"
+  },
+  "/emulation/bios/eden/firmware/4b3fec04b2349a0d129933c46a965b94.cnmt.nca": {
+    "hash": "8cffa30b1947ae44dc9441130adcd6aa",
+    "mtime": "1769980329438.7615"
+  },
+  "/emulation/bios/eden/firmware/4bb91bcf4220e0e1bdefec4e0f21846c.cnmt.nca": {
+    "hash": "e0e44475863e6e5b5a5ef1e6fa8f86dd",
+    "mtime": "1769980329439.2627"
+  },
+  "/emulation/bios/eden/firmware/4c5bad0ef4d5b4b4c4ae56e1d0a88aaa.cnmt.nca": {
+    "hash": "754927e4cba54ea8618e8feeb3d91d38",
+    "mtime": "1769980329440.2642"
+  },
+  "/emulation/bios/eden/firmware/5060e6da3568cbd812aa30fcd5bb3b86.nca": {
+    "hash": "00f0d42355bb71461aba6078cec1ad24",
+    "mtime": "1769980329443.7627"
+  },
+  "/emulation/bios/eden/firmware/511a7c220f3642f97ce13fd81c9a38ec.cnmt.nca": {
+    "hash": "5e5a04130182012e9685bc50dd8885cf",
+    "mtime": "1769980329444.2642"
+  },
+  "/emulation/bios/eden/firmware/5199c391675aeab9a1c96e627d98baa9.nca": {
+    "hash": "30d4a82ebe355e1db9f33fc12c643973",
+    "mtime": "1769980329500.8528"
+  },
+  "/emulation/bios/eden/firmware/51f36d5b1550f1d8aa405fa7b15d5bd6.nca": {
+    "hash": "1f258a96eaaa5d89b8107ecfbc0765b8",
+    "mtime": "1769980329560.3894"
+  },
+  "/emulation/bios/eden/firmware/5356c32a8ab60045f95574ec55f84f65.nca": {
+    "hash": "aa8b6034b0b12e1e281cc08c13d53350",
+    "mtime": "1769980329566.8982"
+  },
+  "/emulation/bios/eden/firmware/54cc89073b66aa19ed87bf98fb44de42.cnmt.nca": {
+    "hash": "c71bb183e59e45fc6af87eec4dd4f069",
+    "mtime": "1769980329567.3994"
+  },
+  "/emulation/bios/eden/firmware/5532d6cfb5d01bc89210f55791954238.nca": {
+    "hash": "1e89d1c29c119c1cc88c0520165b018a",
+    "mtime": "1769980329585.9077"
+  },
+  "/emulation/bios/eden/firmware/55b5068c6a5f721a863ae15736ea07be.nca": {
+    "hash": "3e17973fb0cbf877abd3d6f4303ae4c7",
+    "mtime": "1769980329615.4333"
+  },
+  "/emulation/bios/eden/firmware/5700b9e4cc9bee9546d4d35081e1e92f.cnmt.nca": {
+    "hash": "5ac30d65e66d818446e89912ed1ad984",
+    "mtime": "1769980329616.4365"
+  },
+  "/emulation/bios/eden/firmware/5751ac8e9cce2b09d01cd99d9e9e87f5.cnmt.nca": {
+    "hash": "c66bc0261ba06073f84dc17667c0f341",
+    "mtime": "1769980329616.9368"
+  },
+  "/emulation/bios/eden/firmware/582ab53e856c72fba54038ac85ae1055.cnmt.nca": {
+    "hash": "cd8d6f54f018019e5960afd275783b5e",
+    "mtime": "1769980329617.9373"
+  },
+  "/emulation/bios/eden/firmware/58d74d603122c45be8d49d4c82841215.cnmt.nca": {
+    "hash": "6393b5d19fefe6296b57dc148af9d275",
+    "mtime": "1769980329618.4368"
+  },
+  "/emulation/bios/eden/firmware/591f113835c424436d7e9ebe460bd993.nca": {
+    "hash": "be966a7149c12c6364a6b831212b0de8",
+    "mtime": "1769980329621.9358"
+  },
+  "/emulation/bios/eden/firmware/59bd83f20cf8c4056eb350c0ec351f59.cnmt.nca": {
+    "hash": "b1c5b1703079cb1957537cc7847c63cc",
+    "mtime": "1769980329622.9368"
+  },
+  "/emulation/bios/eden/firmware/59dbb6474ed747a387a5aedf7589d9bf.cnmt.nca": {
+    "hash": "282ec078907c0d04d61ac16669369b30",
+    "mtime": "1769980329623.937"
+  },
+  "/emulation/bios/eden/firmware/5a57981e92ae00c27014e2830310201d.cnmt.nca": {
+    "hash": "7e4edfd79a8a170625f187447cf92b55",
+    "mtime": "1769980329624.4368"
+  },
+  "/emulation/bios/eden/firmware/5ec0fba4720d0924a976a2fc78c7f3bc.cnmt.nca": {
+    "hash": "7a915eb3ad035dbc79a8a7b22ad4f293",
+    "mtime": "1769980329634.4421"
+  },
+  "/emulation/bios/eden/firmware/5f1a820d85afe34cb98e92a5c1a2cc7f.cnmt.nca": {
+    "hash": "bec8711712326bc021687f5f23f4d857",
+    "mtime": "1769980329634.9414"
+  },
+  "/emulation/bios/eden/firmware/5fe581c21696d6fc143702918a103709.nca": {
+    "hash": "ce73b2181f50aaf0627b904c50bdf93a",
+    "mtime": "1769980329636.4412"
+  },
+  "/emulation/bios/eden/firmware/607cf11020a35ba529400ee00f3ebefe.cnmt.nca": {
+    "hash": "1bb72e52b55d688a02aec2ad7dbb3924",
+    "mtime": "1769980329636.9414"
+  },
+  "/emulation/bios/eden/firmware/62ece8a24bf03f7a181dd46a98ee96e2.cnmt.nca": {
+    "hash": "256774070ba18327826c1dc40c2e2ad3",
+    "mtime": "1769980329637.9421"
+  },
+  "/emulation/bios/eden/firmware/63f8ddec46ab25ac4d0558bb1e609143.nca": {
+    "hash": "967c0faf4f2b015395a5790423cc3a55",
+    "mtime": "1769980329638.942"
+  },
+  "/emulation/bios/eden/firmware/6419ed05390bc3bdaac8f5353b3c78b5.nca": {
+    "hash": "23f10b1597d19e04b78dde9a8892d37b",
+    "mtime": "1769980329642.9463"
+  },
+  "/emulation/bios/eden/firmware/64b025f4c46b72b7d095b55620001e70.cnmt.nca": {
+    "hash": "5e551e3f60f5bc06db167956ae153e65",
+    "mtime": "1769980329643.4468"
+  },
+  "/emulation/bios/eden/firmware/64bd8248e109bb6ab62abd5d638ee15a.cnmt.nca": {
+    "hash": "afc92281ad2f67b5b9497d9e30891fb9",
+    "mtime": "1769980329644.4507"
+  },
+  "/emulation/bios/eden/firmware/64fb82f5a72bd7667699245f1558ca5c.cnmt.nca": {
+    "hash": "62b16ade5f6cb0bbb4cf2e3c088ee1fc",
+    "mtime": "1769980329645.4553"
+  },
+  "/emulation/bios/eden/firmware/666f9ba721f30a48024fe0af7a9be5b4.cnmt.nca": {
+    "hash": "75a3f6af1d6198e4c0808f8bfe5d8746",
+    "mtime": "1769980329645.955"
+  },
+  "/emulation/bios/eden/firmware/684ac8af8d6e6199306fd041dc10cd2d.cnmt.nca": {
+    "hash": "22531f3386eaabe70f20f372e5ffadf5",
+    "mtime": "1769980329646.9548"
+  },
+  "/emulation/bios/eden/firmware/6bf5f6b119db507280e004eecaac7408.nca": {
+    "hash": "76131bbbcbce4a4515f14ad65a538cd4",
+    "mtime": "1769980329793.5422"
+  },
+  "/emulation/bios/eden/firmware/6d4366001757f519aa52f14de1ecd8a9.nca": {
+    "hash": "a3ca7aa5f5d0f57712cff307ee334afa",
+    "mtime": "1769980329795.05"
+  },
+  "/emulation/bios/eden/firmware/6ee66cbb69f054b483c6fdfb77aaa8f6.cnmt.nca": {
+    "hash": "a54cb042b138c4f25379209d4cc02fcf",
+    "mtime": "1769980329796.0503"
+  },
+  "/emulation/bios/eden/firmware/6f006eb9f72bcda8be29921e77bf1630.nca": {
+    "hash": "c48aa4cceef4674da207c107eef26bfe",
+    "mtime": "1769980329804.3486"
+  },
+  "/emulation/bios/eden/firmware/70c80ddf93c02507c230372bb457a951.nca": {
+    "hash": "0d3851068b938d42625d13cd295e7100",
+    "mtime": "1769980329860.3809"
+  },
+  "/emulation/bios/eden/firmware/71235714804b36a739e84545ecc9b0d0.nca": {
+    "hash": "9ce441fd8d6aecdc0f982e75ebb8befe",
+    "mtime": "1769980329862.881"
+  },
+  "/emulation/bios/eden/firmware/725c03555e53ad1f72ac98807f6826d9.nca": {
+    "hash": "3e7e25724fdd2c6331245305805751ab",
+    "mtime": "1769980329864.3818"
+  },
+  "/emulation/bios/eden/firmware/734c64b7683d322ac5d7bf8a2d78d6c2.cnmt.nca": {
+    "hash": "c58d47e15c15c324808c42f3a51e33ce",
+    "mtime": "1769980329866.394"
+  },
+  "/emulation/bios/eden/firmware/75a0e8144d97cf3dc9d05643f7221fb5.cnmt.nca": {
+    "hash": "1bf9296d2e57312489b07588d5e3f6d8",
+    "mtime": "1769980329866.8928"
+  },
+  "/emulation/bios/eden/firmware/75ac4a5a4881107606f39f3b58d75ac8.nca": {
+    "hash": "89acabde56a98d8e17f793d24a55c843",
+    "mtime": "1769980329886.404"
+  },
+  "/emulation/bios/eden/firmware/764f15f09979cd8d6e70a18dbae71c87.nca": {
+    "hash": "42e6da56cf278813b1f5906ae2884eeb",
+    "mtime": "1769980329917.4414"
+  },
+  "/emulation/bios/eden/firmware/770faaeca3ef25f8631a275354c339f1.nca": {
+    "hash": "e9df651dc5cf6890bc31c8a9003c7b93",
+    "mtime": "1769980329923.4507"
+  },
+  "/emulation/bios/eden/firmware/787a5794b1e5f252b0796bb498171376.nca": {
+    "hash": "78e7a0d37b02ea93c04c44277536b939",
+    "mtime": "1769980329926.951"
+  },
+  "/emulation/bios/eden/firmware/792a53ed4d3a681d5e43930d7fd654cc.cnmt.nca": {
+    "hash": "7605d123ca96d961f69e7bc294329eb3",
+    "mtime": "1769980329927.451"
+  },
+  "/emulation/bios/eden/firmware/793b767dc1ded58a9d1922df07bc0cd4.nca": {
+    "hash": "9e9dc53189b6054795e015c823cabab1",
+    "mtime": "1769980329954.482"
+  },
+  "/emulation/bios/eden/firmware/79def329a7805475640cc4c57a9fc374.nca": {
+    "hash": "b908fb10bd15354546bb49fabefd4162",
+    "mtime": "1769980329957.4814"
+  },
+  "/emulation/bios/eden/firmware/7a099d31df6755b44d71e455e1f02ed2.cnmt.nca": {
+    "hash": "165b015026dda157d72b1dccc67203b3",
+    "mtime": "1769980329957.9812"
+  },
+  "/emulation/bios/eden/firmware/7a7b1210a971e8a709154acd248306f5.nca": {
+    "hash": "3466abd18b1281f5047ef6ecd4b9de8b",
+    "mtime": "1769980329966.4912"
+  },
+  "/emulation/bios/eden/firmware/7d34585468942264536d1f605e93ce74.cnmt.nca": {
+    "hash": "c7877d9121725d123689a4f4108b2bdf",
+    "mtime": "1769980329967.4912"
+  },
+  "/emulation/bios/eden/firmware/7f7b7d058d5534a4dd54218ae3e7e3d3.nca": {
+    "hash": "defd363571369921f5998f3ff3e57d1a",
+    "mtime": "1769980330021.0312"
+  },
+  "/emulation/bios/eden/firmware/80a6b3f3a145a5afc11553e441068b7b.nca": {
+    "hash": "c586cb19bf05414e16ccabf0ffb38176",
+    "mtime": "1769980330053.5576"
+  },
+  "/emulation/bios/eden/firmware/80dee3e71dd4041a797f97b695cb9967.nca": {
+    "hash": "4910776bb88436ec854054d59d00ae44",
+    "mtime": "1769980330081.0815"
+  },
+  "/emulation/bios/eden/firmware/81af198323a2680f10f6f45d0b310169.cnmt.nca": {
+    "hash": "df04a2ab31884a181a2a844c1dd2eb91",
+    "mtime": "1769980330082.5854"
+  },
+  "/emulation/bios/eden/firmware/84e3c723c13a36002a7c5192af9886b0.nca": {
+    "hash": "21a73290aadf77e379079a0e77754431",
+    "mtime": "1769980330115.1125"
+  },
+  "/emulation/bios/eden/firmware/86128921559ef4b07094aed1a2b4d65d.nca": {
+    "hash": "01b84b2b599827b39b4bc13d9b1a9191",
+    "mtime": "1769980330119.6128"
+  },
+  "/emulation/bios/eden/firmware/87cb7ab4189750b13273005f287a3c2e.cnmt.nca": {
+    "hash": "f4ba2be63b5bb729860d5e8de79cfc52",
+    "mtime": "1769980330120.6162"
+  },
+  "/emulation/bios/eden/firmware/87daeece6f5c71d682d4d57fa633ce8f.cnmt.nca": {
+    "hash": "e753250aedeb8929532b16a8418f0347",
+    "mtime": "1769980330121.1155"
+  },
+  "/emulation/bios/eden/firmware/8a12fc974ec0e9a20d29d518f394de11.nca": {
+    "hash": "145a25ca6d6df7f50bacb206ec08073a",
+    "mtime": "1769980330127.115"
+  },
+  "/emulation/bios/eden/firmware/8cc6bf94530f442d0005861baed75d2d.cnmt.nca": {
+    "hash": "15aaddde0fa9bf0d8b9064bb9a281f77",
+    "mtime": "1769980330127.6133"
+  },
+  "/emulation/bios/eden/firmware/8e499bf8ff67bcaf918d165f2f80d608.cnmt.nca": {
+    "hash": "c9c4f89406f651ac05cbe112b5038b1a",
+    "mtime": "1769980330128.6162"
+  },
+  "/emulation/bios/eden/firmware/918032935ce1d4d67f72d81412d6e59b.nca": {
+    "hash": "4fc9f2003f25e4a89aef33e1f2dda381",
+    "mtime": "1769980330134.1428"
+  },
+  "/emulation/bios/eden/firmware/91d09ee619528c39882186eb433fa1f3.cnmt.nca": {
+    "hash": "6036f51a82b1e95045e1184c36f03622",
+    "mtime": "1769980330135.1453"
+  },
+  "/emulation/bios/eden/firmware/91ef59d20d0d3fb58bd3addd024c8db2.cnmt.nca": {
+    "hash": "b2a67e4319c7247487e46105125f7976",
+    "mtime": "1769980330135.645"
+  },
+  "/emulation/bios/eden/firmware/928ae1ddb82ce874b522fdacbeb1529f.cnmt.nca": {
+    "hash": "3c89dcb20f86de90a6007dc5de3d0138",
+    "mtime": "1769980330136.144"
+  },
+  "/emulation/bios/eden/firmware/9334f455f6c4d8b6f02af5780d122d07.nca": {
+    "hash": "36fd5bd94827c9633212ef89a6d4a081",
+    "mtime": "1769980330204.241"
+  },
+  "/emulation/bios/eden/firmware/94e076161e5c1bd7d9ff34ac8e8352a9.nca": {
+    "hash": "d86aeb5996d0781866fb6762388b40f3",
+    "mtime": "1769980330206.2402"
+  },
+  "/emulation/bios/eden/firmware/9548dbfcbaf1c195c0976ce2a164c374.nca": {
+    "hash": "cfb9ddb63dc4ae8a1a4a9051daa2d7cf",
+    "mtime": "1769980330242.2693"
+  },
+  "/emulation/bios/eden/firmware/970efea0198cc5995d0bfb8fcfca4ac3.cnmt.nca": {
+    "hash": "a4909258ff8f55d657fe6034f3aa005b",
+    "mtime": "1769980330243.2717"
+  },
+  "/emulation/bios/eden/firmware/9a9899fcc8d988614f29ddc0cf24047e.nca": {
+    "hash": "c7d28d017ecd58272680ea5753004e0b",
+    "mtime": "1769980330244.7698"
+  },
+  "/emulation/bios/eden/firmware/9b025ff9fe1f6b27904970427bda050f.cnmt.nca": {
+    "hash": "582038609dc981074f18ca2340a16b80",
+    "mtime": "1769980330245.7722"
+  },
+  "/emulation/bios/eden/firmware/9b7d059ebe6e5afad24bd4a741d52ffe.cnmt.nca": {
+    "hash": "465a4c01e2028c8498017f7f5b816c09",
+    "mtime": "1769980330245.7722"
+  },
+  "/emulation/bios/eden/firmware/9b9f161014b893fcb79654702e1daa02.nca": {
+    "hash": "565bba87821b7446f3acbca9752930ed",
+    "mtime": "1769980330304.3499"
+  },
+  "/emulation/bios/eden/firmware/9c6ffaac20f51e80d4242d685a2d6c98.nca": {
+    "hash": "5cc660dc40effe78bcff71b3f060b852",
+    "mtime": "1769980330349.4004"
+  },
+  "/emulation/bios/eden/firmware/9c9824dcfdcaf18329968abc0a6a891b.nca": {
+    "hash": "125c1d17d603a2c0b5ade6266b7c232b",
+    "mtime": "1769980330556.6765"
+  },
+  "/emulation/bios/eden/firmware/9d78432f6cc14c8e90f6e6de93984da1.nca": {
+    "hash": "2b4f4f573bbb02dca2868f177c1d5cb5",
+    "mtime": "1769980330559.6787"
+  },
+  "/emulation/bios/eden/firmware/9e07a27655c147e1ce7f80fa87727ac8.nca": {
+    "hash": "324dffb81a15f95148a106cec007cdc6",
+    "mtime": "1769980330564.1855"
+  },
+  "/emulation/bios/eden/firmware/9f668699523f60f463e3b2bb4e572d70.cnmt.nca": {
+    "hash": "38400322c1677f63e36009f2afa58088",
+    "mtime": "1769980330564.6873"
+  },
+  "/emulation/bios/eden/firmware/9ff429e431a237212ea9606e991bec60.cnmt.nca": {
+    "hash": "caa956925d987adf0cdcff1814593394",
+    "mtime": "1769980330565.1877"
+  },
+  "/emulation/bios/eden/firmware/a158f8e1dbf745ab41b3fabfab62a6e5.cnmt.nca": {
+    "hash": "01c8d458f2ccd28617780b37608aaab3",
+    "mtime": "1769980330566.1875"
+  },
+  "/emulation/bios/eden/firmware/a321142626043c7ebdc5e3fe67c9db5a.nca": {
+    "hash": "a85376d26d352e646b9de61d3e5fc707",
+    "mtime": "1769980330598.716"
+  },
+  "/emulation/bios/eden/firmware/a358eef2c8f3b5dec213d281a9e138c5.cnmt.nca": {
+    "hash": "7fedfac3f4d4b2507f4a31e7f63f7c2e",
+    "mtime": "1769980330599.7224"
+  },
+  "/emulation/bios/eden/firmware/a7e56e0aad2c6ee993259874a526f882.nca": {
+    "hash": "b56ccccf36699f83cc5a1e996c605f72",
+    "mtime": "1769980330602.2195"
+  },
+  "/emulation/bios/eden/firmware/a9713799c1e955acfc892b817eb3a230.cnmt.nca": {
+    "hash": "14d3e1fe3e99896ec3a1457b63e0ab69",
+    "mtime": "1769980330603.222"
+  },
+  "/emulation/bios/eden/firmware/aa677534de9028b5060507426caa011d.cnmt.nca": {
+    "hash": "f47c73002a3446f0c442799a3f84f700",
+    "mtime": "1769980330603.7217"
+  },
+  "/emulation/bios/eden/firmware/aafdeddbdda1da34c4672d243cd943b9.cnmt.nca": {
+    "hash": "9d41de668c18d124acea4d5cc69df1a4",
+    "mtime": "1769980330604.7222"
+  },
+  "/emulation/bios/eden/firmware/acd75cdbc0c8a7da3583c53d4b696a7c.nca": {
+    "hash": "000fa4c6a571be8745f43b2ead170e87",
+    "mtime": "1769980330608.22"
+  },
+  "/emulation/bios/eden/firmware/ace7baf349efe5c8086cc0cb20d34aca.nca": {
+    "hash": "62268ca069193c1131d7bbc7a236671d",
+    "mtime": "1769980330643.236"
+  },
+  "/emulation/bios/eden/firmware/ae8e66253c9c954f7e9e3a73a58424fe.cnmt.nca": {
+    "hash": "f7c130dc2e18821a95d46469b39d66be",
+    "mtime": "1769980330644.2373"
+  },
+  "/emulation/bios/eden/firmware/aeebe9db3c06321e29c68ddefb911d89.nca": {
+    "hash": "041373602f8c34aa962b9da3b8e07ddc",
+    "mtime": "1769980330652.2546"
+  },
+  "/emulation/bios/eden/firmware/afc78068f5165699a8c9db2bef43dd1d.nca": {
+    "hash": "0d81a96ef25272bd77b21f9e91b06612",
+    "mtime": "1769980330808.8662"
+  },
+  "/emulation/bios/eden/firmware/afd94fcd9d3f1360e98ab96ecb419c08.nca": {
+    "hash": "056b80dc8d227bc3a53cc0a142fe2541",
+    "mtime": "1769980330931.4546"
+  },
+  "/emulation/bios/eden/firmware/b067c48b298d7ed89b62b6d21cbcf3aa.nca": {
+    "hash": "6d3cd30661e8556e29bda49d4c357adf",
+    "mtime": "1769980330935.4595"
+  },
+  "/emulation/bios/eden/firmware/b0ed3f1dc7bbd65ba537c08e24258895.cnmt.nca": {
+    "hash": "18028edc749edf67ac5d9abebd4fbf75",
+    "mtime": "1769980330935.9607"
+  },
+  "/emulation/bios/eden/firmware/b1d5ccb885cc57573a40afc0d030b8df.cnmt.nca": {
+    "hash": "9f3ba8cf7c9d864d7f2c313d0873262d",
+    "mtime": "1769980330945.9607"
+  },
+  "/emulation/bios/eden/firmware/b20963987fc348779b7534bb41ba519b.cnmt.nca": {
+    "hash": "8943829a7341560612acdc0b17224049",
+    "mtime": "1769980330946.9602"
+  },
+  "/emulation/bios/eden/firmware/b26231b78ac5ef307bdc66cd62d23e21.cnmt.nca": {
+    "hash": "8c91730e07f82de52c4aaf13ab133a01",
+    "mtime": "1769980330947.4604"
+  },
+  "/emulation/bios/eden/firmware/b353e61ead751db8332c8623f0cca714.cnmt.nca": {
+    "hash": "826b69500e8c412406541050c853b27f",
+    "mtime": "1769980330947.9604"
+  },
+  "/emulation/bios/eden/firmware/b705d1b00ff740639710664d73fe0c51.cnmt.nca": {
+    "hash": "7ab20ceba6629711560a549da6cd1281",
+    "mtime": "1769980330948.9612"
+  },
+  "/emulation/bios/eden/firmware/b8aa9eb0a5a7ffd40283536dcb1b3c5e.cnmt.nca": {
+    "hash": "4032acca34b03cc751db5262361a0719",
+    "mtime": "1769980330949.4607"
+  },
+  "/emulation/bios/eden/firmware/b9152056012c0d292641980788413803.cnmt.nca": {
+    "hash": "b3dc1ff9c12faac6278b6385ba58dc7f",
+    "mtime": "1769980330949.4607"
+  },
+  "/emulation/bios/eden/firmware/b9e40979e96bc0612009982f0d63cbe1.cnmt.nca": {
+    "hash": "7aed11cd3eed0e9b835206da687369d2",
+    "mtime": "1769980330950.9739"
+  },
+  "/emulation/bios/eden/firmware/ba8ee1a75dfbc6d644ab0142bc26c179.cnmt.nca": {
+    "hash": "cbe60de482d08349e59f341934f6bf18",
+    "mtime": "1769980330951.4739"
+  },
+  "/emulation/bios/eden/firmware/bb115d8f3054bccbe1a3534378325091.nca": {
+    "hash": "06fcc0f9c109db23eff2a98efa632d82",
+    "mtime": "1769980330953.9717"
+  },
+  "/emulation/bios/eden/firmware/bc6a6f0727489959626b3583380b3a33.nca": {
+    "hash": "b1f6ee0158dc19279ceff8961df1c78f",
+    "mtime": "1769980330981.9902"
+  },
+  "/emulation/bios/eden/firmware/bd84dda1b042c9a22d83e34f4fefe42a.nca": {
+    "hash": "ea3742bc742bbb3337b016910ed30688",
+    "mtime": "1769980331035.0256"
+  },
+  "/emulation/bios/eden/firmware/be6c2e14463852cdea570c3e10e3631a.cnmt.nca": {
+    "hash": "0e0419aa9ccd833be4e613bf49c1c632",
+    "mtime": "1769980331036.028"
+  },
+  "/emulation/bios/eden/firmware/bfab8caa278e456f9fc5e1f5fd734feb.nca": {
+    "hash": "77839980053aac181f63bd7f588dcaf6",
+    "mtime": "1769980331037.028"
+  },
+  "/emulation/bios/eden/firmware/c00e2016242990ea090c2a7d61591118.nca": {
+    "hash": "84f4ad010acff477944bf70de3268b76",
+    "mtime": "1769980331038.527"
+  },
+  "/emulation/bios/eden/firmware/c119c6d39a859929bb112746e80e4b66.cnmt.nca": {
+    "hash": "09ded59b856e1d7502bc1b27a790fc1c",
+    "mtime": "1769980331039.528"
+  },
+  "/emulation/bios/eden/firmware/c1f7ac3392fe5f89d430cd73516bff48.nca": {
+    "hash": "5c0fe2ab7566bed224724a1c9fcdd9d8",
+    "mtime": "1769980331047.5327"
+  },
+  "/emulation/bios/eden/firmware/c41ca6cb30fb6091dfcb86b4ef21f644.cnmt.nca": {
+    "hash": "2b4fee2cace0c32beb00a395f434f104",
+    "mtime": "1769980331048.5354"
+  },
+  "/emulation/bios/eden/firmware/c4b432cb3ac987791292347440af96e3.nca": {
+    "hash": "fd4180f050a683bb75a963654a4cb235",
+    "mtime": "1769980331087.0613"
+  },
+  "/emulation/bios/eden/firmware/cb1f4e7a5f94eeb2763dec5d1028de99.cnmt.nca": {
+    "hash": "09e88beef8fabbb4b2c23a46938c16d8",
+    "mtime": "1769980331087.562"
+  },
+  "/emulation/bios/eden/firmware/cc96259b1812e6d76b1e454cea3b5a01.nca": {
+    "hash": "b6ff4663651db3d787d6cb59c1cc8ca8",
+    "mtime": "1769980331094.07"
+  },
+  "/emulation/bios/eden/firmware/ccc1e824b30484f6379a5f61c2c0af11.cnmt.nca": {
+    "hash": "8881a10bf561af5b9b9755c4551ab551",
+    "mtime": "1769980331095.0718"
+  },
+  "/emulation/bios/eden/firmware/cdc93b4c257a1f60a1e36899e6e50296.nca": {
+    "hash": "9d726e4a0498f4efd7a1eeccdcf41469",
+    "mtime": "1769980331100.0786"
+  },
+  "/emulation/bios/eden/firmware/cf4a45d98656bf6b5e3b02003b7a5937.nca": {
+    "hash": "3e7741ab54dcbbee0c6201ccb17d66a3",
+    "mtime": "1769980331151.1135"
+  },
+  "/emulation/bios/eden/firmware/d0cc224ad3a2c14c620b60631e7664ad.nca": {
+    "hash": "1fe1a9f84bd053146ed7c4bfa060894a",
+    "mtime": "1769980331154.6226"
+  },
+  "/emulation/bios/eden/firmware/d1a7cefdc361392f9ab7bfa0e682b7fc.nca": {
+    "hash": "e475c34e72ccb689d5610ea1d3f84cb2",
+    "mtime": "1769980331160.1133"
+  },
+  "/emulation/bios/eden/firmware/d2d6a600fcd8bf1420bb9ff4f5c5dc98.cnmt.nca": {
+    "hash": "1b7d99a0b2db8a6f357a31591463b278",
+    "mtime": "1769980331160.6143"
+  },
+  "/emulation/bios/eden/firmware/d48b29d1a3323fdac74fb806d0e33a79.cnmt.nca": {
+    "hash": "d4411a2095a9418a004b2a469efcf35a",
+    "mtime": "1769980331161.6157"
+  },
+  "/emulation/bios/eden/firmware/d4f110638751268e0595e46c64fc7923.nca": {
+    "hash": "3123469852d32bde341c75e53881e653",
+    "mtime": "1769980331163.115"
+  },
+  "/emulation/bios/eden/firmware/d5aa0c77f0eae791d4fcad77e581c11c.nca": {
+    "hash": "1e6053bce6feea1a75d9385b386f489f",
+    "mtime": "1769980331164.121"
+  },
+  "/emulation/bios/eden/firmware/d5eee6906d4167c54f917cacc121171e.cnmt.nca": {
+    "hash": "2b32da4dfbaa61891e4f3efb1fc0e562",
+    "mtime": "1769980331165.655"
+  },
+  "/emulation/bios/eden/firmware/d640f0df85e21d20daf5a7f678802e59.cnmt.nca": {
+    "hash": "5ce1957a8c106c05b9b9823d31704432",
+    "mtime": "1769980331166.654"
+  },
+  "/emulation/bios/eden/firmware/d76722e055af65a3ce6a704ba71a6711.cnmt.nca": {
+    "hash": "b8a4d9a37f9da47aca6751ef4f7512bd",
+    "mtime": "1769980331168.1526"
+  },
+  "/emulation/bios/eden/firmware/d7ed469987f1c68c313a54c8d56c7d25.cnmt.nca": {
+    "hash": "b05fc43d3035c5b1855d2fd51dd26566",
+    "mtime": "1769980331180.1602"
+  },
+  "/emulation/bios/eden/firmware/dbb121ced4e8b1e82f16c7f4a871dd42.cnmt.nca": {
+    "hash": "25b50a2bf0bfcf7037403c6038e10a6e",
+    "mtime": "1769980331199.1787"
+  },
+  "/emulation/bios/eden/firmware/dc65dc001191551827ca92612f679c80.cnmt.nca": {
+    "hash": "6ae4226fa89ecf6c7aff77b68501a8f5",
+    "mtime": "1769980331200.1785"
+  },
+  "/emulation/bios/eden/firmware/dc93a368d01dc2cbe71684ab9a16ea36.cnmt.nca": {
+    "hash": "1579f544e0891489e5b12c9651e3db38",
+    "mtime": "1769980331200.6787"
+  },
+  "/emulation/bios/eden/firmware/e14e5a7c94bcb858c01a4da3dd07cd0f.nca": {
+    "hash": "77bc2af3ae766c5445d6b8401242302d",
+    "mtime": "1769980331209.1804"
+  },
+  "/emulation/bios/eden/firmware/e43848e4661da5025d2c85cb32f752a8.cnmt.nca": {
+    "hash": "a219625c16d3567513dffc6dd93a725f",
+    "mtime": "1769980331221.683"
+  },
+  "/emulation/bios/eden/firmware/e8901819539a020e4249f03b5dea9b33.nca": {
+    "hash": "10a2065c1f128e826f82b98f3933df31",
+    "mtime": "1769980331223.6807"
+  },
+  "/emulation/bios/eden/firmware/ea44ed93ba7a677c8f2edefff748a85e.cnmt.nca": {
+    "hash": "3a7b4db855d41ef223cd16155981d1f9",
+    "mtime": "1769980331224.687"
+  },
+  "/emulation/bios/eden/firmware/ebc6f31e05a8e26e9a72e8b6c7fd9848.nca": {
+    "hash": "5548ef1337b975c5ae437f57ca767552",
+    "mtime": "1769980331362.7883"
+  },
+  "/emulation/bios/eden/firmware/ebcd31c79c44363f6954abfff0c69e1a.cnmt.nca": {
+    "hash": "0ad5670644393827c693213d8c2896c5",
+    "mtime": "1769980331364.2903"
+  },
+  "/emulation/bios/eden/firmware/ece1d88b4660c817d56183a515372a48.cnmt.nca": {
+    "hash": "12a485de34c292bcf588f9d42d49925d",
+    "mtime": "1769980331364.7908"
+  },
+  "/emulation/bios/eden/firmware/ee97b009d9a0bee534ff14fb0ab7bdca.cnmt.nca": {
+    "hash": "7909d309151d3169c8f8753c83dd4ced",
+    "mtime": "1769980331365.2908"
+  },
+  "/emulation/bios/eden/firmware/f167e3965b5a53b398f8aacdf7b0272e.cnmt.nca": {
+    "hash": "028a53db812aa3d0989f506512200e74",
+    "mtime": "1769980331366.8047"
+  },
+  "/emulation/bios/eden/firmware/f2f26c29878911da54e325d626ad8f01.nca": {
+    "hash": "a948bee8393379b707f16e9cbcb37469",
+    "mtime": "1769980331382.3174"
+  },
+  "/emulation/bios/eden/firmware/f5718a5ad728bb81fe664e11aa41090e.cnmt.nca": {
+    "hash": "39866fe963bb564512488094703e7ef7",
+    "mtime": "1769980331383.3247"
+  },
+  "/emulation/bios/eden/firmware/f9fbeffb5d6da9b38e48fa694b9176de.cnmt.nca": {
+    "hash": "d4bb25b6aa0f6cdc2c1011e825dbd25e",
+    "mtime": "1769980331383.8188"
+  },
+  "/emulation/bios/eden/firmware/fb926eab32789c617a3c87cfc25b2295.nca": {
+    "hash": "4a65c90ce932f43701863509a1a589eb",
+    "mtime": "1769980331385.817"
+  },
+  "/emulation/bios/eden/firmware/fc8bd9b942d1876db078389684b2a723.cnmt.nca": {
+    "hash": "488e2cc0abb2dcbaa00e5712ed57764e",
+    "mtime": "1769980331386.3171"
+  },
+  "/emulation/bios/eden/firmware/fdd3b3e4fc156b3b1db6ac6897a88a20.nca": {
+    "hash": "edcd0f73140c4f3f6933577cfbf3c831",
+    "mtime": "1769980331393.8247"
+  },
+  "/emulation/bios/eden/firmware/fe132a6b9b63d4622dd2a69d94bea9d8.nca": {
+    "hash": "24a0e1f6e01fdcdaf5522b3cab735d94",
+    "mtime": "1769980331397.8252"
+  },
+  "/emulation/bios/eden/firmware/fe9c8442a45db3e10a9635c89de0c547.nca": {
+    "hash": "83f9f0bd6bbf4892b96aea6e296cc8db",
+    "mtime": "1769980331467.3684"
+  },
+  "/emulation/bios/eden/keys/prod.keys": {
+    "hash": "65bf82982e3ed7a2fb3a55f81ac902f6",
+    "mtime": "1755742196312.9512"
+  },
+  "/emulation/bios/eden/keys/title.keys": {
+    "hash": "782aea76b1aa9718ba2d5b0bc6bc3af8",
+    "mtime": "1755742196319.9517"
+  },
+  "/emulation/bios/eden/keys/title.keys_autogenerated": {
+    "hash": "287ca1fcec5a93a43c031646a10143bf",
+    "mtime": "1769980494403.0571"
   }
 }

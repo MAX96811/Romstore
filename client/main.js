@@ -3,6 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
+app.commandLine.appendSwitch('disable-http-cache');
+
 function createWindow() {
     const win = new BrowserWindow({
         width: 1200,
@@ -12,8 +15,7 @@ function createWindow() {
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
-            nodeIntegration: false,
-            partition: 'persist:romstore'
+            nodeIntegration: false
         }
     });
 
@@ -23,7 +25,12 @@ function createWindow() {
     // win.webContents.openDevTools();
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+    const sessionDataPath = path.join(app.getPath('userData'), 'session-data');
+    if (!fs.existsSync(sessionDataPath)) fs.mkdirSync(sessionDataPath, { recursive: true });
+    app.setPath('sessionData', sessionDataPath);
+    createWindow();
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
@@ -286,4 +293,3 @@ ipcMain.handle('upload-save', async (event, { filePath, relPath, sessionToken })
         return { success: false, error: e.message };
     }
 });
-
