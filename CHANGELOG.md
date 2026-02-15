@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.0.2 - 2026-02-15
+
+### Fixed
+- Bulk game upload now finalizes files into the selected ROM system folder instead of leaving them in temporary upload storage.
+- Bulk upload progress bars now render correctly in the frontend.
+- Upload requests now include credentials and improved path handling for reliable authenticated uploads.
+
 ## v2.0.1 - 2026-02-13
 
 ### Added

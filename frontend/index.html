@@ -467,7 +467,13 @@ input[type='password']:focus,
 }
 
 .progress-bar,
-
+.progress-bar-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-soft) 100%);
+  transition: width 0.18s ease;
+}
 
 .progress-container { display: none; }
 .downloading .progress-container { display: block; }
@@ -1065,7 +1071,8 @@ input[type='password']:focus,
 
                     xhr.onerror = () => reject(new Error('Network error during upload'));
                     
-                    xhr.open('POST', `/api/upload?path=${system}`, true);
+                    xhr.withCredentials = true;
+                    xhr.open('POST', `/api/upload?type=games&path=${encodeURIComponent(system)}`, true);
                     xhr.send(formData);
                 });
             } catch (e) {

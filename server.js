@@ -1013,7 +1013,39 @@ app.get('/api/artwork', requireAuth, (req, res) => {
 
 // 6. Upload
 app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
-    res.json({ message: 'File uploaded successfully', file: req.file });
+    if (!req.file) return res.status(400).json({ error: 'Missing file' });
+
+    const rawSystem = String(req.query.path || '').trim().toLowerCase();
+    const safeSystem = rawSystem.replace(/[^a-z0-9_-]/g, '');
+    if (!safeSystem) {
+        try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (e) {}
+        return res.status(400).json({ error: 'Invalid or missing target system folder' });
+    }
+
+    const targetDir = path.join(ROMS_DIR, safeSystem);
+    const fileName = path.basename(req.file.originalname || req.file.filename);
+    const targetPath = path.join(targetDir, fileName);
+
+    if (!targetPath.startsWith(targetDir)) {
+        try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (e) {}
+        return res.status(403).json({ error: 'Invalid upload path' });
+    }
+
+    try {
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+        fs.copyFileSync(req.file.path, targetPath);
+        fs.unlinkSync(req.file.path);
+        console.log(`[Upload] Saved ${fileName} -> ${safeSystem}`);
+        res.json({
+            success: true,
+            message: 'File uploaded successfully',
+            relPath: path.join(safeSystem, fileName).replace(/\\/g, '/')
+        });
+    } catch (e) {
+        console.error('[Upload] Failed to finalize upload:', e.message);
+        try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (err) {}
+        res.status(500).json({ error: 'Failed to save uploaded file' });
+    }
 });
 
 // --- SAVE MANAGEMENT (Versioning) ---
