@@ -1008,20 +1008,115 @@ input[type='password']:focus,
     function handleFileSelect() {
         const input = document.getElementById('file-input');
         selectedFiles = Array.from(input.files);
+        console.log(`[UploadUI] Selected ${selectedFiles.length} file(s)`);
         if (selectedFiles.length > 0) {
             document.getElementById('upload-controls').style.display = 'block';
             document.getElementById('file-count-label').innerText = selectedFiles.length;
         }
     }
 
+    function parseUploadErrorMessage(xhr, fallback = 'Upload failed') {
+        try {
+            const payload = JSON.parse(xhr.responseText || '{}');
+            if (payload && payload.error) return payload.error;
+        } catch (e) {}
+        if (xhr.status === 413) {
+            return 'Payload too large for tunnel/proxy. Chunked upload should avoid this, but check reverse proxy limits.';
+        }
+        if (xhr.status === 401) return 'Unauthorized session. Please log in again.';
+        if (xhr.status === 0) return 'Network error (request blocked or disconnected before reaching server).';
+        return `${fallback} (HTTP ${xhr.status})`;
+    }
+
+    function uploadChunk({ blob, system, uploadId, fileName, chunkIndex, totalChunks, onProgress }) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            const formData = new FormData();
+            formData.append('chunk', blob, fileName);
+            formData.append('uploadId', uploadId);
+            formData.append('fileName', fileName);
+            formData.append('chunkIndex', String(chunkIndex));
+            formData.append('totalChunks', String(totalChunks));
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable && typeof onProgress === 'function') onProgress(e.loaded, e.total);
+            };
+
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    resolve(xhr.responseText || '{}');
+                } else {
+                    const msg = parseUploadErrorMessage(xhr, `Chunk ${chunkIndex + 1}/${totalChunks} failed`);
+                    reject(new Error(msg));
+                }
+            };
+
+            xhr.onerror = () => reject(new Error(`Chunk ${chunkIndex + 1}/${totalChunks} network error`));
+            xhr.onabort = () => reject(new Error(`Chunk ${chunkIndex + 1}/${totalChunks} aborted`));
+            xhr.ontimeout = () => reject(new Error(`Chunk ${chunkIndex + 1}/${totalChunks} timed out`));
+
+            xhr.timeout = 120000;
+            xhr.withCredentials = true;
+            xhr.open('POST', `/api/upload/chunk?path=${encodeURIComponent(system)}`, true);
+            xhr.send(formData);
+        });
+    }
+
+    async function uploadFileChunked(file, system, onPercent) {
+        const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB chunks keep Cloudflare tunnel requests small
+        const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
+        const uploadId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        let uploadedBytes = 0;
+
+        console.log(`[UploadUI] Starting upload for ${file.name} (${file.size} bytes) in ${totalChunks} chunk(s)`);
+
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            const start = chunkIndex * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
+
+            await uploadChunk({
+                blob: chunk,
+                system,
+                uploadId,
+                fileName: file.name,
+                chunkIndex,
+                totalChunks,
+                onProgress: (loadedInChunk) => {
+                    const estimated = uploadedBytes + loadedInChunk;
+                    const pct = file.size > 0 ? Math.min(100, Math.round((estimated / file.size) * 100)) : 100;
+                    if (typeof onPercent === 'function') onPercent(pct);
+                }
+            });
+
+            uploadedBytes += chunk.size;
+            if (typeof onPercent === 'function') {
+                const donePct = file.size > 0 ? Math.min(100, Math.round((uploadedBytes / file.size) * 100)) : 100;
+                onPercent(donePct);
+            }
+        }
+
+        console.log(`[UploadUI] Completed upload for ${file.name}`);
+    }
+
     async function startBulkUpload() {
         const sysSelect = document.getElementById('upload-system-select');
         let system = sysSelect.value;
+        console.log(`[UploadUI] Start bulk upload clicked. selectedFiles=${selectedFiles.length}, system=${system || 'none'}`);
         
         if (system === 'custom') {
             system = prompt("Enter new folder name (e.g. 'ps2', 'snes'):");
             if (!system) return;
             system = system.toLowerCase().replace(/[^a-z0-9]/g, '');
+        }
+
+        if (!system) {
+            showToast('Select a target console/folder first.', 'error');
+            return;
+        }
+        if (!selectedFiles.length) {
+            showToast('Select at least one file before uploading.', 'error');
+            return;
         }
 
         const btn = document.getElementById('start-upload-btn');
@@ -1047,37 +1142,14 @@ input[type='password']:focus,
             currentProgressFill.style.width = `0%`;
 
             try {
-                await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    xhr.upload.onprogress = (e) => {
-                        if (e.lengthComputable) {
-                            const percent = Math.round((e.loaded / e.total) * 100);
-                            currentProgressFill.style.width = `${percent}%`;
-                            currentFilePercentText.innerText = `${percent}%`;
-                        }
-                    };
-
-                    xhr.onload = () => {
-                        if (xhr.status === 200) {
-                            successCount++;
-                            resolve();
-                        } else {
-                            reject(new Error(`Upload failed with status ${xhr.status}`));
-                        }
-                    };
-
-                    xhr.onerror = () => reject(new Error('Network error during upload'));
-                    
-                    xhr.withCredentials = true;
-                    xhr.open('POST', `/api/upload?type=games&path=${encodeURIComponent(system)}`, true);
-                    xhr.send(formData);
+                await uploadFileChunked(file, system, (percent) => {
+                    currentProgressFill.style.width = `${percent}%`;
+                    currentFilePercentText.innerText = `${percent}%`;
                 });
+                successCount++;
             } catch (e) {
-                console.error(`Upload failed for ${file.name}`, e);
-                showToast(`Failed: ${file.name}`, 'error');
+                console.error(`[UploadUI] Upload failed for ${file.name}`, e);
+                showToast(`Failed: ${file.name} (${e.message})`, 'error');
             }
         }
 

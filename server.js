@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const { execSync } = require('child_process');
 
 const app = express();
+app.set('trust proxy', true);
 const PORT = 3000;
 
 // EmuDeck paths
@@ -317,7 +318,10 @@ const requireAdmin = (req, res, next) => {
 
 // DEBUG: Log all requests
 app.use((req, res, next) => {
-    console.log(`[INCOMING] ${req.method} ${req.url} - Origin: ${req.get('origin')}`);
+    const ip = req.ip || req.get('x-forwarded-for') || req.socket?.remoteAddress || 'unknown';
+    const cfRay = req.get('cf-ray') || 'n/a';
+    const contentLength = req.get('content-length') || 'n/a';
+    console.log(`[INCOMING] ${req.method} ${req.url} - Origin: ${req.get('origin') || 'none'} - IP: ${ip} - Len: ${contentLength} - CF-Ray: ${cfRay}`);
     next();
 });
 
@@ -340,6 +344,10 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({ storage: storage });
+const chunkUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 25 * 1024 * 1024 }
+});
 
 // --- HELPERS ---
 
@@ -1013,6 +1021,7 @@ app.get('/api/artwork', requireAuth, (req, res) => {
 
 // 6. Upload
 app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
+    console.log(`[Upload] Request started (single) - path=${req.query.path || 'none'} - user=${req.session?.user?.username || 'unknown'}`);
     if (!req.file) return res.status(400).json({ error: 'Missing file' });
 
     const rawSystem = String(req.query.path || '').trim().toLowerCase();
@@ -1035,7 +1044,7 @@ app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
         if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
         fs.copyFileSync(req.file.path, targetPath);
         fs.unlinkSync(req.file.path);
-        console.log(`[Upload] Saved ${fileName} -> ${safeSystem}`);
+        console.log(`[Upload] Saved ${fileName} -> ${safeSystem} (${targetPath})`);
         res.json({
             success: true,
             message: 'File uploaded successfully',
@@ -1045,6 +1054,61 @@ app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
         console.error('[Upload] Failed to finalize upload:', e.message);
         try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (err) {}
         res.status(500).json({ error: 'Failed to save uploaded file' });
+    }
+});
+
+app.post('/api/upload/chunk', requireAuth, chunkUpload.single('chunk'), (req, res) => {
+    const rawSystem = String(req.query.path || '').trim().toLowerCase();
+    const safeSystem = rawSystem.replace(/[^a-z0-9_-]/g, '');
+    const uploadId = String(req.body.uploadId || '').trim();
+    const originalName = String(req.body.fileName || '').trim();
+    const chunkIndex = Number.parseInt(String(req.body.chunkIndex || ''), 10);
+    const totalChunks = Number.parseInt(String(req.body.totalChunks || ''), 10);
+    const safeFileName = path.basename(originalName || `upload-${Date.now()}.bin`);
+
+    console.log(`[UploadChunk] Start - user=${req.session?.user?.username || 'unknown'} path=${safeSystem || 'invalid'} uploadId=${uploadId || 'none'} chunk=${chunkIndex}/${totalChunks}`);
+
+    if (!safeSystem) return res.status(400).json({ error: 'Invalid or missing target system folder' });
+    if (!uploadId || !/^[a-zA-Z0-9_-]{8,128}$/.test(uploadId)) return res.status(400).json({ error: 'Invalid uploadId' });
+    if (!req.file || !req.file.buffer) return res.status(400).json({ error: 'Missing chunk payload' });
+    if (!Number.isInteger(chunkIndex) || !Number.isInteger(totalChunks) || chunkIndex < 0 || totalChunks < 1 || chunkIndex >= totalChunks) {
+        return res.status(400).json({ error: 'Invalid chunk index' });
+    }
+
+    const chunksDir = path.join(ROMS_DIR, '.tmp_chunks');
+    const assembledPath = path.join(chunksDir, `${uploadId}.part`);
+    const targetDir = path.join(ROMS_DIR, safeSystem);
+    const targetPath = path.join(targetDir, safeFileName);
+
+    if (!assembledPath.startsWith(chunksDir) || !targetPath.startsWith(targetDir)) {
+        return res.status(403).json({ error: 'Invalid upload path' });
+    }
+
+    try {
+        if (!fs.existsSync(chunksDir)) fs.mkdirSync(chunksDir, { recursive: true });
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+        fs.appendFileSync(assembledPath, req.file.buffer);
+
+        if (chunkIndex === totalChunks - 1) {
+            fs.copyFileSync(assembledPath, targetPath);
+            fs.unlinkSync(assembledPath);
+            console.log(`[UploadChunk] Complete - saved ${safeFileName} -> ${safeSystem} (${targetPath})`);
+            return res.json({
+                success: true,
+                complete: true,
+                relPath: path.join(safeSystem, safeFileName).replace(/\\/g, '/')
+            });
+        }
+
+        return res.json({
+            success: true,
+            complete: false,
+            receivedChunk: chunkIndex + 1,
+            totalChunks
+        });
+    } catch (e) {
+        console.error(`[UploadChunk] Failed - uploadId=${uploadId} chunk=${chunkIndex}: ${e.message}`);
+        return res.status(500).json({ error: 'Failed to process upload chunk' });
     }
 });
 
