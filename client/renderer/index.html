@@ -467,10 +467,24 @@ input[type='password']:focus,
 }
 
 .progress-bar,
-
+.progress-bar-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-soft) 100%);
+  transition: width 0.18s ease;
+}
 
 .progress-container { display: none; }
 .downloading .progress-container { display: block; }
+.download-rate {
+  display: none;
+  margin-top: 6px;
+  color: #b8b8b8;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.72rem;
+}
+.downloading .download-rate { display: block; }
 
 .progress-label {
   margin-bottom: 6px;
@@ -1245,6 +1259,7 @@ input[type='password']:focus,
                 </div>
             </div>
             <div class="progress-container"><div class="progress-bar"></div></div>
+            <div class="download-rate">0 B/s</div>
             <div class="game-title-below">${title}</div>`;
         card.onclick = e => { if (e.target.tagName !== 'BUTTON') card.classList.toggle('active'); };
         if (isLocal) {
@@ -1283,6 +1298,7 @@ input[type='password']:focus,
                 <div class="row-title">${title}</div>
                 <div class="row-meta"><span>${item.system}</span><span>•</span><span>${item.size}</span></div>
                 <div class="progress-container"><div class="progress-bar"></div></div>
+                <div class="download-rate">0 B/s</div>
             </div>
             <div class="row-actions">
                 ${isLocal ? '<span style="color:var(--success); font-weight:bold;">✓</span>' : ''}
@@ -1421,6 +1437,15 @@ input[type='password']:focus,
         const chip = (txt, active, onClick) => { const d = document.createElement('div'); d.className = 'filter-chip ' + (active ? 'active' : ''); d.innerText = txt; d.onclick = onClick; c.appendChild(d); };
         chip('All Systems', activeFilters.size === 0, () => { activeFilters.clear(); renderFilters(); renderContent(); });
         sys.forEach(s => chip(s, activeFilters.has(s), () => { if (activeFilters.has(s)) activeFilters.delete(s); else activeFilters.add(s); renderFilters(); renderContent(); }));
+    }
+    function formatTransferRate(bytesPerSec) {
+        const bps = Number(bytesPerSec) || 0;
+        if (bps <= 0) return '0 B/s';
+        if (bps < 1024) return `${bps} B/s`;
+        const kb = bps / 1024;
+        if (kb < 1024) return `${kb.toFixed(1)} KB/s`;
+        const mb = kb / 1024;
+        return `${mb.toFixed(2)} MB/s`;
     }
     async function renderContent() {
         const c = document.getElementById('main-content'); c.innerHTML = '';
@@ -1562,14 +1587,20 @@ input[type='password']:focus,
                 }
             }
             
-            window.electronAPI.onDownloadProgress((event, { relPath, percent }) => {
+            window.electronAPI.onDownloadProgress((event, { relPath, percent, bytesPerSec }) => {
                 const el = document.querySelector(`[data-rel-path="${relPath}"]`);
                 if (el) {
                     el.classList.add('downloading');
                     const bar = el.querySelector('.progress-bar');
+                    const rate = el.querySelector('.download-rate');
                     if (bar) bar.style.width = percent + '%';
+                    if (rate) rate.textContent = formatTransferRate(bytesPerSec);
                     if (percent >= 100) {
-                        setTimeout(() => { el.classList.remove('downloading'); scanLocalFiles().then(renderContent); }, 1000);
+                        setTimeout(() => {
+                            el.classList.remove('downloading');
+                            if (rate) rate.textContent = '0 B/s';
+                            scanLocalFiles().then(renderContent);
+                        }, 1000);
                     }
                 }
             });

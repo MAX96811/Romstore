@@ -252,17 +252,34 @@ ipcMain.handle('download-file', async (event, { url, destPath, sessionToken, rel
         headers: headers
     });
 
-    const totalLength = response.headers['content-length'];
+    const totalLengthValue = Number.parseInt(response.headers['content-length'] || '0', 10);
+    const totalLength = Number.isFinite(totalLengthValue) && totalLengthValue > 0 ? totalLengthValue : 0;
     let downloaded = 0;
-    let lastPercent = 0;
+    let lastPercent = -1;
+    let lastSampleTime = Date.now();
+    let lastSampleBytes = 0;
 
     response.data.on('data', (chunk) => {
         downloaded += chunk.length;
-        if (totalLength && relPath) {
-            const percent = Math.round((downloaded / totalLength) * 100);
-            if (percent > lastPercent) {
+        if (relPath) {
+            const now = Date.now();
+            const elapsedSeconds = Math.max((now - lastSampleTime) / 1000, 0.001);
+            const sampledBytes = downloaded - lastSampleBytes;
+            const bytesPerSec = Math.max(0, Math.round(sampledBytes / elapsedSeconds));
+            const percent = totalLength > 0 ? Math.round((downloaded / totalLength) * 100) : 0;
+
+            // Emit either on visible percent change or at least every 300ms for speed updates.
+            if (percent > lastPercent || now - lastSampleTime >= 300) {
                 lastPercent = percent;
-                event.sender.send('download-progress', { relPath, percent });
+                event.sender.send('download-progress', {
+                    relPath,
+                    percent,
+                    bytesPerSec,
+                    downloadedBytes: downloaded,
+                    totalBytes: totalLength || null
+                });
+                lastSampleTime = now;
+                lastSampleBytes = downloaded;
             }
         }
     });
@@ -270,7 +287,18 @@ ipcMain.handle('download-file', async (event, { url, destPath, sessionToken, rel
     response.data.pipe(writer);
 
     return new Promise((resolve, reject) => {
-        writer.on('finish', resolve);
+        writer.on('finish', () => {
+            if (relPath) {
+                event.sender.send('download-progress', {
+                    relPath,
+                    percent: 100,
+                    bytesPerSec: 0,
+                    downloadedBytes: downloaded,
+                    totalBytes: totalLength || downloaded || null
+                });
+            }
+            resolve();
+        });
         writer.on('error', reject);
     });
 });
