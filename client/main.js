@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Tray, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
@@ -14,6 +14,10 @@ const singleInstanceLock = app.requestSingleInstanceLock();
 if (!singleInstanceLock) {
     app.quit();
 }
+
+const sessionDataPath = path.join(app.getPath('userData'), 'session-data');
+if (!fs.existsSync(sessionDataPath)) fs.mkdirSync(sessionDataPath, { recursive: true });
+app.setPath('sessionData', sessionDataPath);
 
 function getConfigPath() {
     return path.join(app.getPath('userData'), 'config.json');
@@ -39,14 +43,13 @@ function saveConfig(configPatch) {
 }
 
 function getTrayIconPath() {
-    const lower = path.join(__dirname, '..', 'lOGO.png');
-    const upper = path.join(__dirname, '..', 'LOGO.png');
-    return fs.existsSync(lower) ? lower : upper;
+    return path.join(__dirname, 'renderer', 'LOGO.png');
 }
 
 function ensureTray() {
     if (tray) return tray;
-    tray = new Tray(getTrayIconPath());
+    const icon = nativeImage.createFromPath(getTrayIconPath());
+    tray = new Tray(icon);
     tray.setToolTip('RomStore');
     tray.on('double-click', () => {
         if (!mainWindow) return;
@@ -94,7 +97,7 @@ function createWindow() {
         width: 1200,
         height: 800,
         backgroundColor: '#121212',
-        icon: path.join(__dirname, '..', 'lOGO.png'),
+        icon: path.join(__dirname, 'renderer', 'LOGO.png'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -145,9 +148,6 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(() => {
-    const sessionDataPath = path.join(app.getPath('userData'), 'session-data');
-    if (!fs.existsSync(sessionDataPath)) fs.mkdirSync(sessionDataPath, { recursive: true });
-    app.setPath('sessionData', sessionDataPath);
     createWindow();
 
     const cfg = getConfig();
@@ -179,29 +179,85 @@ ipcMain.handle('select-dirs', async () => {
 });
 
 ipcMain.handle('scan-local-emulation', async (event, baseDir) => {
-    if (!baseDir || !fs.existsSync(baseDir)) return [];
+    if (!baseDir || !fs.existsSync(baseDir)) {
+        console.log('[Scan] baseDir missing or does not exist:', baseDir);
+        return [];
+    }
 
-    function walk(dir, results = []) {
-        const list = fs.readdirSync(dir);
+    // Resolve symlinks — critical for Steam Deck where /home/deck/Emulation
+    // is often a symlink to the SD card mount point
+    let resolvedBase = baseDir;
+    try {
+        resolvedBase = fs.realpathSync(baseDir);
+        if (resolvedBase !== baseDir) {
+            console.log('[Scan] Resolved symlink:', baseDir, '->', resolvedBase);
+        }
+    } catch (e) {
+        console.error('[Scan] realpathSync failed:', e.message);
+    }
+
+    // Log root directory contents for debugging
+    try {
+        const rootEntries = fs.readdirSync(resolvedBase);
+        console.log('[Scan] Root entries in', resolvedBase, ':', rootEntries.slice(0, 15));
+    } catch (e) {
+        console.error('[Scan] Cannot read root dir:', e.message);
+        return [];
+    }
+
+    function walk(dir, results = [], visited = new Set()) {
+        let list;
+        try {
+            list = fs.readdirSync(dir);
+        } catch (e) {
+            console.error('[Scan] readdirSync failed on:', dir, e.message);
+            return results;
+        }
+
+        visited.add(dir);
+
         list.forEach(file => {
             if (file.startsWith('.') || file.toLowerCase().endsWith('.txt')) return;
 
             const fullPath = path.join(dir, file);
-            const stat = fs.statSync(fullPath);
-            if (stat && stat.isDirectory()) {
-                walk(fullPath, results);
-            } else {
-                const rel = path.relative(baseDir, fullPath).replace(/\\/g, '/');
-                results.push(rel);
+            try {
+                const lstat = fs.lstatSync(fullPath);
+                let targetPath = fullPath;
+                let stat = lstat;
+
+                if (lstat.isSymbolicLink()) {
+                    try {
+                        targetPath = fs.realpathSync(fullPath);
+                        stat = fs.statSync(targetPath);
+                    } catch (e) {
+                        console.error('[Scan] Broken symlink:', fullPath, e.message);
+                        return;
+                    }
+                }
+
+                if (stat.isDirectory()) {
+                    if (!visited.has(targetPath)) {
+                        walk(targetPath, results, visited);
+                    } else {
+                        console.warn('[Scan] Ignoring cyclic symlink:', targetPath);
+                    }
+                } else {
+                    const rel = path.relative(resolvedBase, fullPath).replace(/\\/g, '/');
+                    results.push(rel);
+                }
+            } catch (e) {
+                console.error('[Scan] stat failed:', fullPath, e.message);
             }
         });
         return results;
     }
 
     try {
-        return walk(baseDir);
+        const results = walk(resolvedBase);
+        console.log('[Scan] Total files found:', results.length);
+        return results;
     } catch (e) {
-        console.error("Scan failed", e);
+        console.error('[Scan] Walk failed:', e);
         return [];
     }
 });
@@ -209,25 +265,50 @@ ipcMain.handle('scan-local-emulation', async (event, baseDir) => {
 ipcMain.handle('scan-dir-stat', async (event, baseDir) => {
     if (!baseDir || !fs.existsSync(baseDir)) return [];
 
-    function walk(dir, results = []) {
-        const list = fs.readdirSync(dir);
+    let resolvedBase = baseDir;
+    try {
+        resolvedBase = fs.realpathSync(baseDir);
+    } catch (e) { }
+
+    function walk(dir, results = [], visited = new Set()) {
+        let list;
+        try {
+            list = fs.readdirSync(dir);
+        } catch (e) { return results; }
+
+        visited.add(dir);
+
         list.forEach(file => {
             if (file.startsWith('.') || file.toLowerCase().endsWith('.txt')) return;
 
             const fullPath = path.join(dir, file);
-            const stat = fs.statSync(fullPath);
-            if (stat && stat.isDirectory()) {
-                walk(fullPath, results);
-            } else {
-                const rel = path.relative(baseDir, fullPath).replace(/\\/g, '/');
-                results.push({ relPath: rel, mtime: stat.mtime });
-            }
+            try {
+                const lstat = fs.lstatSync(fullPath);
+                let targetPath = fullPath;
+                let stat = lstat;
+
+                if (lstat.isSymbolicLink()) {
+                    try {
+                        targetPath = fs.realpathSync(fullPath);
+                        stat = fs.statSync(targetPath);
+                    } catch (e) { return; }
+                }
+
+                if (stat.isDirectory()) {
+                    if (!visited.has(targetPath)) {
+                        walk(targetPath, results, visited);
+                    }
+                } else {
+                    const rel = path.relative(resolvedBase, fullPath).replace(/\\/g, '/');
+                    results.push({ relPath: rel, mtime: stat.mtime });
+                }
+            } catch (e) { }
         });
         return results;
     }
 
     try {
-        return walk(baseDir);
+        return walk(resolvedBase);
     } catch (e) {
         console.error("Scan Stat failed", e);
         return [];
@@ -416,7 +497,11 @@ ipcMain.handle('start-save-watcher', async (event, saveDir) => {
         saveWatcher.on('all', (eventName, filePath) => {
             // Only care about adds and changes to files
             if (eventName !== 'add' && eventName !== 'change') return;
-            if (fs.statSync(filePath).isDirectory()) return;
+            try {
+                if (fs.statSync(filePath).isDirectory()) return;
+            } catch (e) {
+                return;
+            }
 
             // Debounce uploads per file to handle rapid successive writes
             if (uploadDebounceMap.has(filePath)) {
@@ -425,7 +510,7 @@ ipcMain.handle('start-save-watcher', async (event, saveDir) => {
 
             const timer = setTimeout(() => {
                 console.log(`[Watcher] ${eventName} (debounced): ${filePath}`);
-                const rel = path.relative(saveDir, filePath).replace(/\\/g, '/');
+                const rel = path.relative(saveDir, filePath).replace(/\\\\/g, '/');
                 event.sender.send('save-change', {
                     relPath: rel,
                     fullPath: filePath

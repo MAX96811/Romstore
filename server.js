@@ -32,6 +32,22 @@ const USERS_SAVES_DIR = path.join(SAVES_DIR, 'users');
     }
 });
 
+// Cleanup dangling chunked uploads from previous sessions
+const CHUNKS_DIR = path.join(ROMS_DIR, '.tmp_chunks');
+try {
+    if (fs.existsSync(CHUNKS_DIR)) {
+        const chunks = fs.readdirSync(CHUNKS_DIR);
+        if (chunks.length > 0) {
+            console.log(`[Init] Cleaning up ${chunks.length} dangling upload chunks...`);
+            for (const file of chunks) {
+                try { fs.unlinkSync(path.join(CHUNKS_DIR, file)); } catch (err) { }
+            }
+        }
+    }
+} catch (e) {
+    console.error(`[Init] Failed to cleanup chunks: ${e.message}`);
+}
+
 // Data paths
 const DATA_DIR = path.join(__dirname, 'data');
 const METADATA_FILE = path.join(DATA_DIR, 'metadata.json');
@@ -255,10 +271,16 @@ app.use(cors({
 }));
 app.use(express.json());
 
+const FileStore = require('session-file-store')(session);
 app.use(session({
+    store: new FileStore({
+        path: path.join(__dirname, 'data', 'sessions'),
+        ttl: 30 * 24 * 60 * 60, // 30 days
+        logFn: function () { } // Suppress console clutter
+    }),
     secret: 'romstore-secret-key-12345',
-    resave: true,
-    saveUninitialized: true,
+    resave: false,
+    saveUninitialized: false,
     rolling: true,
     cookie: {
         secure: false, // Must be false for HTTP
@@ -269,29 +291,24 @@ app.use(session({
 }));
 
 // Auth Middleware
-const requireAuth = (req, res, next) => {
+const resolveToken = (req, res, next) => {
     const token = req.get('X-Session-Token');
-    console.log(`[AuthCheck] URL: ${req.url}, Method: ${req.method}, Token: ${token || 'None'}`);
-
-    if (token && !req.session.user) {
+    if (token && (!req.session || !req.session.user)) {
         req.sessionStore.get(token, (err, sess) => {
             if (sess && sess.user) {
-                const persisted = findUserById(sess.user.id);
-                if (!persisted) return res.status(401).json({ error: 'Unauthorized' });
-                req.session.user = sanitizeSessionUser(persisted);
-                if (req.session.user.mustChangePassword && req.path !== '/api/auth/password') {
-                    return res.status(403).json({ error: 'Password change required', mustChangePassword: true });
-                }
-                console.log(`[AuthCheck] Success via Token: ${token}`);
-                next();
-            } else {
-                console.warn(`[AuthCheck] Fail - Invalid Token: ${token}`);
-                res.status(401).json({ error: 'Unauthorized' });
+                if (!req.session) Object.defineProperty(req, 'session', { value: {}, writable: true });
+                req.session.user = sess.user;
             }
+            next();
         });
         return;
     }
+    next();
+};
 
+app.use(resolveToken);
+
+const requireAuth = (req, res, next) => {
     if (req.session && req.session.user) {
         const persisted = findUserById(req.session.user.id);
         if (!persisted) return res.status(401).json({ error: 'Unauthorized' });
@@ -301,7 +318,6 @@ const requireAuth = (req, res, next) => {
             return res.status(403).json({ error: 'Password change required', mustChangePassword: true });
         }
 
-        console.log(`[AuthCheck] Success via Session: ${req.sessionID}`);
         next();
     } else {
         console.warn(`[AuthCheck] Fail - No Session/Token for ${req.url}`);
@@ -721,7 +737,11 @@ app.post('/api/auth/password', requireAuth, (req, res) => {
 });
 
 app.post('/api/auth/logout', (req, res) => {
-    req.session.destroy();
+    const token = req.get('X-Session-Token');
+    if (token && req.sessionStore) {
+        req.sessionStore.destroy(token, () => { });
+    }
+    if (req.session) req.session.destroy();
     res.json({ success: true });
 });
 
