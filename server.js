@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const multer = require('multer');
-const https = require('https'); 
+const https = require('https');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
@@ -59,20 +59,20 @@ function getFileHash(filePath) {
     try {
         const stats = fs.statSync(filePath);
         const mtime = stats.mtimeMs.toString();
-        
+
         // Use cache if mtime hasn't changed
         if (hashCache[filePath] && hashCache[filePath].mtime === mtime) {
             return hashCache[filePath].hash;
         }
 
         // Calculate MD5 of first 1MB + last 1MB for speed on large files
-        const buffer = Buffer.alloc(Math.min(stats.size, 1024 * 1024 * 2)); 
+        const buffer = Buffer.alloc(Math.min(stats.size, 1024 * 1024 * 2));
         const fd = fs.openSync(filePath, 'r');
-        
+
         // Read first 1MB
         const firstReadLen = Math.min(stats.size, 1024 * 1024, buffer.length);
         let bytesRead = fs.readSync(fd, buffer, 0, firstReadLen, 0);
-        
+
         // Read last 1MB
         if (stats.size > 1024 * 1024) {
             const offset = stats.size - 1024 * 1024;
@@ -86,7 +86,7 @@ function getFileHash(filePath) {
         fs.closeSync(fd);
 
         const hash = crypto.createHash('md5').update(buffer.slice(0, bytesRead)).digest('hex');
-        
+
         hashCache[filePath] = { hash, mtime };
         saveHashCache();
         return hash;
@@ -141,7 +141,7 @@ function loadSwitchSaveMap(force = false) {
     }
 
     let currentMtime = 0;
-    try { currentMtime = fs.statSync(SWITCH_SAVE_MAP_FILE).mtimeMs; } catch (e) {}
+    try { currentMtime = fs.statSync(SWITCH_SAVE_MAP_FILE).mtimeMs; } catch (e) { }
     if (!force && currentMtime <= switchSaveMapMtime) return switchSaveMap;
 
     try {
@@ -260,11 +260,11 @@ app.use(session({
     resave: true,
     saveUninitialized: true,
     rolling: true,
-    cookie: { 
+    cookie: {
         secure: false, // Must be false for HTTP
         httpOnly: true,
         sameSite: 'lax',
-        maxAge: 30 * 24 * 60 * 60 * 1000 
+        maxAge: 30 * 24 * 60 * 60 * 1000
     }
 }));
 
@@ -272,7 +272,7 @@ app.use(session({
 const requireAuth = (req, res, next) => {
     const token = req.get('X-Session-Token');
     console.log(`[AuthCheck] URL: ${req.url}, Method: ${req.method}, Token: ${token || 'None'}`);
-    
+
     if (token && !req.session.user) {
         req.sessionStore.get(token, (err, sess) => {
             if (sess && sess.user) {
@@ -338,7 +338,7 @@ const storage = multer.diskStorage({
 
         // Use a .tmp directory for initial uploads to avoid collisions
         const targetPath = path.join(baseDir, '.tmp');
-        
+
         if (!fs.existsSync(targetPath)) fs.mkdirSync(targetPath, { recursive: true });
         cb(null, targetPath);
     }
@@ -355,10 +355,10 @@ const chunkUpload = multer({
 function scanDir(baseDir, relativePath = '') {
     const fullPath = path.join(baseDir, relativePath);
     if (!fs.existsSync(fullPath)) return [];
-    
+
     let results = [];
     const list = fs.readdirSync(fullPath, { withFileTypes: true });
-    
+
     for (const file of list) {
         if (file.name.startsWith('.') || file.name.toLowerCase().endsWith('.txt')) continue;
 
@@ -434,7 +434,7 @@ function buildSaveTitleLookup() {
                 const shortId = match[1].toUpperCase().slice(0, 4);
                 if (!wiiMap[shortId]) wiiMap[shortId] = title;
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     // Build Switch TitleID -> title map from common filename patterns.
@@ -448,7 +448,7 @@ function buildSaveTitleLookup() {
                 const tid = match[1].toUpperCase();
                 if (!switchMap[tid]) switchMap[tid] = title;
             }
-        } catch (e) {}
+        } catch (e) { }
     }
 
     return { wiiMap, switchMap };
@@ -575,7 +575,7 @@ async function getIgdbToken() {
     const url = `https://id.twitch.tv/oauth2/token?client_id=${apiKeys.clientId}&client_secret=${apiKeys.clientSecret}&grant_type=client_credentials`;
     const res = await fetch(url, { method: 'POST' });
     if (!res.ok) throw new Error("Failed to authenticate with Twitch/IGDB");
-    
+
     const data = await res.json();
     igdbAccessToken = data.access_token;
     tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000; // Buffer 1 min
@@ -589,20 +589,20 @@ async function downloadFile(url, destPath) {
     if (!res.ok) throw new Error(`Failed to download ${url}`);
     const arrayBuffer = await res.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    
+
     const targetDir = path.dirname(destPath);
-    
+
     // Robust Directory Creation with Conflict Resolution
     const parts = targetDir.split(path.sep);
     let currentPath = parts[0];
-    if (targetDir.startsWith('/')) currentPath = '/'; 
+    if (targetDir.startsWith('/')) currentPath = '/';
 
     for (let i = 0; i < parts.length; i++) {
-        if (!parts[i]) continue; 
-        if (i > 0 || !targetDir.startsWith('/')) { 
+        if (!parts[i]) continue;
+        if (i > 0 || !targetDir.startsWith('/')) {
             currentPath = path.join(currentPath, parts[i]);
         }
-        
+
         try {
             fs.mkdirSync(currentPath);
         } catch (e) {
@@ -675,7 +675,7 @@ app.post('/api/auth/setup', (req, res) => {
         mustChangePassword: false,
         createdAt: new Date().toISOString()
     };
-    
+
     saveUsers([newUser]);
     fs.mkdirSync(getUserSavesDirFromId(newUser.id), { recursive: true });
     req.session.user = sanitizeSessionUser(newUser);
@@ -821,7 +821,7 @@ app.get('/api/games', requireAuth, (req, res) => {
     if (!fs.existsSync(ROMS_DIR)) return res.json([]);
     const systems = fs.readdirSync(ROMS_DIR, { withFileTypes: true }).filter(d => d.isDirectory());
     const games = [];
-    
+
     const findArtwork = (systemPath, gameName) => {
         const baseName = path.parse(gameName).name;
         // Priority: Metadata-downloaded > Local folders
@@ -850,7 +850,7 @@ app.get('/api/games', requireAuth, (req, res) => {
             const systemPath = path.join(ROMS_DIR, system.name);
             const files = fs.readdirSync(systemPath, { withFileTypes: true }).filter(f => !f.isDirectory());
             files.forEach(file => {
-                if (file.name.startsWith('.') || file.name.toLowerCase().endsWith('.txt')) return; 
+                if (file.name.startsWith('.') || file.name.toLowerCase().endsWith('.txt')) return;
 
                 const relPath = path.join(system.name, file.name).replace(/\\/g, '/');
                 const stats = fs.statSync(path.join(systemPath, file.name));
@@ -880,7 +880,7 @@ app.get('/api/games', requireAuth, (req, res) => {
                     hasMetadata: !!meta
                 });
             });
-        } catch (e) {}
+        } catch (e) { }
     });
     res.json(games);
 });
@@ -917,7 +917,7 @@ app.get('/api/saves', requireAuth, (req, res) => {
                 } catch (e) { gameTitle = `Wii ID: ${hexId}`; }
             }
         }
-        
+
         if (!system) {
             const switchId = getSwitchTitleIdFromSaveRelPath(file.relPath);
             if (switchId) {
@@ -1027,7 +1027,7 @@ app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
     const rawSystem = String(req.query.path || '').trim().toLowerCase();
     const safeSystem = rawSystem.replace(/[^a-z0-9_-]/g, '');
     if (!safeSystem) {
-        try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (e) {}
+        try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (e) { }
         return res.status(400).json({ error: 'Invalid or missing target system folder' });
     }
 
@@ -1036,7 +1036,7 @@ app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
     const targetPath = path.join(targetDir, fileName);
 
     if (!targetPath.startsWith(targetDir)) {
-        try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (e) {}
+        try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (e) { }
         return res.status(403).json({ error: 'Invalid upload path' });
     }
 
@@ -1052,7 +1052,7 @@ app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
         });
     } catch (e) {
         console.error('[Upload] Failed to finalize upload:', e.message);
-        try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (err) {}
+        try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (err) { }
         res.status(500).json({ error: 'Failed to save uploaded file' });
     }
 });
@@ -1115,7 +1115,7 @@ app.post('/api/upload/chunk', requireAuth, chunkUpload.single('chunk'), (req, re
 // --- SAVE MANAGEMENT (Versioning) ---
 
 app.post('/api/saves/upload', requireAuth, upload.single('file'), (req, res) => {
-    const relPath = req.body.relPath; 
+    const relPath = req.body.relPath;
     if (!relPath) {
         if (req.file) fs.unlinkSync(req.file.path);
         return res.status(400).json({ error: 'Missing relPath' });
@@ -1155,10 +1155,10 @@ app.post('/api/saves/upload', requireAuth, upload.single('file'), (req, res) => 
             const versions = fs.readdirSync(versionDir)
                 .map(f => ({ name: f, time: fs.statSync(path.join(versionDir, f)).mtime.getTime() }))
                 .sort((a, b) => b.time - a.time);
-            
+
             if (versions.length > 5) {
                 versions.slice(5).forEach(v => {
-                    try { fs.unlinkSync(path.join(versionDir, v.name)); } catch(e) {}
+                    try { fs.unlinkSync(path.join(versionDir, v.name)); } catch (e) { }
                 });
             }
         }
@@ -1240,9 +1240,9 @@ app.get('/api/systems', requireAuth, (req, res) => {
 
 // Get Keys Status
 app.get('/api/settings/keys', requireAuth, (req, res) => {
-    res.json({ 
-        hasClientId: !!apiKeys.clientId, 
-        hasClientSecret: !!apiKeys.clientSecret 
+    res.json({
+        hasClientId: !!apiKeys.clientId,
+        hasClientSecret: !!apiKeys.clientSecret
     });
 });
 
@@ -1262,14 +1262,14 @@ app.get('/api/metadata/search', requireAuth, async (req, res) => {
 
     // Clean Query Logic
     console.log(`[IGDB] Original Query: "${query}"`);
-    
+
     // 1. Remove extension
     query = path.parse(query).name;
-    
+
     // 2. Remove things in brackets/parentheses e.g. (USA), [v1.0]
     // Also remove common dump info like "En,Fr,Es", "Rev 1" if inside brackets
     query = query.replace(/\s*[\(\[].*?[\)\]]/g, '');
-    
+
     // 3. Trim extra spaces
     query = query.trim();
 
@@ -1286,16 +1286,16 @@ app.get('/api/metadata/search', requireAuth, async (req, res) => {
             },
             body: `search "${query}"; fields name, cover.url, summary, first_release_date, platforms.name; limit 10;`
         });
-        
+
         if (!response.ok) throw new Error("IGDB Request Failed");
         const data = await response.json();
-        
+
         // Fix cover URLs (they come as //images.igdb.com...)
         const results = data.map(g => ({
             ...g,
             coverUrl: g.cover ? `https:${g.cover.url}`.replace('t_thumb', 't_cover_big') : null
         }));
-        
+
         res.json(results);
     } catch (err) {
         console.error(err);
@@ -1307,7 +1307,7 @@ app.get('/api/metadata/search', requireAuth, async (req, res) => {
 app.post('/api/metadata/apply', requireAuth, async (req, res) => {
     const { relPath, igdbData } = req.body;
     if (!relPath || !igdbData) return res.status(400).json({ error: "Missing data" });
-    
+
     console.log(`[Apply] Applying to ${relPath}`);
 
     try {
@@ -1319,7 +1319,7 @@ app.post('/api/metadata/apply', requireAuth, async (req, res) => {
             // Target: roms/[system]/media/boxart/[gameName].png
             const targetDir = path.join(ROMS_DIR, system, 'media', 'boxart');
             console.log(`[Apply] Target Dir: ${targetDir}`);
-            
+
             // Check ext from url
             const ext = path.extname(igdbData.coverUrl) || '.jpg';
             const finalPath = path.join(targetDir, `${gameBaseName}${ext}`);
@@ -1357,12 +1357,12 @@ app.get('/api/sync/manifest', requireAuth, (req, res) => {
             const systemPath = path.join(ROMS_DIR, system.name);
             const files = fs.readdirSync(systemPath, { withFileTypes: true }).filter(f => !f.isDirectory());
             files.forEach(file => {
-                if (file.name.startsWith('.') || file.name.toLowerCase().endsWith('.txt')) return; 
+                if (file.name.startsWith('.') || file.name.toLowerCase().endsWith('.txt')) return;
                 const relPath = path.join(system.name, file.name).replace(/\\/g, '/');
                 const fullPath = path.join(systemPath, file.name);
                 const stats = fs.statSync(fullPath);
                 const meta = gameMetadata[relPath] || {};
-                
+
                 manifest.games.push({
                     name: meta.title || file.name,
                     filename: file.name,

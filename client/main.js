@@ -180,7 +180,7 @@ ipcMain.handle('select-dirs', async () => {
 
 ipcMain.handle('scan-local-emulation', async (event, baseDir) => {
     if (!baseDir || !fs.existsSync(baseDir)) return [];
-    
+
     function walk(dir, results = []) {
         const list = fs.readdirSync(dir);
         list.forEach(file => {
@@ -197,7 +197,7 @@ ipcMain.handle('scan-local-emulation', async (event, baseDir) => {
         });
         return results;
     }
-    
+
     try {
         return walk(baseDir);
     } catch (e) {
@@ -208,7 +208,7 @@ ipcMain.handle('scan-local-emulation', async (event, baseDir) => {
 
 ipcMain.handle('scan-dir-stat', async (event, baseDir) => {
     if (!baseDir || !fs.existsSync(baseDir)) return [];
-    
+
     function walk(dir, results = []) {
         const list = fs.readdirSync(dir);
         list.forEach(file => {
@@ -225,7 +225,7 @@ ipcMain.handle('scan-dir-stat', async (event, baseDir) => {
         });
         return results;
     }
-    
+
     try {
         return walk(baseDir);
     } catch (e) {
@@ -266,7 +266,7 @@ ipcMain.handle('download-file', async (event, { url, destPath, sessionToken, rel
             const elapsedSeconds = Math.max((now - lastSampleTime) / 1000, 0.001);
             const sampledBytes = downloaded - lastSampleBytes;
             const bytesPerSec = Math.max(0, Math.round(sampledBytes / elapsedSeconds));
-            const percent = totalLength > 0 ? Math.round((downloaded / totalLength) * 100) : 0;
+            const percent = totalLength > 0 ? Math.round((downloaded / totalLength) * 100) : -1;
 
             // Emit either on visible percent change or at least every 300ms for speed updates.
             if (percent > lastPercent || now - lastSampleTime >= 300) {
@@ -417,7 +417,7 @@ ipcMain.handle('start-save-watcher', async (event, saveDir) => {
             // Only care about adds and changes to files
             if (eventName !== 'add' && eventName !== 'change') return;
             if (fs.statSync(filePath).isDirectory()) return;
-            
+
             // Debounce uploads per file to handle rapid successive writes
             if (uploadDebounceMap.has(filePath)) {
                 clearTimeout(uploadDebounceMap.get(filePath));
@@ -426,9 +426,9 @@ ipcMain.handle('start-save-watcher', async (event, saveDir) => {
             const timer = setTimeout(() => {
                 console.log(`[Watcher] ${eventName} (debounced): ${filePath}`);
                 const rel = path.relative(saveDir, filePath).replace(/\\/g, '/');
-                event.sender.send('save-change', { 
-                    relPath: rel, 
-                    fullPath: filePath 
+                event.sender.send('save-change', {
+                    relPath: rel,
+                    fullPath: filePath
                 });
                 uploadDebounceMap.delete(filePath);
             }, 1000);
@@ -457,7 +457,7 @@ ipcMain.handle('upload-save', async (event, { filePath, relPath, sessionToken })
     try {
         if (fs.statSync(filePath).isDirectory()) return { success: false, error: 'Skipped directory' };
     } catch (e) { return { success: false, error: 'File access failed' }; }
-    
+
     // Check config for server URL
     const configPath = path.join(app.getPath('userData'), 'config.json');
     let serverUrl = 'http://localhost:3000';
@@ -467,7 +467,7 @@ ipcMain.handle('upload-save', async (event, { filePath, relPath, sessionToken })
     }
 
     try {
-        const FormData = require('form-data'); 
+        const FormData = require('form-data');
         const form = new FormData();
         form.append('file', fs.createReadStream(filePath));
         form.append('relPath', relPath);
