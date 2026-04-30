@@ -8,10 +8,11 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
+require('dotenv').config();
 
 const app = express();
 app.set('trust proxy', true);
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // EmuDeck paths
 const EMULATION_DIR = '/emulation';
@@ -278,7 +279,7 @@ app.use(session({
         ttl: 30 * 24 * 60 * 60, // 30 days
         logFn: function () { } // Suppress console clutter
     }),
-    secret: 'romstore-secret-key-12345',
+    secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
     resave: false,
     saveUninitialized: false,
     rolling: true,
