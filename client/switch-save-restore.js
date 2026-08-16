@@ -73,6 +73,7 @@ function pruneRestoreBackups(parent, slotId, keep = 10) {
 
 async function restoreSwitchBundle({
     localDir,
+    ryujinxUserRoot,
     slotId,
     files,
     downloadFile,
@@ -97,7 +98,9 @@ async function restoreSwitchBundle({
     for (const component of ['saves', 'savemeta']) {
         const componentFiles = componentGroups.get(component) || [];
         const componentName = component === 'savemeta' ? 'saveMeta' : 'saves';
-        const logicalParent = path.join(localDir, 'saves', 'ryujinx', componentName);
+        const logicalParent = ryujinxUserRoot
+            ? path.join(ryujinxUserRoot, component === 'savemeta' ? 'saveMeta' : 'save')
+            : path.join(localDir, 'saves', 'ryujinx', componentName);
         const parent = physicalDirectory(logicalParent);
         const stagePath = componentFiles.length
             ? path.join(parent, `.romstore-stage-${bundle.slotId}-${restoreNonce}`)

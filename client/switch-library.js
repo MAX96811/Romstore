@@ -34,6 +34,24 @@ function discoverMetadataRoots(homeDir, emulationDir) {
     ].filter(Boolean);
 }
 
+// EmuDeck can launch Flatpak Ryujinx while its legacy Emulation/saves links
+// still point to a native installation. Save operations must follow launcher.
+function resolveRyujinxUserRoot({ homeDir, emulationDir } = {}) {
+    const home = homeDir || '';
+    const launcher = emulationDir ? path.join(emulationDir, 'tools', 'launchers', 'ryujinx.sh') : '';
+    let launcherText = '';
+    try { launcherText = fs.readFileSync(launcher, 'utf8'); } catch (error) { }
+    const flatpakRoots = [
+        path.join(home, '.var', 'app', 'io.github.ryubing.Ryujinx', 'config', 'Ryujinx', 'bis', 'user'),
+        path.join(home, '.var', 'app', 'org.ryujinx.Ryujinx', 'config', 'Ryujinx', 'bis', 'user')
+    ];
+    if (/flatpak\s+run|io\.github\.ryubing\.Ryujinx|org\.ryujinx\.Ryujinx/i.test(launcherText)) {
+        const flatpakRoot = flatpakRoots.find(root => fs.existsSync(root));
+        if (flatpakRoot) return flatpakRoot;
+    }
+    return emulationDir ? path.join(emulationDir, 'saves', 'ryujinx') : null;
+}
+
 function discoverSwitchAssociations({ homeDir, emulationDir } = {}) {
     const gamesById = new Map();
     const slotsById = new Map();
@@ -54,7 +72,9 @@ function discoverSwitchAssociations({ homeDir, emulationDir } = {}) {
         }
     }
 
-    const slotsRoot = emulationDir ? path.join(emulationDir, 'saves', 'ryujinx', 'saves') : null;
+    const userRoot = resolveRyujinxUserRoot({ homeDir, emulationDir });
+    const slotsRoot = userRoot && path.basename(userRoot) === 'user'
+        ? path.join(userRoot, 'save') : (userRoot ? path.join(userRoot, 'saves') : null);
     if (slotsRoot && fs.existsSync(slotsRoot)) {
         let entries = [];
         try { entries = fs.readdirSync(slotsRoot, { withFileTypes: true }); } catch (error) { entries = []; }
@@ -79,13 +99,16 @@ function discoverSwitchAssociations({ homeDir, emulationDir } = {}) {
     };
 }
 
-function collectSwitchBundleFiles(emulationDir, slotIdValue) {
+function collectSwitchBundleFiles(emulationDir, slotIdValue, homeDir) {
     const slotId = normalizeSwitchTitleId(slotIdValue);
     if (!emulationDir || !slotId) throw new Error('Invalid local Switch save identity.');
     const files = [];
 
+    const userRoot = resolveRyujinxUserRoot({ homeDir, emulationDir });
     for (const componentName of ['saves', 'saveMeta']) {
-        const slotRoot = path.join(emulationDir, 'saves', 'ryujinx', componentName, slotId);
+        const physicalComponent = path.basename(userRoot || '') === 'user'
+            ? (componentName === 'saves' ? 'save' : 'saveMeta') : componentName;
+        const slotRoot = path.join(userRoot || '', physicalComponent, slotId);
         if (!fs.existsSync(slotRoot)) continue;
 
         function walk(directory, logicalParts) {
@@ -136,6 +159,7 @@ function matchSwitchTitleId(game, associations) {
 module.exports = {
     collectSwitchBundleFiles,
     discoverSwitchAssociations,
+    resolveRyujinxUserRoot,
     matchSwitchTitleId,
     normalizeGameTitle,
     normalizeSwitchTitleId,

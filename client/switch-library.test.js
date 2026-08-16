@@ -7,7 +7,8 @@ const test = require('node:test');
 const {
     collectSwitchBundleFiles,
     discoverSwitchAssociations,
-    matchSwitchTitleId
+    matchSwitchTitleId,
+    resolveRyujinxUserRoot
 } = require('./switch-library');
 
 test('Ryujinx metadata and ExtraData associate an EmuDeck game with its save slot', t => {
@@ -44,4 +45,17 @@ test('Ryujinx metadata and ExtraData associate an EmuDeck game with its save slo
             `ryujinx/saves/${slotId}/ExtraData0`
         ]
     );
+});
+
+test('Flatpak Ryujinx selected by EmuDeck uses its live user-save root', t => {
+    const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'romstore-flatpak-home-'));
+    const emulationDir = fs.mkdtempSync(path.join(os.tmpdir(), 'romstore-flatpak-emulation-'));
+    t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
+    t.after(() => fs.rmSync(emulationDir, { recursive: true, force: true }));
+    const userRoot = path.join(homeDir, '.var', 'app', 'io.github.ryubing.Ryujinx', 'config', 'Ryujinx', 'bis', 'user');
+    fs.mkdirSync(path.join(userRoot, 'save'), { recursive: true });
+    const launcher = path.join(emulationDir, 'tools', 'launchers', 'ryujinx.sh');
+    fs.mkdirSync(path.dirname(launcher), { recursive: true });
+    fs.writeFileSync(launcher, 'flatpak run io.github.ryubing.Ryujinx');
+    assert.equal(resolveRyujinxUserRoot({ homeDir, emulationDir }), userRoot);
 });

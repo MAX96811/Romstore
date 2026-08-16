@@ -9,7 +9,7 @@ const {
     selectProfile
 } = require('./emudeck');
 const { normalizeSaveRelativePath, scanDirectoryStats, scanLocalEmulation } = require('./local-library');
-const { collectSwitchBundleFiles, discoverSwitchAssociations, matchSwitchTitleId } = require('./switch-library');
+const { collectSwitchBundleFiles, discoverSwitchAssociations, matchSwitchTitleId, resolveRyujinxUserRoot } = require('./switch-library');
 const { restoreSwitchBundle } = require('./switch-save-restore');
 
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
@@ -261,12 +261,14 @@ function isRyujinxRunning() {
 ipcMain.handle('restore-switch-bundle', async (event, payload) => {
     const config = getConfig();
     const localDir = String(config.localDir || '');
+    const ryujinxUserRoot = resolveRyujinxUserRoot({ homeDir: app.getPath('home'), emulationDir: localDir });
     let serverUrl = String(config.serverUrl || 'http://localhost:3000').replace(/\/+$/, '');
     if (serverUrl && !serverUrl.startsWith('http')) serverUrl = 'http://' + serverUrl;
 
     try {
         return await restoreSwitchBundle({
             localDir,
+            ryujinxUserRoot,
             slotId: payload?.slotId,
             files: payload?.files,
             isRyujinxRunning,
@@ -290,13 +292,14 @@ ipcMain.handle('restore-switch-bundle', async (event, payload) => {
 ipcMain.handle('backup-switch-bundle', async (event, payload) => {
     const config = getConfig();
     const localDir = String(config.localDir || '');
+    const ryujinxUserRoot = resolveRyujinxUserRoot({ homeDir: app.getPath('home'), emulationDir: localDir });
     let serverUrl = String(config.serverUrl || 'http://localhost:3000').replace(/\/+$/, '');
     if (serverUrl && !serverUrl.startsWith('http')) serverUrl = 'http://' + serverUrl;
     if (isRyujinxRunning()) return { success: false, error: 'Close Ryujinx before backing up a Switch save.' };
 
     let snapshotDir = null;
     try {
-        const files = collectSwitchBundleFiles(localDir, payload?.slotId);
+        const files = collectSwitchBundleFiles(localDir, payload?.slotId, app.getPath('home'));
         snapshotDir = fs.mkdtempSync(path.join(app.getPath('temp'), 'romstore-switch-backup-'));
         const snapshotFiles = files.map((file, index) => {
             const before = fs.statSync(file.fullPath);
