@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.1.1 - 2026-08-16
+
+### Fixed
+- Made **Play** and **Install** persistent actions instead of hiding them behind a clicked cover overlay.
+- Added an always-visible installed/cloud badge and local-library totals so launchable games are immediately clear.
+- Limited local discovery to EmuDeck library folders and preserved logical paths through symlinked ROM directories.
+- Normalized trailing slashes in server URLs so background save uploads do not produce double-slash API paths.
+- Queued background save uploads and suppressed download echoes to prevent burst retries and notification spam during startup sync.
+- Kept logical EmuDeck save paths when scanning symlinked emulator folders, avoiding rejected `../` upload paths.
+
+### Changed
+- Refined the desktop layout, navigation, game cards, list rows, loading and empty states, settings panels, and upload workflow.
+- Added drag-and-drop game selection and clearer install, launch, and EmuDeck connection feedback.
+
 ## v2.1.0 - 2026-08-16
 
 ### Added

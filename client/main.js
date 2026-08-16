@@ -8,6 +8,7 @@ const {
     sanitizeLaunchEnvironment,
     selectProfile
 } = require('./emudeck');
+const { scanDirectoryStats, scanLocalEmulation } = require('./local-library');
 
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
 app.commandLine.appendSwitch('disable-http-cache');
@@ -185,81 +186,8 @@ ipcMain.handle('select-dirs', async () => {
 });
 
 ipcMain.handle('scan-local-emulation', async (event, baseDir) => {
-    if (!baseDir || !fs.existsSync(baseDir)) {
-        console.log('[Scan] baseDir missing or does not exist:', baseDir);
-        return [];
-    }
-
-    // Resolve symlinks — critical for Steam Deck where /home/deck/Emulation
-    // is often a symlink to the SD card mount point
-    let resolvedBase = baseDir;
     try {
-        resolvedBase = fs.realpathSync(baseDir);
-        if (resolvedBase !== baseDir) {
-            console.log('[Scan] Resolved symlink:', baseDir, '->', resolvedBase);
-        }
-    } catch (e) {
-        console.error('[Scan] realpathSync failed:', e.message);
-    }
-
-    // Log root directory contents for debugging
-    try {
-        const rootEntries = fs.readdirSync(resolvedBase);
-        console.log('[Scan] Root entries in', resolvedBase, ':', rootEntries.slice(0, 15));
-    } catch (e) {
-        console.error('[Scan] Cannot read root dir:', e.message);
-        return [];
-    }
-
-    function walk(dir, results = [], visited = new Set()) {
-        let list;
-        try {
-            list = fs.readdirSync(dir);
-        } catch (e) {
-            console.error('[Scan] readdirSync failed on:', dir, e.message);
-            return results;
-        }
-
-        visited.add(dir);
-
-        list.forEach(file => {
-            if (file.startsWith('.') || file.toLowerCase().endsWith('.txt')) return;
-
-            const fullPath = path.join(dir, file);
-            try {
-                const lstat = fs.lstatSync(fullPath);
-                let targetPath = fullPath;
-                let stat = lstat;
-
-                if (lstat.isSymbolicLink()) {
-                    try {
-                        targetPath = fs.realpathSync(fullPath);
-                        stat = fs.statSync(targetPath);
-                    } catch (e) {
-                        console.error('[Scan] Broken symlink:', fullPath, e.message);
-                        return;
-                    }
-                }
-
-                if (stat.isDirectory()) {
-                    if (!visited.has(targetPath)) {
-                        walk(targetPath, results, visited);
-                    } else {
-                        console.warn('[Scan] Ignoring cyclic symlink:', targetPath);
-                    }
-                } else {
-                    const rel = path.relative(resolvedBase, fullPath).replace(/\\/g, '/');
-                    results.push(rel);
-                }
-            } catch (e) {
-                console.error('[Scan] stat failed:', fullPath, e.message);
-            }
-        });
-        return results;
-    }
-
-    try {
-        const results = walk(resolvedBase);
+        const results = scanLocalEmulation(baseDir);
         console.log('[Scan] Total files found:', results.length);
         return results;
     } catch (e) {
@@ -269,52 +197,8 @@ ipcMain.handle('scan-local-emulation', async (event, baseDir) => {
 });
 
 ipcMain.handle('scan-dir-stat', async (event, baseDir) => {
-    if (!baseDir || !fs.existsSync(baseDir)) return [];
-
-    let resolvedBase = baseDir;
     try {
-        resolvedBase = fs.realpathSync(baseDir);
-    } catch (e) { }
-
-    function walk(dir, results = [], visited = new Set()) {
-        let list;
-        try {
-            list = fs.readdirSync(dir);
-        } catch (e) { return results; }
-
-        visited.add(dir);
-
-        list.forEach(file => {
-            if (file.startsWith('.') || file.toLowerCase().endsWith('.txt')) return;
-
-            const fullPath = path.join(dir, file);
-            try {
-                const lstat = fs.lstatSync(fullPath);
-                let targetPath = fullPath;
-                let stat = lstat;
-
-                if (lstat.isSymbolicLink()) {
-                    try {
-                        targetPath = fs.realpathSync(fullPath);
-                        stat = fs.statSync(targetPath);
-                    } catch (e) { return; }
-                }
-
-                if (stat.isDirectory()) {
-                    if (!visited.has(targetPath)) {
-                        walk(targetPath, results, visited);
-                    }
-                } else {
-                    const rel = path.relative(resolvedBase, fullPath).replace(/\\/g, '/');
-                    results.push({ relPath: rel, mtime: stat.mtime });
-                }
-            } catch (e) { }
-        });
-        return results;
-    }
-
-    try {
-        return walk(resolvedBase);
+        return scanDirectoryStats(baseDir);
     } catch (e) {
         console.error("Scan Stat failed", e);
         return [];
@@ -647,6 +531,7 @@ ipcMain.handle('upload-save', async (event, { filePath, relPath, sessionToken })
         const conf = JSON.parse(fs.readFileSync(configPath, 'utf8'));
         if (conf.serverUrl) serverUrl = conf.serverUrl;
     }
+    serverUrl = serverUrl.replace(/\/+$/, '');
 
     try {
         const FormData = require('form-data');

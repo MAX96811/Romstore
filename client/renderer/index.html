@@ -97,11 +97,11 @@
             z-index: 100;
             display: flex;
             flex-direction: column;
-            gap: 14px;
-            padding: 20px 36px;
+            gap: 12px;
+            padding: 14px 28px 12px;
             border-bottom: 1px solid #1d1d1d;
             background: rgba(8, 8, 8, 0.92);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(18px);
         }
 
         .header-top {
@@ -109,6 +109,76 @@
             align-items: center;
             justify-content: space-between;
             gap: 16px;
+        }
+
+        .brand-area,
+        .header-actions,
+        .brand-copy {
+            display: flex;
+            align-items: center;
+        }
+
+        .brand-area {
+            gap: 22px;
+            min-width: 0;
+        }
+
+        .brand-logo {
+            height: 42px;
+            width: auto;
+        }
+
+        .brand-copy {
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .brand-divider {
+            width: 1px;
+            height: 26px;
+            background: #2d2d2d;
+        }
+
+        .brand-subtitle {
+            color: var(--text-dim);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.72rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .header-actions {
+            justify-content: flex-end;
+            gap: 9px;
+        }
+
+        .header-icon-btn {
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            border: 1px solid #303030;
+            color: #bdbdbd;
+            background: #131313;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.18s ease;
+        }
+
+        .header-icon-btn:hover {
+            color: #fff;
+            border-color: #4a4a4a;
+            background: #1a1a1a;
+            transform: translateY(-1px);
+        }
+
+        .header-icon-btn.danger:hover {
+            color: #ff9a9a;
+            border-color: rgba(255, 95, 95, 0.55);
         }
 
         h1 {
@@ -161,7 +231,7 @@
 
         .controls {
             width: 100%;
-            padding-top: 12px;
+            padding-top: 10px;
             border-top: 1px solid #1e1e1e;
             display: flex;
             justify-content: space-between;
@@ -257,7 +327,81 @@
         }
 
         .content-area {
-            padding: 34px;
+            padding: 0;
+        }
+
+        .library-shell {
+            padding: 30px 34px 42px;
+            max-width: 1700px;
+            margin: 0 auto;
+        }
+
+        .library-overview {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .library-eyebrow {
+            margin: 0 0 6px;
+            color: var(--accent);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        #library-heading {
+            margin: 0;
+            color: #fff;
+            font-size: clamp(1.65rem, 3vw, 2.35rem);
+            font-weight: 800;
+            letter-spacing: -0.035em;
+            text-transform: none;
+        }
+
+        #library-summary {
+            margin: 7px 0 0;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        .connection-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            min-height: 36px;
+            max-width: 360px;
+            padding: 8px 12px;
+            border: 1px solid #2b2b2b;
+            border-radius: 999px;
+            color: #c8c8c8;
+            background: rgba(18, 18, 18, 0.8);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.72rem;
+            white-space: nowrap;
+        }
+
+        .connection-dot {
+            width: 8px;
+            height: 8px;
+            flex: 0 0 auto;
+            border-radius: 50%;
+            background: #777;
+            box-shadow: 0 0 0 4px rgba(119, 119, 119, 0.12);
+        }
+
+        .connection-pill.ready .connection-dot {
+            background: var(--success);
+            box-shadow: 0 0 0 4px rgba(51, 209, 122, 0.13);
+        }
+
+        .connection-pill.warning .connection-dot {
+            background: #ffb04a;
+            box-shadow: 0 0 0 4px rgba(255, 176, 74, 0.13);
         }
 
         .section-header {
@@ -278,31 +422,47 @@
 
         .library-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(204px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+            gap: 22px;
         }
 
         .game-card {
             position: relative;
             display: flex;
             flex-direction: column;
-            cursor: pointer;
+            overflow: hidden;
+            border: 1px solid var(--card-border);
+            border-radius: 15px;
+            background: linear-gradient(180deg, #151515 0%, #101010 100%);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
             animation: fadeInUp 0.28s ease both;
         }
 
         .game-card:hover {
-            transform: translateY(-3px);
+            transform: translateY(-4px);
+            border-color: #3a3a3a;
+            box-shadow: 0 20px 42px rgba(0, 0, 0, 0.42);
+        }
+
+        .game-card.is-installed {
+            border-color: rgba(51, 209, 122, 0.28);
+        }
+
+        .game-card.is-installed:hover {
+            border-color: rgba(51, 209, 122, 0.56);
         }
 
         .art-wrapper {
             position: relative;
             width: 100%;
-            padding-top: 140%;
+            aspect-ratio: 4 / 5;
             overflow: hidden;
-            border-radius: var(--radius-md);
+            border-radius: 0;
             background: linear-gradient(165deg, #171717 0%, #101010 100%);
-            border: 1px solid var(--card-border);
-            box-shadow: var(--shadow-lg);
+            border: 0;
+            border-bottom: 1px solid #242424;
+            box-shadow: none;
         }
 
         .game-art {
@@ -342,6 +502,156 @@
         .game-card.active .card-overlay {
             opacity: 1;
             pointer-events: auto;
+        }
+
+        .game-card:hover .card-overlay,
+        .game-card:focus-within .card-overlay,
+        .game-card.active .card-overlay {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .cover-badges {
+            position: absolute;
+            z-index: 3;
+            inset: 12px 12px auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .cover-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 72%;
+            padding: 5px 8px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 999px;
+            color: #f4f4f4;
+            background: rgba(8, 8, 8, 0.78);
+            backdrop-filter: blur(10px);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.63rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .cover-badge.installed {
+            color: #b8f6d5;
+            border-color: rgba(51, 209, 122, 0.4);
+            background: rgba(14, 45, 29, 0.88);
+        }
+
+        .cover-badge.installed::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        .cover-gradient {
+            position: absolute;
+            inset: auto 0 0;
+            height: 38%;
+            pointer-events: none;
+            background: linear-gradient(180deg, transparent, rgba(8, 8, 8, 0.48));
+        }
+
+        .game-card-body {
+            display: flex;
+            flex: 1;
+            flex-direction: column;
+            gap: 9px;
+            padding: 14px;
+        }
+
+        .card-meta-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            color: var(--text-dim);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.68rem;
+        }
+
+        .card-meta-line span {
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .card-meta-line .local-state {
+            color: #8fe4b8;
+        }
+
+        .card-actions {
+            display: flex;
+            align-items: stretch;
+            gap: 7px;
+            margin-top: auto;
+            flex-wrap: wrap;
+        }
+
+        .game-card .game-primary-action {
+            flex: 1 0 100%;
+        }
+
+        .game-card .game-secondary-action {
+            flex: 1;
+        }
+
+        .game-primary-action,
+        .game-secondary-action {
+            min-height: 38px;
+            border-radius: 9px;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform 0.15s ease, filter 0.15s ease, border-color 0.15s ease;
+        }
+
+        .game-primary-action {
+            flex: 1;
+            border: 1px solid var(--accent);
+            color: #130b06;
+            background: linear-gradient(180deg, #ff862f, #ff6500);
+            box-shadow: 0 7px 18px rgba(255, 102, 0, 0.17);
+        }
+
+        .game-primary-action.play-btn {
+            color: #08150f;
+            border-color: #47df8b;
+            background: linear-gradient(180deg, #65e9a2, #33d17a);
+            box-shadow: 0 7px 18px rgba(51, 209, 122, 0.16);
+        }
+
+        .game-secondary-action {
+            flex: 0 0 auto;
+            border: 1px solid #303030;
+            color: #bcbcbc;
+            background: #191919;
+            padding: 0 10px;
+        }
+
+        .game-primary-action:hover,
+        .game-secondary-action:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.07);
+        }
+
+        .game-primary-action:disabled,
+        .game-secondary-action:disabled {
+            cursor: wait;
+            opacity: 0.7;
+            transform: none;
         }
 
         .overlay-info {
@@ -387,15 +697,59 @@
         }
 
         .game-title-below {
-            margin-top: 11px;
+            margin: 0;
             color: #fff;
             font-size: 0.92rem;
             font-weight: 700;
-            text-align: center;
+            text-align: left;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            padding: 0 4px;
+            padding: 0;
+        }
+
+        .library-state {
+            min-height: 330px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 10px;
+            border: 1px dashed #292929;
+            border-radius: 16px;
+            color: var(--text-dim);
+            text-align: center;
+            background: rgba(15, 15, 15, 0.5);
+        }
+
+        .library-state-icon {
+            width: 48px;
+            height: 48px;
+            display: grid;
+            place-items: center;
+            border: 1px solid #333;
+            border-radius: 14px;
+            color: var(--accent);
+            background: #17120f;
+            font-size: 1.35rem;
+        }
+
+        .library-state strong {
+            color: #eee;
+            font-size: 1rem;
+        }
+
+        .loading-ring {
+            width: 27px;
+            height: 27px;
+            border: 3px solid #2c2c2c;
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         .edit-btn {
@@ -438,6 +792,68 @@
             color: #f0f0f0;
             padding: 22px;
             box-shadow: var(--shadow-lg);
+        }
+
+        .settings-panel {
+            margin-top: 12px;
+            padding: 16px;
+            border: 1px solid #292929;
+            border-radius: 13px;
+            background: rgba(17, 17, 17, 0.72);
+        }
+
+        .settings-panel:first-child {
+            margin-top: 0;
+        }
+
+        .settings-panel-title {
+            margin: 0 0 5px;
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 800;
+        }
+
+        .settings-panel-copy {
+            margin: 0 0 14px;
+            color: var(--text-dim);
+            font-size: 0.78rem;
+            line-height: 1.5;
+        }
+
+        .upload-dropzone {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 7px;
+            min-height: 145px;
+            padding: 20px;
+            border: 1px dashed #4a372a;
+            border-radius: 13px;
+            color: #ddd;
+            background: linear-gradient(145deg, rgba(255, 102, 0, 0.08), rgba(17, 17, 17, 0.7));
+            text-align: center;
+            transition: border-color 0.18s ease, background 0.18s ease;
+        }
+
+        .upload-dropzone.dragging {
+            border-color: var(--accent);
+            background: rgba(255, 102, 0, 0.13);
+        }
+
+        .upload-dropzone-icon {
+            color: var(--accent);
+            font-size: 1.8rem;
+        }
+
+        .upload-file-list {
+            max-height: 110px;
+            overflow-y: auto;
+            margin-top: 9px;
+            color: var(--text-dim);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            line-height: 1.7;
         }
 
         .modal-header {
@@ -541,6 +957,10 @@
             transform: translateY(-1px);
         }
 
+        .game-row.is-installed {
+            border-color: rgba(51, 209, 122, 0.3);
+        }
+
         .game-row.active {
             border-color: var(--accent);
             animation: pulseGlow 1.4s ease-in-out infinite;
@@ -577,6 +997,11 @@
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+
+        .game-row .row-actions .game-primary-action {
+            flex: 0 0 auto;
+            padding: 0 18px;
         }
 
         .progress-container,
@@ -754,6 +1179,16 @@
                 flex-direction: column;
             }
 
+            .header-actions,
+            .brand-area {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+
+            .header-actions {
+                justify-content: flex-start;
+            }
+
             .controls {
                 align-items: stretch;
             }
@@ -766,13 +1201,34 @@
                 width: 100%;
             }
 
-            .content-area {
-                padding: 18px;
+            .library-shell {
+                padding: 22px 18px 34px;
+            }
+
+            .library-overview {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .connection-pill {
+                max-width: 100%;
+                white-space: normal;
             }
 
             .library-grid {
                 grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
                 gap: 16px;
+            }
+
+            .game-row {
+                align-items: flex-start;
+                flex-wrap: wrap;
+            }
+
+            .game-row .row-actions {
+                width: 100%;
+                padding-left: 76px;
+                flex-wrap: wrap;
             }
         }
     </style>
@@ -781,27 +1237,30 @@
 <body>
     <header>
         <div class="header-top">
-            <img src="LOGO.png" alt="ROMSTORE" style="height: 50px; width: auto;">
-            <div style="display:flex; gap: 15px; align-items: center;">
-                <button id="open-upload-btn" class="action-btn">＋ Upload Games</button>
-                <button id="logout-btn" class="action-btn"
-                    style="background:transparent; border: 1px solid #f44336; color: #f44336;">Logout</button>
-                <button id="open-settings-btn" class="action-btn"
-                    style="background:transparent; border: 1px solid #444; color: #9e9e9e;">⚙ Settings</button>
+            <div class="brand-area">
+                <div class="brand-copy">
+                    <img src="LOGO.png" alt="ROMSTORE" class="brand-logo">
+                    <span class="brand-divider"></span>
+                    <span class="brand-subtitle">Desktop library</span>
+                </div>
                 <nav class="tabs">
                     <button id="tab-games" class="active">Games</button>
                     <button id="tab-bios">Bios</button>
                 </nav>
             </div>
-            <div style="color: #9e9e9e; font-size: 0.9em;" id="lib-mode">Library Mode: Native</div>
+            <div class="header-actions">
+                <button id="open-upload-btn" class="action-btn">＋ Upload games</button>
+                <button id="open-settings-btn" class="header-icon-btn" title="Settings" aria-label="Open settings">⚙</button>
+                <button id="logout-btn" class="header-icon-btn danger" title="Sign out" aria-label="Sign out">↪</button>
+            </div>
         </div>
         <div class="controls">
             <div class="filter-group" id="filter-container"></div>
             <div class="view-options">
-                <input type="text" id="search-filter" placeholder="Search files...">
-                <label
-                    style="font-size: 0.85em; display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none;">
-                    <input type="checkbox" id="installed-only-filter"> Installed
+                <input type="text" id="search-filter" placeholder="Search your library…">
+                <label class="toggle-btn"
+                    style="font-size:0.82em; display:flex; align-items:center; gap:7px; cursor:pointer; user-select:none;">
+                    <input type="checkbox" id="installed-only-filter"> <span id="installed-filter-label">Installed only</span>
                 </label>
                 <select id="sort-select">
                     <option value="name_asc">Name (A-Z)</option>
@@ -809,12 +1268,25 @@
                     <option value="date_new">Date Added (Newest)</option>
                     <option value="date_old">Date Added (Oldest)</option>
                 </select>
-                <button id="view-toggle" class="toggle-btn" title="Toggle Grid/List">⊞ / ☰</button>
-                <button id="group-toggle" class="toggle-btn">Group by Console</button>
+                <button id="view-toggle" class="toggle-btn" title="Toggle grid or list view">Grid / List</button>
+                <button id="group-toggle" class="toggle-btn">Group by console</button>
             </div>
         </div>
     </header>
-    <div id="main-content" class="content-area"></div>
+    <main class="library-shell">
+        <section class="library-overview">
+            <div>
+                <p class="library-eyebrow">Your collection</p>
+                <h1 id="library-heading">Game library</h1>
+                <p id="library-summary">Loading your games…</p>
+            </div>
+            <div id="client-status-pill" class="connection-pill">
+                <span class="connection-dot"></span>
+                <span id="client-status-text">Checking desktop integration…</span>
+            </div>
+        </section>
+        <div id="main-content" class="content-area"></div>
+    </main>
     <div id="auth-modal" class="modal" style="display:none; backdrop-filter: blur(15px);">
         <div class="modal-content" style="width: 350px; text-align: center;">
             <img src="LOGO.png" style="width: 150px; margin-bottom: 20px;">
@@ -836,56 +1308,59 @@
         </div>
     </div>
     <div id="settings-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="width:640px;">
             <div class="modal-header"><span>Settings</span><span class="close-btn"
                     id="close-settings-btn">&times;</span></div>
-            <div id="client-settings-area"
-                style="display:none; border-top: 2px solid var(--accent); padding-top: 20px; margin-bottom: 25px;">
-                <p style="font-size:1.1em; color:var(--accent); font-weight:bold; margin-bottom:10px;">Desktop Client
-                    Settings</p>
-                <div class="input-group">
+            <div id="client-settings-area" style="display:none; margin-bottom:16px;">
+                <section class="settings-panel">
+                    <p class="settings-panel-title">Local library</p>
+                    <p class="settings-panel-copy">Choose the EmuDeck folder RomStore uses for installs, launching, BIOS files, and saves.</p>
+                    <div class="input-group"><label>Local Emulation directory</label>
+                        <div style="display:flex; gap:10px;"><input type="text" id="client-local-dir" readonly
+                                style="flex:1;"><button id="select-local-dir-btn" class="action-btn">Browse</button></div>
+                    </div>
+                </section>
+                <section class="settings-panel">
+                    <p class="settings-panel-title">Save sync</p>
+                    <p class="settings-panel-copy">Keep save files synchronized with local backups and server-side version history.</p>
+                    <div class="input-group">
                     <label style="display:flex; align-items:center; cursor:pointer;">
                         <input type="checkbox" id="auto-sync-check" style="width:auto; margin-right:10px;"> Enable
                         Auto-Sync Saves
                     </label>
-                    <div style="font-size:0.8em; color:#999; margin-left:25px; line-height: 1.4;">
-                        Automatically uploads local save changes to the cloud and downloads new saves from the
-                        server.<br>
-                        • Creates local backups (.oldsave) before overwriting.<br>
-                        • Maintains version history on the server.<br>
-                        • Syncs automatically on startup and when files change.
                     </div>
-                </div>
-                <div class="input-group"><label>Local Emulation Directory</label>
-                    <div style="display:flex; gap:10px;"><input type="text" id="client-local-dir" readonly
-                            style="flex:1;"><button id="select-local-dir-btn" class="action-btn">Browse</button></div>
-                </div>
-                <div class="input-group">
+                </section>
+                <section class="settings-panel">
+                    <p class="settings-panel-title">Desktop behavior</p>
+                    <p class="settings-panel-copy">Control how RomStore behaves when your desktop session starts or the window closes.</p>
+                    <div class="input-group">
                     <label style="display:flex; align-items:center; cursor:pointer;">
                         <input type="checkbox" id="keep-background-check" style="width:auto; margin-right:10px;"> Keep
                         running in background when window closes
                     </label>
-                </div>
-                <div class="input-group">
+                    </div>
+                    <div class="input-group">
                     <label style="display:flex; align-items:center; cursor:pointer;">
                         <input type="checkbox" id="minimize-to-tray-check" style="width:auto; margin-right:10px;">
                         Minimize to tray
                     </label>
-                </div>
-                <div class="input-group">
+                    </div>
+                    <div class="input-group">
                     <label style="display:flex; align-items:center; cursor:pointer;">
                         <input type="checkbox" id="start-with-system-check" style="width:auto; margin-right:10px;">
                         Start with system
                     </label>
-                </div>
-                <div class="input-group">
+                    </div>
+                    <div class="input-group">
                     <label style="display:flex; align-items:center; cursor:pointer;">
                         <input type="checkbox" id="launch-to-tray-check" style="width:auto; margin-right:10px;"> Launch
                         to tray
                     </label>
-                </div>
-                <div style="border-top:1px solid #333; padding-top:18px; margin-top:18px;">
-                    <p style="font-size:1.05em; color:var(--accent); font-weight:bold; margin-bottom:8px;">EmuDeck Integration</p>
+                    </div>
+                </section>
+                <section class="settings-panel">
+                    <p class="settings-panel-title">EmuDeck launch profiles</p>
+                    <p class="settings-panel-copy">RomStore automatically chooses an installed EmuDeck launcher or RetroArch core. Override only when a platform needs a special command.</p>
                     <div id="emudeck-status" style="font-size:0.85em; color:#aaa; margin-bottom:12px;">Not checked yet</div>
                     <div class="input-group">
                         <label>Platform profile</label>
@@ -900,29 +1375,34 @@
                         <button id="save-emulator-profile-btn" class="action-btn" style="flex:1;">Save Profile</button>
                         <button id="refresh-emudeck-btn" class="action-btn" style="flex:1; background:#333; color:#fff; border-color:#555;">Refresh Detection</button>
                     </div>
-                </div>
+                </section>
             </div>
-            <button class="action-btn" id="auto-scan-btn" style="width:100%">✨ Auto Scan Missing Metadata</button>
+            <button class="action-btn" id="auto-scan-btn" style="width:100%">Scan missing artwork and metadata</button>
         </div>
     </div>
     <div id="upload-modal" class="modal">
         <div class="modal-content" style="width:650px; max-width:95%;">
             <div class="modal-header"><span>Upload Games</span><span class="close-btn" id="close-upload-btn">&times;</span></div>
             <p style="color:#bbb; font-size:0.9em; line-height:1.5; margin-bottom:16px;">
-                Select one or more game files, then choose the EmuDeck console folder. Uploads are chunked so large Wii and Switch images can resume cleanly after each completed chunk.
+                Add games to your server from this client. Large files are transferred in reliable 8 MB chunks and placed in the selected EmuDeck console folder.
             </p>
             <div class="input-group">
                 <label>Game files</label>
-                <button id="select-upload-files-btn" class="action-btn" style="width:100%; background:#3a2b1f; color:#fff;">Choose Files</button>
+                <div id="upload-dropzone" class="upload-dropzone">
+                    <div class="upload-dropzone-icon">⇧</div>
+                    <strong>Drop game files here</strong>
+                    <span style="color:#999; font-size:0.8rem;">or choose them from this computer</span>
+                    <button id="select-upload-files-btn" class="action-btn" type="button">Choose files</button>
+                </div>
                 <input type="file" id="upload-file-input" multiple style="display:none;">
-                <div id="upload-file-summary" style="font-size:0.82em; color:#aaa; margin-top:8px;">No files selected</div>
+                <div id="upload-file-summary" class="upload-file-list">No files selected</div>
             </div>
             <div class="input-group">
                 <label>Target console</label>
                 <select id="upload-system-select"></select>
                 <div id="upload-system-hint" style="font-size:0.78em; color:#888; margin-top:6px;"></div>
             </div>
-            <button id="start-game-upload-btn" class="action-btn" style="width:100%;">Upload Games</button>
+            <button id="start-game-upload-btn" class="action-btn" style="width:100%;">Upload to RomStore</button>
             <div id="game-upload-progress" style="display:none; margin-top:18px;">
                 <div id="game-upload-current" style="color:#ddd; margin-bottom:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
                 <div class="progress-label"><span>Current file</span><span id="game-upload-percent">0%</span></div>
@@ -984,6 +1464,9 @@
             let selectedUploadFiles = [];
             let uploadPlatforms = [];
             let emulatorProfileState = { detected: false, profiles: [] };
+            let saveUploadQueue = Promise.resolve();
+            let lastSaveSyncErrorToast = 0;
+            const suppressedSaveChanges = new Map();
 
             // Sync Manifest: Tracks last known state of files to detect conflicts
             let syncManifest = {};
@@ -1029,7 +1512,7 @@
                 if (!isElectron) return endpoint;
                 let base = serverUrl || '';
                 if (base && !base.startsWith('http')) base = 'http://' + base;
-                return base + endpoint;
+                return base.replace(/\/+$/, '') + endpoint;
             }
             function getFetchOptions(method, body) {
                 const options = { method: method || 'GET', headers: {}, credentials: 'include' };
@@ -1045,6 +1528,40 @@
                 toast.innerText = message;
                 container.appendChild(toast);
                 setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+            }
+
+            function escapeHtml(value) {
+                return String(value == null ? '' : value).replace(/[&<>'"]/g, character => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                })[character]);
+            }
+
+            function formatFileSize(bytes) {
+                const value = Number(bytes) || 0;
+                if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+                if (value < 1024 * 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`;
+                return `${(value / 1024 / 1024 / 1024).toFixed(2)} GB`;
+            }
+
+            function setSelectedUploadFiles(files) {
+                selectedUploadFiles = Array.from(files || []).filter(file => file && file.name);
+                const summary = document.getElementById('upload-file-summary');
+                if (!selectedUploadFiles.length) {
+                    summary.textContent = 'No files selected';
+                    return;
+                }
+                const totalBytes = selectedUploadFiles.reduce((total, file) => total + file.size, 0);
+                const visibleFiles = selectedUploadFiles.slice(0, 4)
+                    .map(file => `<div>${escapeHtml(file.name)} <span style="color:#666;">${formatFileSize(file.size)}</span></div>`)
+                    .join('');
+                const remainder = selectedUploadFiles.length > 4
+                    ? `<div>+ ${selectedUploadFiles.length - 4} more file(s)</div>`
+                    : '';
+                summary.innerHTML = `<strong style="color:#ddd;">${selectedUploadFiles.length} file(s) · ${formatFileSize(totalBytes)}</strong>${visibleFiles}${remainder}`;
             }
 
             function updateUploadSystemHint() {
@@ -1220,6 +1737,7 @@
                 if (profiles.some(profile => profile.system === previous)) select.value = previous;
                 else if (profiles.some(profile => profile.system === 'wii')) select.value = 'wii';
                 showSelectedEmulatorProfile();
+                updateLibraryChrome();
             }
 
             async function saveSelectedEmulatorProfile() {
@@ -1232,15 +1750,28 @@
                 await refreshEmuDeckProfiles();
             }
 
-            async function launchGame(item) {
-                if (!isElectron) return;
-                const result = await window.electronAPI.launchGame({
-                    localDir,
-                    relPath: item.relPath,
-                    system: item.system
-                });
-                if (result.success) showToast(`Launching with ${result.profile}…`, 'success');
-                else {
+            async function launchGame(item, button) {
+                if (!isElectron) {
+                    showToast('Playing games requires the RomStore desktop client.', 'error');
+                    return;
+                }
+
+                const originalLabel = button ? button.innerHTML : '';
+                if (button) {
+                    button.disabled = true;
+                    button.innerHTML = 'Launching…';
+                }
+                try {
+                    const result = await window.electronAPI.launchGame({
+                        localDir,
+                        relPath: item.relPath,
+                        system: item.system
+                    });
+                    if (result.success) {
+                        showToast(`Launching with ${result.profile}…`, 'success');
+                        return;
+                    }
+
                     showToast(result.error || 'Game could not be launched.', 'error');
                     document.getElementById('settings-modal').style.display = 'flex';
                     await refreshEmuDeckProfiles();
@@ -1248,6 +1779,13 @@
                     if (Array.from(select.options).some(option => option.value === item.system)) {
                         select.value = item.system;
                         showSelectedEmulatorProfile();
+                    }
+                } catch (error) {
+                    showToast(error.message || 'Game could not be launched.', 'error');
+                } finally {
+                    if (button) {
+                        button.disabled = false;
+                        button.innerHTML = originalLabel;
                     }
                 }
             }
@@ -1325,18 +1863,57 @@
                 }
             }
             async function scanLocalFiles() {
-                if (isElectron && localDir) {
-                    console.log('[Local] Scanning:', localDir);
+                installedLocalPaths = new Set();
+                if (!isElectron || !localDir) return;
+                try {
+                    console.log('[Local] Scanning library folders:', localDir);
                     const files = await window.electronAPI.scanLocalEmulation(localDir);
-                    console.log('[Local] Sample paths:', files.slice(0, 5));
-                    installedLocalPaths = new Set(files.map(f => f.toLowerCase()));
-                    console.log('[Local] Found:', installedLocalPaths.size);
+                    installedLocalPaths = new Set(files.map(file => String(file).replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase()));
+                    console.log('[Local] Found library files:', installedLocalPaths.size);
+                } catch (error) {
+                    console.error('[Local] Scan failed:', error);
+                    showToast('Could not scan the local EmuDeck library.', 'error');
                 }
             }
+
+            function getItemLibrarySection(item) {
+                if (item && item._type) return item._type === 'games' ? 'roms' : item._type;
+                return currentTab === 'games' ? 'roms' : currentTab;
+            }
+
             function isInstalledLocally(item) {
-                const rel = item.relPath.toLowerCase();
-                const typePrefix = currentTab === 'installed' ? (item._type + '/') : (currentTab === 'games' ? 'roms/' : currentTab + '/');
-                return installedLocalPaths.has(typePrefix + rel) || installedLocalPaths.has(rel);
+                if (!item || !item.relPath) return false;
+                const section = getItemLibrarySection(item);
+                const relPath = String(item.relPath).replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase();
+                return installedLocalPaths.has(`${section}/${relPath}`);
+            }
+
+            function updateLibraryChrome(filteredCount = rawData.length) {
+                const isGames = currentTab === 'games';
+                const noun = isGames ? 'game' : 'BIOS file';
+                const installedCount = rawData.filter(item => isInstalledLocally(item)).length;
+                document.getElementById('library-heading').textContent = isGames ? 'Game library' : 'BIOS library';
+                document.getElementById('library-summary').textContent =
+                    `${rawData.length} ${noun}${rawData.length === 1 ? '' : 's'} · ${installedCount} ${isGames ? 'ready to play' : 'on this PC'}${filteredCount !== rawData.length ? ` · ${filteredCount} shown` : ''}`;
+                document.getElementById('installed-filter-label').textContent = `Installed (${installedCount})`;
+
+                const statusPill = document.getElementById('client-status-pill');
+                const statusText = document.getElementById('client-status-text');
+                statusPill.classList.remove('ready', 'warning');
+                if (!isElectron) {
+                    statusPill.classList.add('warning');
+                    statusText.textContent = 'Web library · use the desktop app to play';
+                } else if (!localDir) {
+                    statusPill.classList.add('warning');
+                    statusText.textContent = 'Choose your Emulation folder in Settings';
+                } else if (emulatorProfileState.detected) {
+                    const readyProfiles = (emulatorProfileState.profiles || []).filter(profile => profile.available).length;
+                    statusPill.classList.add('ready');
+                    statusText.textContent = `EmuDeck connected · ${readyProfiles} launch profiles ready`;
+                } else {
+                    statusPill.classList.add('ready');
+                    statusText.textContent = `Desktop library connected · ${installedCount} installed`;
+                }
             }
             async function checkAuth() {
                 console.log('[Auth] Checking status...');
@@ -1364,6 +1941,7 @@
                         document.getElementById('auth-modal').style.display = 'none';
                         loadUIState();
                         await scanLocalFiles();
+                        refreshEmuDeckProfiles().catch(error => console.error('[EmuDeck] Background detection failed:', error));
                         if (isAutoSync) toggleAutoSync(true);
                         loadLibrary();
                     }
@@ -1397,6 +1975,7 @@
                         document.getElementById('auth-modal').style.display = 'none';
                         loadUIState();
                         await scanLocalFiles();
+                        refreshEmuDeckProfiles().catch(error => console.error('[EmuDeck] Background detection failed:', error));
                         if (isAutoSync) toggleAutoSync(true);
                         loadLibrary();
                     } else showToast('Auth failed', 'error');
@@ -1427,6 +2006,7 @@
                     document.getElementById('sort-select').value = state.sortMode || 'name_asc';
                     document.getElementById('search-filter').value = state.searchVal || '';
                     document.getElementById('installed-only-filter').checked = !!state.installedOnly;
+                    document.getElementById('installed-only-filter').closest('.toggle-btn').classList.toggle('active', !!state.installedOnly);
                     document.getElementById('group-toggle').classList.toggle('active', isGrouped);
                     document.getElementById('view-toggle').classList.toggle('active', isListView);
                     document.getElementById('auto-sync-check').checked = isAutoSync;
@@ -1473,6 +2053,7 @@
                 if (!shouldSyncSavePath(relPath)) return;
                 const dest = `${localDir}/saves/${relPath}`.split('\\').join('/');
                 const url = getApiUrl(`/api/download?type=saves&path=${encodeURIComponent(relPath)}`);
+                suppressedSaveChanges.set(relPath, Date.now() + 60000);
                 try {
                     if (await window.electronAPI.checkLocalFile(dest)) {
                         await window.electronAPI.backupLocalFile(dest);
@@ -1488,7 +2069,10 @@
                         const t = new Date(f.mtime).getTime();
                         updateManifest(relPath, t, t);
                     }
-                } catch (e) { console.error('Download failed', e); }
+                } catch (e) {
+                    suppressedSaveChanges.delete(relPath);
+                    console.error('Download failed', e);
+                }
             }
 
             async function syncSaves() {
@@ -1683,14 +2267,23 @@
 
             async function loadLibrary() {
                 console.log('[Library] Loading', currentTab);
-                const content = document.getElementById('main-content'); content.innerHTML = 'Scanning...';
+                const content = document.getElementById('main-content');
+                document.getElementById('library-heading').textContent = currentTab === 'games' ? 'Game library' : 'BIOS library';
+                document.getElementById('library-summary').textContent = 'Syncing with your RomStore server…';
+                content.innerHTML = '<div class="library-state"><div class="loading-ring"></div><strong>Loading your library</strong><span>Checking server and local EmuDeck files…</span></div>';
                 try {
                     const res = await fetch(getApiUrl('/api/' + currentTab), getFetchOptions());
                     if (res.status === 401) return checkAuth();
+                    if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
                     const data = await res.json();
                     rawData = data.map(item => { if (!item.system) item.system = item.relPath.split('/')[0] || 'Unknown'; return item; });
                     renderFilters(); await renderContent();
-                } catch (err) { console.error('[Library] Load failed', err); content.innerHTML = '<div style="color:red">Error: ' + err.message + '</div>'; }
+                } catch (err) {
+                    console.error('[Library] Load failed', err);
+                    document.getElementById('library-summary').textContent = 'The library could not be loaded.';
+                    content.innerHTML = '<div class="library-state"><div class="library-state-icon">!</div><strong>Could not load the library</strong><span id="library-error-copy"></span></div>';
+                    document.getElementById('library-error-copy').textContent = err.message;
+                }
             }
             async function getAuthImg(path) {
                 try {
@@ -1699,104 +2292,104 @@
                     return URL.createObjectURL(await res.blob());
                 } catch (e) { return null; }
             }
+
+            function buildItemActions(item, isLocal) {
+                const isGame = currentTab === 'games' || item._type === 'roms' || item._type === 'games';
+                const primary = isLocal && isGame
+                    ? '<button class="game-primary-action play-btn" type="button">▶&nbsp; Play</button>'
+                    : !isLocal
+                        ? `<button class="game-primary-action dl-btn" type="button">↓&nbsp; ${isGame ? 'Install' : 'Download'}</button>`
+                        : '';
+                const saves = isGame
+                    ? '<button class="game-secondary-action game-saves-btn" type="button" title="Browse synchronized saves">Saves</button>'
+                    : '';
+                const history = (currentTab === 'saves' || item._type === 'saves')
+                    ? '<button class="game-secondary-action versions-btn" type="button">History</button>'
+                    : '';
+                const remove = isLocal
+                    ? '<button class="game-secondary-action uninstall-btn" type="button" title="Remove the local copy">Remove</button>'
+                    : '';
+                return `${primary}${saves}${history}${remove}`;
+            }
+
+            function wireItemActions(container, item, isLocal) {
+                const playButton = container.querySelector('.play-btn');
+                const downloadButton = container.querySelector('.dl-btn');
+                const uninstallButton = container.querySelector('.uninstall-btn');
+                const versionsButton = container.querySelector('.versions-btn');
+                const savesButton = container.querySelector('.game-saves-btn');
+                if (playButton) playButton.onclick = event => { event.stopPropagation(); launchGame(item, playButton); };
+                if (downloadButton) downloadButton.onclick = event => { event.stopPropagation(); startDownload(item, null, null, downloadButton); };
+                if (uninstallButton) uninstallButton.onclick = event => { event.stopPropagation(); uninstallGame(item); };
+                if (versionsButton) versionsButton.onclick = event => { event.stopPropagation(); showVersions(item); };
+                if (savesButton) savesButton.onclick = event => { event.stopPropagation(); showGameSaves(item); };
+            }
+
             async function createCard(item) {
                 const card = document.createElement('div');
                 const isLocal = isInstalledLocally(item);
-                card.className = 'game-card';
+                card.className = `game-card${isLocal ? ' is-installed' : ''}`;
                 card.dataset.relPath = item.relPath;
                 let imgUrl = null; if (item.artworkPath) imgUrl = await getAuthImg(item.artworkPath);
                 const title = (currentTab === 'saves' && item.gameTitle) ? item.gameTitle : item.name;
-
-                let actionBtn = `<button class="action-btn-small dl-btn">Download</button>`;
-                if (isLocal) {
-                    actionBtn = `<div style="display:flex; gap:7px;"><button class="action-btn-small play-btn">Play</button><button class="action-btn-small uninstall-btn" style="background-color:#7d2626; border-color:#a83a3a; color:white;">Uninstall</button></div>`;
-                }
-                let versionsBtn = '';
-                if (currentTab === 'saves' || item._type === 'saves') {
-                    versionsBtn = `<button class="action-btn-small versions-btn" style="background:#555; margin-top:5px;">History</button>`;
-                }
-                const gameSavesBtn = currentTab === 'games'
-                    ? `<button class="action-btn-small game-saves-btn" style="background:#2f1d10; color:#ffd8be; margin-top:5px; border:1px solid #6e3c1d;">Game Saves</button>`
-                    : '';
+                const safeTitle = escapeHtml(title || item.originalName || 'Untitled');
+                const safeSystem = escapeHtml(item.systemName || item.system || 'Unknown');
+                const safeSize = escapeHtml(item.size || 'Size unknown');
+                const actionMarkup = buildItemActions(item, isLocal);
 
                 card.innerHTML = `
             <div class="art-wrapper">
-                ${imgUrl ? `<img src="${imgUrl}" class="game-art">` : `<div class="icon-placeholder">${currentTab === 'saves' ? '💾' : '💿'}</div>`}
-                <div class="card-overlay">
-                    <div class="overlay-info"><div class="overlay-system">${item.system}</div><div class="overlay-meta">Size: ${item.size}</div></div>
-                    ${isLocal ? '<span style="color:var(--success); font-weight:bold; margin-bottom:5px;">✓ Installed</span>' : ''}
-                    ${actionBtn}
-                    ${versionsBtn}
-                    ${gameSavesBtn}
+                ${imgUrl ? `<img src="${imgUrl}" class="game-art" alt="">` : `<div class="icon-placeholder">${currentTab === 'saves' ? '💾' : '🎮'}</div>`}
+                <div class="cover-badges">
+                    <span class="cover-badge">${safeSystem}</span>
+                    <span class="cover-badge${isLocal ? ' installed' : ''}">${isLocal ? 'Installed' : 'Cloud'}</span>
                 </div>
+                <div class="cover-gradient"></div>
             </div>
-            <div class="progress-container"><div class="progress-bar"></div></div>
-            <div class="download-rate">0 B/s</div>
-            <div class="game-title-below">${title}</div>`;
-                card.onclick = e => { if (e.target.tagName !== 'BUTTON') card.classList.toggle('active'); };
-                if (isLocal) {
-                    card.querySelector('.play-btn').onclick = e => { e.stopPropagation(); launchGame(item); };
-                    card.querySelector('.uninstall-btn').onclick = e => { e.stopPropagation(); uninstallGame(item); };
-                } else {
-                    card.querySelector('.dl-btn').onclick = e => { e.stopPropagation(); startDownload(item); };
-                }
-                if (versionsBtn) card.querySelector('.versions-btn').onclick = e => { e.stopPropagation(); showVersions(item); };
-                if (gameSavesBtn) card.querySelector('.game-saves-btn').onclick = e => { e.stopPropagation(); showGameSaves(item); };
+            <div class="game-card-body">
+                <div class="game-title-below" title="${safeTitle}">${safeTitle}</div>
+                <div class="card-meta-line"><span>${safeSize}</span><span class="${isLocal ? 'local-state' : ''}">${isLocal ? 'On this PC' : 'Server library'}</span></div>
+                <div class="progress-container"><div class="progress-bar"></div></div>
+                <div class="download-rate">0 B/s</div>
+                <div class="card-actions">${actionMarkup}</div>
+            </div>`;
+                wireItemActions(card, item, isLocal);
                 return card;
             }
+
             async function createRow(item) {
                 const row = document.createElement('div');
                 const isLocal = isInstalledLocally(item);
-                row.className = 'game-row';
+                row.className = `game-row${isLocal ? ' is-installed' : ''}`;
                 row.dataset.relPath = item.relPath;
                 let imgUrl = null; if (item.artworkPath) imgUrl = await getAuthImg(item.artworkPath);
                 const title = (currentTab === 'saves' && item.gameTitle) ? item.gameTitle : item.name;
-
-                let actionBtn = `<button class="action-btn-small dl-btn">Download</button>`;
-                if (isLocal) {
-                    actionBtn = `<button class="action-btn-small play-btn">Play</button><button class="action-btn-small uninstall-btn" style="background-color:#7d2626; border-color:#a83a3a; color:white;">Uninstall</button>`;
-                }
-                let versionsBtn = '';
-                if (currentTab === 'saves' || item._type === 'saves') {
-                    versionsBtn = `<button class="action-btn-small versions-btn" style="background:#555; margin-left:10px;">History</button>`;
-                }
-                const gameSavesBtn = currentTab === 'games'
-                    ? `<button class="action-btn-small game-saves-btn" style="background:#2f1d10; color:#ffd8be; margin-left:10px; border:1px solid #6e3c1d;">Game Saves</button>`
-                    : '';
+                const safeTitle = escapeHtml(title || item.originalName || 'Untitled');
+                const safeSystem = escapeHtml(item.systemName || item.system || 'Unknown');
+                const safeSize = escapeHtml(item.size || 'Size unknown');
 
                 row.innerHTML = `
             ${imgUrl ? `<img src="${imgUrl}" class="row-thumb">` : `<div class="row-thumb" style="display:flex;align-items:center;justify-content:center;font-size:24px;">💿</div>`}
             <div class="row-info">
-                <div class="row-title">${title}</div>
-                <div class="row-meta"><span>${item.system}</span><span>•</span><span>${item.size}</span></div>
+                <div class="row-title">${safeTitle}</div>
+                <div class="row-meta"><span>${safeSystem}</span><span>•</span><span>${safeSize}</span>${isLocal ? '<span>•</span><span style="color:#8fe4b8;">Installed locally</span>' : ''}</div>
                 <div class="progress-container"><div class="progress-bar"></div></div>
                 <div class="download-rate">0 B/s</div>
             </div>
             <div class="row-actions">
-                ${isLocal ? '<span style="color:var(--success); font-weight:bold;">✓</span>' : ''}
-                ${actionBtn}
-                ${versionsBtn}
-                ${gameSavesBtn}
+                ${buildItemActions(item, isLocal)}
             </div>`;
-                row.onclick = e => { if (e.target.tagName !== 'BUTTON') row.classList.toggle('active'); };
-                if (isLocal) {
-                    row.querySelector('.play-btn').onclick = e => { e.stopPropagation(); launchGame(item); };
-                    row.querySelector('.uninstall-btn').onclick = e => { e.stopPropagation(); uninstallGame(item); };
-                } else {
-                    row.querySelector('.dl-btn').onclick = e => { e.stopPropagation(); startDownload(item); };
-                }
-                if (versionsBtn) row.querySelector('.versions-btn').onclick = e => { e.stopPropagation(); showVersions(item); };
-                if (gameSavesBtn) row.querySelector('.game-saves-btn').onclick = e => { e.stopPropagation(); showGameSaves(item); };
+                wireItemActions(row, item, isLocal);
                 return row;
             }
             async function uninstallGame(item) {
                 if (!confirm('Are you sure you want to uninstall ' + item.name + '?')) return;
-                const type = currentTab === 'installed' ? item._type : (currentTab === 'games' ? 'roms' : currentTab);
+                const type = getItemLibrarySection(item);
                 const dest = localDir ? `${localDir}/${type}/${item.relPath}`.split('\\').join('/') : null;
                 if (isElectron && dest) {
                     const success = await window.electronAPI.deleteFile(dest);
                     if (success) {
-                        showToast('Uninstalled', 'success');
+                        showToast('Local copy removed.', 'success');
                         await scanLocalFiles();
                         await renderContent();
                     } else {
@@ -1804,10 +2397,16 @@
                     }
                 }
             }
-            async function startDownload(item, version = null, forcedType = null) {
-                const type = forcedType || (currentTab === 'installed' ? item._type : (currentTab === 'games' ? 'roms' : currentTab));
+            async function startDownload(item, version = null, forcedType = null, button = null) {
+                const type = forcedType || getItemLibrarySection(item);
                 const dest = localDir ? `${localDir}/${type}/${item.relPath}`.split('\\').join('/') : null;
                 if (isElectron && !dest) return showToast('Set local directory in Settings', 'error');
+
+                const originalLabel = button ? button.innerHTML : '';
+                if (button) {
+                    button.disabled = true;
+                    button.innerHTML = type === 'roms' ? 'Installing…' : 'Downloading…';
+                }
 
                 if (isElectron && version) {
                     // Backup before version restore
@@ -1815,14 +2414,23 @@
                     showToast('Local backup created', 'info');
                 }
 
-                showToast('Downloading...', 'info');
+                showToast(type === 'roms' ? 'Installing game…' : 'Downloading…', 'info');
                 try {
                     const url = getApiUrl(`/api/download?type=${type}&path=${encodeURIComponent(item.relPath)}`);
                     if (isElectron) {
                         await window.electronAPI.downloadFile(url, dest, sessionToken, item.relPath);
-                        showToast('Done!', 'success'); await scanLocalFiles(); await renderContent();
+                        showToast(type === 'roms' ? 'Installed. Ready to play.' : 'Download complete.', 'success');
+                        await scanLocalFiles();
+                        await renderContent();
                     } else { window.open(url, '_blank'); }
-                } catch (e) { showToast('Download failed', 'error'); }
+                } catch (e) {
+                    showToast('Download failed', 'error');
+                } finally {
+                    if (button && button.isConnected) {
+                        button.disabled = false;
+                        button.innerHTML = originalLabel;
+                    }
+                }
             }
             async function showGameSaves(game) {
                 document.getElementById('game-saves-modal').style.display = 'flex';
@@ -1935,6 +2543,10 @@
                 // Sorting Logic
                 const sortMode = document.getElementById('sort-select').value;
                 filtered.sort((a, b) => {
+                    if (currentTab === 'games') {
+                        const installedOrder = Number(isInstalledLocally(b)) - Number(isInstalledLocally(a));
+                        if (installedOrder !== 0) return installedOrder;
+                    }
                     if (sortMode === 'name_asc') return (a.gameTitle || a.name).localeCompare(b.gameTitle || b.name);
                     if (sortMode === 'name_desc') return (b.gameTitle || b.name).localeCompare(a.gameTitle || a.name);
                     if (sortMode === 'date_new') return new Date(b.mtime) - new Date(a.mtime);
@@ -1942,7 +2554,13 @@
                     return 0;
                 });
 
-                if (filtered.length === 0) { c.innerHTML = '<div style="text-align:center; padding:20px;">No items found</div>'; return; }
+                updateLibraryChrome(filtered.length);
+
+                if (filtered.length === 0) {
+                    const installedOnly = document.getElementById('installed-only-filter').checked;
+                    c.innerHTML = `<div class="library-state"><div class="library-state-icon">${installedOnly ? '↓' : '⌕'}</div><strong>${installedOnly ? 'No installed items match' : 'No library items found'}</strong><span>${installedOnly ? 'Choose Install on a game to add it to this PC.' : 'Try clearing the search or console filters.'}</span></div>`;
+                    return;
+                }
 
                 const renderGroup = async (items) => {
                     const container = document.createElement('div');
@@ -1987,12 +2605,19 @@
                 document.getElementById('open-upload-btn').onclick = openUploadModal;
                 document.getElementById('close-upload-btn').onclick = () => { document.getElementById('upload-modal').style.display = 'none'; };
                 document.getElementById('select-upload-files-btn').onclick = () => document.getElementById('upload-file-input').click();
-                document.getElementById('upload-file-input').onchange = event => {
-                    selectedUploadFiles = Array.from(event.target.files || []);
-                    const totalBytes = selectedUploadFiles.reduce((total, file) => total + file.size, 0);
-                    document.getElementById('upload-file-summary').textContent = selectedUploadFiles.length
-                        ? `${selectedUploadFiles.length} file(s) • ${(totalBytes / 1024 / 1024 / 1024).toFixed(2)} GB`
-                        : 'No files selected';
+                document.getElementById('upload-file-input').onchange = event => setSelectedUploadFiles(event.target.files);
+                const uploadDropzone = document.getElementById('upload-dropzone');
+                uploadDropzone.ondragenter = uploadDropzone.ondragover = event => {
+                    event.preventDefault();
+                    uploadDropzone.classList.add('dragging');
+                };
+                uploadDropzone.ondragleave = event => {
+                    if (!uploadDropzone.contains(event.relatedTarget)) uploadDropzone.classList.remove('dragging');
+                };
+                uploadDropzone.ondrop = event => {
+                    event.preventDefault();
+                    uploadDropzone.classList.remove('dragging');
+                    setSelectedUploadFiles(event.dataTransfer.files);
                 };
                 document.getElementById('upload-system-select').onchange = updateUploadSystemHint;
                 document.getElementById('start-game-upload-btn').onclick = startGameUpload;
@@ -2011,7 +2636,11 @@
                 document.getElementById('tab-bios').onclick = () => { changeTab('bios'); };
                 document.getElementById('search-filter').oninput = () => { saveUIState(); renderContent(); };
                 document.getElementById('sort-select').onchange = () => { saveUIState(); renderContent(); };
-                document.getElementById('installed-only-filter').onchange = () => { saveUIState(); renderContent(); };
+                document.getElementById('installed-only-filter').onchange = function () {
+                    this.closest('.toggle-btn').classList.toggle('active', this.checked);
+                    saveUIState();
+                    renderContent();
+                };
                 document.getElementById('group-toggle').onclick = function () { isGrouped = !isGrouped; this.classList.toggle('active', isGrouped); saveUIState(); renderContent(); };
                 document.getElementById('view-toggle').onclick = function () { isListView = !isListView; this.classList.toggle('active', isListView); saveUIState(); renderContent(); };
 
@@ -2105,19 +2734,30 @@
                         if (payload && payload.hidden) showToast('RomStore is running in background (tray)', 'info');
                     });
 
-                    window.electronAPI.onSaveChange(async (event, { relPath, fullPath }) => {
+                    window.electronAPI.onSaveChange((event, { relPath, fullPath }) => {
                         if (!isAuthenticated || !sessionToken || !isAutoSync) return;
                         if (!shouldSyncSavePath(relPath)) return;
-                        console.log('[AutoSync] Change detected:', relPath);
-                        showToast('Syncing save...', 'info');
-                        // We need sessionToken here.
-                        const result = await window.electronAPI.uploadSave(fullPath, relPath, sessionToken);
+                        const suppressionExpiry = suppressedSaveChanges.get(relPath) || 0;
+                        if (suppressionExpiry > Date.now()) {
+                            suppressedSaveChanges.delete(relPath);
+                            console.log('[AutoSync] Ignoring downloaded save echo:', relPath);
+                            return;
+                        }
+                        suppressedSaveChanges.delete(relPath);
 
-                        const isSuccess = (typeof result === 'object' && result !== null) ? result.success : result;
-                        const errorMsg = (typeof result === 'object' && result !== null && result.error) ? ': ' + result.error : '';
+                        saveUploadQueue = saveUploadQueue.catch(() => {}).then(async () => {
+                            if (!isAuthenticated || !sessionToken || !isAutoSync) return;
+                            console.log('[AutoSync] Uploading changed save:', relPath);
+                            const result = await window.electronAPI.uploadSave(fullPath, relPath, sessionToken);
+                            const isSuccess = (typeof result === 'object' && result !== null) ? result.success : result;
+                            if (isSuccess) return;
 
-                        if (isSuccess) showToast('Save Synced!', 'success');
-                        else showToast('Sync failed' + errorMsg, 'error');
+                            const errorMsg = (typeof result === 'object' && result !== null && result.error) ? ': ' + result.error : '';
+                            if (Date.now() - lastSaveSyncErrorToast > 15000) {
+                                lastSaveSyncErrorToast = Date.now();
+                                showToast('Save sync failed' + errorMsg, 'error');
+                            }
+                        });
                     });
                 }
                 checkAuth();

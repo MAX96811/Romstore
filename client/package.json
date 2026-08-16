@@ -1,13 +1,13 @@
 {
   "name": "romstore-client",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "RomStore Desktop Client",
   "author": "RomStore Team",
   "desktopName": "com.romstore.client",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test emudeck.test.js",
+    "test": "node --test *.test.js",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
     "dist:linux": "electron-builder --linux"
