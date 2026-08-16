@@ -14,6 +14,21 @@ const {
     listPlatforms,
     resolveUploadDirectory
 } = require('./lib/rom-library');
+const {
+    findCanonicalFile,
+    inventoryLegacyBackslashFiles,
+    materializeLegacyBackslashFiles,
+    normalizeSaveRelativePath,
+    resolveContainedSavePath,
+    scanCanonicalFiles
+} = require('./lib/save-paths');
+const {
+    buildRyujinxSlotTitleMap,
+    getRyujinxSlotId,
+    getSwitchTitleIdFromSavePath,
+    normalizeSwitchTitleId
+} = require('./lib/switch-saves');
+const { activateBundleUpload } = require('./lib/switch-bundle-store');
 require('dotenv').config();
 
 const app = express();
@@ -375,31 +390,18 @@ const chunkUpload = multer({
 // --- HELPERS ---
 
 // Scan directory helper
-function scanDir(baseDir, relativePath = '') {
-    const fullPath = path.join(baseDir, relativePath);
-    if (!fs.existsSync(fullPath)) return [];
-
-    let results = [];
-    const list = fs.readdirSync(fullPath, { withFileTypes: true });
-
-    for (const file of list) {
-        if (file.name.startsWith('.') || file.name.toLowerCase().endsWith('.txt')) continue;
-
-        const rel = path.join(relativePath, file.name).replace(/\\/g, '/');
-        if (file.isDirectory()) {
-            results = results.concat(scanDir(baseDir, rel));
-        } else {
-            const stats = fs.statSync(path.join(baseDir, rel));
-            results.push({
-                name: file.name,
-                relPath: rel,
-                size: (stats.size / 1024 / 1024).toFixed(2) + ' MB',
-                mtime: stats.mtime,
-                hash: getFileHash(path.join(baseDir, rel))
-            });
-        }
-    }
-    return results;
+function scanDir(baseDir, options = {}) {
+    const skipTextFiles = options.skipTextFiles !== false;
+    return scanCanonicalFiles(baseDir, {
+        skipEntry: entry => entry.name.startsWith('.') || (skipTextFiles && entry.name.toLowerCase().endsWith('.txt'))
+    }).map(file => ({
+        name: path.posix.basename(file.relPath),
+        relPath: file.relPath,
+        size: (file.stats.size / 1024 / 1024).toFixed(2) + ' MB',
+        sizeBytes: file.stats.size,
+        mtime: file.stats.mtime,
+        hash: getFileHash(file.physicalPath)
+    }));
 }
 
 function findRomsForSystem(systemName) {
@@ -453,11 +455,13 @@ function buildSaveTitleLookup() {
     const switchFiles = findRomsForSystem('switch');
     for (const romPath of switchFiles) {
         try {
+            const relPath = path.relative(ROMS_DIR, romPath).replace(/\\/g, '/');
             const base = path.basename(romPath);
             const title = getDisplayTitleFromRomPath(romPath);
             const match = base.match(/\[([0-9a-fA-F]{16})\]/);
-            if (match) {
-                const tid = match[1].toUpperCase();
+            const metadataTitleId = getSwitchTitleIdFromMetadata(relPath);
+            const tid = match ? match[1].toUpperCase() : metadataTitleId;
+            if (tid) {
                 if (!switchMap[tid]) switchMap[tid] = title;
             }
         } catch (e) { }
@@ -467,7 +471,9 @@ function buildSaveTitleLookup() {
 }
 
 function countSaveVersions(userSavesDir, relPath) {
-    const versionDir = path.join(userSavesDir, '.versions', relPath);
+    const safeVersionDir = resolveContainedSavePath(path.join(userSavesDir, '.versions'), relPath);
+    if (!safeVersionDir) return 0;
+    const versionDir = safeVersionDir.fullPath;
     if (!fs.existsSync(versionDir)) return 0;
     try {
         return fs.readdirSync(versionDir).length;
@@ -519,36 +525,15 @@ function getSwitchTitleIdFromMetadata(gameRelPath) {
     return null;
 }
 
-function getSwitchTitleIdFromSaveRelPath(saveRelPath) {
+function getSwitchTitleIdFromSaveRelPath(saveRelPath, userSavesDir, slotTitleMap) {
     const currentSwitchSaveMap = loadSwitchSaveMap();
-    const ids = String(saveRelPath || '')
-        .split('/')
-        .filter(p => /^[0-9A-Fa-f]{16}$/.test(p))
-        .map(p => p.toUpperCase());
-    if (ids.length === 0) return null;
-
-    // Prefer real game TitleIDs first.
-    const gameId = ids.find(id => id.startsWith('0100'));
-    if (gameId) return gameId;
-
-    // User-defined mapping for emulators that store abstract slot IDs (e.g. 000000000000000X).
-    for (const id of ids) {
-        const mapped = currentSwitchSaveMap[id];
-        if (mapped && /^[0-9A-Fa-f]{16}$/.test(mapped)) return mapped.toUpperCase();
-    }
-
-    // Then known system IDs.
-    const systemId = ids.find(id => id.startsWith('8000'));
-    if (systemId) return systemId;
-
-    // Avoid all-zero placeholders when possible.
-    const nonZero = ids.find(id => !/^0{16}$/.test(id));
-    if (nonZero) return nonZero;
-
-    return ids[0];
+    const discoveredMap = slotTitleMap || (userSavesDir
+        ? buildRyujinxSlotTitleMap(userSavesDir, currentSwitchSaveMap)
+        : {});
+    return getSwitchTitleIdFromSavePath(saveRelPath, discoveredMap, currentSwitchSaveMap);
 }
 
-function buildGameSaveMatcher(gameRelPath) {
+function buildGameSaveMatcher(gameRelPath, options = {}) {
     const system = (gameRelPath.split('/')[0] || '').toLowerCase();
     const gameNameNoExt = path.parse(path.basename(gameRelPath)).name.toLowerCase();
     const normalized = gameNameNoExt.replace(/[^a-z0-9]+/g, ' ').trim();
@@ -565,9 +550,15 @@ function buildGameSaveMatcher(gameRelPath) {
     }
 
     if (system === 'switch') {
-        const titleId = getSwitchTitleIdFromRelPath(gameRelPath) || getSwitchTitleIdFromMetadata(gameRelPath);
+        const titleId = normalizeSwitchTitleId(options.titleIdOverride)
+            || getSwitchTitleIdFromRelPath(gameRelPath)
+            || getSwitchTitleIdFromMetadata(gameRelPath);
         if (titleId) {
-            return save => getSwitchTitleIdFromSaveRelPath(save.relPath) === titleId;
+            return save => getSwitchTitleIdFromSaveRelPath(
+                save.relPath,
+                options.userSavesDir,
+                options.slotTitleMap
+            ) === titleId;
         }
     }
 
@@ -791,18 +782,43 @@ app.post('/api/admin/users', requireAuth, requireAdmin, (req, res) => {
 app.get('/api/admin/switch-save-map', requireAuth, requireAdmin, (req, res) => {
     const map = loadSwitchSaveMap(true);
     const userSavesDir = getUserSavesDir(req);
-    const allSaves = userSavesDir ? scanDir(userSavesDir) : [];
+    const derivedMap = userSavesDir ? buildRyujinxSlotTitleMap(userSavesDir) : {};
+    const allSaves = userSavesDir ? scanDir(userSavesDir, { skipTextFiles: false }) : [];
     const unresolvedSlotIds = [...new Set(
         allSaves
             .flatMap(file => String(file.relPath || '').split('/'))
             .filter(part => /^[0-9A-Fa-f]{16}$/.test(part))
             .map(part => part.toUpperCase())
-            .filter(id => !id.startsWith('0100') && !id.startsWith('8000') && !map[id])
+            .filter(id => !id.startsWith('0100') && !id.startsWith('8000') && !derivedMap[id] && !map[id])
     )].sort();
 
     res.json({
         map,
+        derivedMap,
         unresolvedSlotIds
+    });
+});
+
+app.get('/api/admin/save-path-health', requireAuth, requireAdmin, (req, res) => {
+    const userSavesDir = getUserSavesDir(req);
+    if (!userSavesDir) return res.status(401).json({ error: 'Unauthorized' });
+    const legacy = inventoryLegacyBackslashFiles(userSavesDir);
+    res.json({
+        legacyCount: legacy.length,
+        missingCanonicalCount: legacy.filter(item => !item.canonicalExists).length,
+        existingCanonicalCount: legacy.filter(item => item.canonicalExists).length,
+        paths: legacy.map(item => ({ relPath: item.relPath, canonicalExists: item.canonicalExists, size: item.size }))
+    });
+});
+
+app.post('/api/admin/save-path-health/materialize', requireAuth, requireAdmin, (req, res) => {
+    const userSavesDir = getUserSavesDir(req);
+    if (!userSavesDir) return res.status(401).json({ error: 'Unauthorized' });
+    const report = materializeLegacyBackslashFiles(userSavesDir);
+    res.json({
+        copied: report.copied.map(item => item.relPath),
+        preservedExisting: report.existing.map(item => item.relPath),
+        failed: report.failed.map(item => ({ relPath: item.relPath, error: item.error }))
     });
 });
 
@@ -828,6 +844,55 @@ app.post('/api/admin/switch-save-map', requireAuth, requireAdmin, (req, res) => 
     switchSaveMap = normalizeSwitchSaveMap(switchSaveMap);
     saveSwitchSaveMap();
     res.json({ success: true, map: switchSaveMap });
+});
+
+app.post('/api/games/switch-title-id', requireAuth, requireAdmin, (req, res) => {
+    const relPath = normalizeSaveRelativePath(req.body?.relPath);
+    const titleId = normalizeSwitchTitleId(req.body?.titleId);
+    const remove = !!req.body?.remove;
+    const safeGamePath = relPath ? resolveContainedSavePath(ROMS_DIR, relPath) : null;
+    if (!safeGamePath || !fs.existsSync(safeGamePath.fullPath) || relPath.split('/')[0].toLowerCase() !== 'switch') {
+        return res.status(400).json({ error: 'Invalid Switch game path' });
+    }
+    if (!remove && !titleId) return res.status(400).json({ error: 'Invalid Switch titleId' });
+
+    gameMetadata[relPath] = { ...(gameMetadata[relPath] || {}) };
+    if (remove) {
+        delete gameMetadata[relPath].titleId;
+        delete gameMetadata[relPath].switchTitleId;
+    } else {
+        gameMetadata[relPath].titleId = titleId;
+    }
+    fs.writeFileSync(METADATA_FILE, JSON.stringify(gameMetadata, null, 2));
+    res.json({ success: true, relPath, titleId: remove ? null : titleId });
+});
+
+app.get('/api/switch-save-candidates', requireAuth, (req, res) => {
+    const userSavesDir = getUserSavesDir(req);
+    if (!userSavesDir) return res.status(401).json({ error: 'Unauthorized' });
+    const slotTitleMap = buildRyujinxSlotTitleMap(userSavesDir, loadSwitchSaveMap());
+    const titleLookup = buildSaveTitleLookup();
+    const candidates = new Map();
+
+    for (const file of scanDir(userSavesDir, { skipTextFiles: false })) {
+        const slotId = getRyujinxSlotId(file.relPath);
+        const titleId = getSwitchTitleIdFromSaveRelPath(file.relPath, userSavesDir, slotTitleMap);
+        if (!slotId || !titleId) continue;
+        const key = `${titleId}:${slotId}`;
+        const current = candidates.get(key) || {
+            titleId,
+            slotId,
+            gameTitle: titleLookup.switchMap[titleId] || null,
+            fileCount: 0,
+            sizeBytes: 0,
+            mtime: null
+        };
+        current.fileCount += 1;
+        current.sizeBytes += Number(file.sizeBytes) || 0;
+        if (!current.mtime || new Date(file.mtime) > new Date(current.mtime)) current.mtime = file.mtime;
+        candidates.set(key, current);
+    }
+    res.json([...candidates.values()].sort((a, b) => new Date(b.mtime) - new Date(a.mtime)));
 });
 
 // --- API ROUTES ---
@@ -883,6 +948,10 @@ app.get('/api/games', requireAuth, (req, res) => {
                     // But we can check specifically if needed. For now, standard folders work.
                 }
 
+                const isSwitchGame = system.system.toLowerCase() === 'switch';
+                const filenameSwitchTitleId = isSwitchGame ? getSwitchTitleIdFromRelPath(relPath) : null;
+                const metadataSwitchTitleId = isSwitchGame ? getSwitchTitleIdFromMetadata(relPath) : null;
+
                 games.push({
                     name: displayName,
                     originalName: fileName,
@@ -893,7 +962,9 @@ app.get('/api/games', requireAuth, (req, res) => {
                     mtime: stats.mtime,
                     artworkPath: artPath,
                     description: description,
-                    hasMetadata: !!meta
+                    hasMetadata: !!meta,
+                    switchTitleId: filenameSwitchTitleId || metadataSwitchTitleId,
+                    switchTitleIdSource: filenameSwitchTitleId ? 'filename' : (metadataSwitchTitleId ? 'metadata' : null)
                 });
             });
         } catch (e) { }
@@ -906,7 +977,8 @@ app.get('/api/saves', requireAuth, (req, res) => {
     const userSavesDir = getUserSavesDir(req);
     if (!userSavesDir) return res.status(401).json({ error: 'Unauthorized' });
     const titleLookup = buildSaveTitleLookup();
-    let files = scanDir(userSavesDir);
+    const slotTitleMap = buildRyujinxSlotTitleMap(userSavesDir, loadSwitchSaveMap());
+    let files = scanDir(userSavesDir, { skipTextFiles: false });
     files = files.map(file => {
         const parts = file.relPath.split('/');
         let system = null, gameTitle = null;
@@ -935,7 +1007,7 @@ app.get('/api/saves', requireAuth, (req, res) => {
         }
 
         if (!system) {
-            const switchId = getSwitchTitleIdFromSaveRelPath(file.relPath);
+            const switchId = getSwitchTitleIdFromSaveRelPath(file.relPath, userSavesDir, slotTitleMap);
             if (switchId) {
                 system = 'Switch';
                 const knownTitle = titleLookup.switchMap[switchId];
@@ -944,28 +1016,42 @@ app.get('/api/saves', requireAuth, (req, res) => {
                     : `Switch TitleID: ${switchId}`;
             }
         }
+        if (!system && /^ryujinx\//i.test(file.relPath)) {
+            system = 'Switch';
+            gameTitle = 'Switch save (unmapped)';
+        }
         if (!system && (file.name.includes('MemoryCard') || file.name.endsWith('.gci'))) { system = 'GameCube'; gameTitle = 'GameCube Memory Card'; }
         if (!system) { system = parts.length > 1 ? parts[0] : 'Unknown'; gameTitle = system; }
 
-        return { ...file, system, gameTitle: gameTitle || file.name };
+        return {
+            ...file,
+            system,
+            gameTitle: gameTitle || file.name,
+            switchTitleId: getSwitchTitleIdFromSaveRelPath(file.relPath, userSavesDir, slotTitleMap),
+            switchSlotId: getRyujinxSlotId(file.relPath)
+        };
     });
     res.json(files);
 });
 
 app.get('/api/game-saves', requireAuth, (req, res) => {
-    const { relPath: gameRelPath } = req.query;
-    if (!gameRelPath) return res.status(400).json({ error: 'Missing game relPath' });
+    const { relPath: requestedGameRelPath, titleId: rawTitleId } = req.query;
+    if (!requestedGameRelPath) return res.status(400).json({ error: 'Missing game relPath' });
 
     const userSavesDir = getUserSavesDir(req);
     if (!userSavesDir) return res.status(401).json({ error: 'Unauthorized' });
 
-    const gameFullPath = path.join(ROMS_DIR, gameRelPath);
-    if (!gameFullPath.startsWith(ROMS_DIR) || !fs.existsSync(gameFullPath)) {
+    const safeGamePath = resolveContainedSavePath(ROMS_DIR, requestedGameRelPath);
+    if (!safeGamePath || !fs.existsSync(safeGamePath.fullPath)) {
         return res.status(404).json({ error: 'Game not found' });
     }
+    const gameRelPath = safeGamePath.relativePath;
+    const titleIdOverride = rawTitleId ? normalizeSwitchTitleId(rawTitleId) : null;
+    if (rawTitleId && !titleIdOverride) return res.status(400).json({ error: 'Invalid Switch titleId' });
 
     const titleLookup = buildSaveTitleLookup();
-    let saves = scanDir(userSavesDir).map(file => {
+    const slotTitleMap = buildRyujinxSlotTitleMap(userSavesDir, loadSwitchSaveMap());
+    let saves = scanDir(userSavesDir, { skipTextFiles: false }).map(file => {
         const parts = file.relPath.split('/');
         let system = null, gameTitle = null;
 
@@ -991,20 +1077,34 @@ app.get('/api/game-saves', requireAuth, (req, res) => {
         }
 
         if (!system) {
-            const switchId = getSwitchTitleIdFromSaveRelPath(file.relPath);
+            const switchId = getSwitchTitleIdFromSaveRelPath(file.relPath, userSavesDir, slotTitleMap);
             if (switchId) {
                 system = 'Switch';
                 const knownTitle = titleLookup.switchMap[switchId];
                 gameTitle = knownTitle ? `Switch: ${knownTitle} (${switchId})` : `Switch TitleID: ${switchId}`;
             }
         }
+        if (!system && /^ryujinx\//i.test(file.relPath)) {
+            system = 'Switch';
+            gameTitle = 'Switch save (unmapped)';
+        }
         if (!system && (file.name.includes('MemoryCard') || file.name.endsWith('.gci'))) { system = 'GameCube'; gameTitle = 'GameCube Memory Card'; }
         if (!system) { system = parts.length > 1 ? parts[0] : 'Unknown'; gameTitle = system; }
 
-        return { ...file, system, gameTitle: gameTitle || file.name };
+        return {
+            ...file,
+            system,
+            gameTitle: gameTitle || file.name,
+            switchTitleId: getSwitchTitleIdFromSaveRelPath(file.relPath, userSavesDir, slotTitleMap),
+            switchSlotId: getRyujinxSlotId(file.relPath)
+        };
     });
 
-    const matcher = buildGameSaveMatcher(gameRelPath);
+    const matcher = buildGameSaveMatcher(gameRelPath, {
+        titleIdOverride,
+        userSavesDir,
+        slotTitleMap
+    });
     saves = saves
         .filter(matcher)
         .map(s => ({ ...s, versionsCount: countSaveVersions(userSavesDir, s.relPath) }))
@@ -1021,8 +1121,14 @@ app.get('/api/download', requireAuth, (req, res) => {
     const { type, path: relPath } = req.query;
     let base = type === 'saves' ? getUserSavesDir(req) : (type === 'bios' ? BIOS_DIR : ROMS_DIR);
     if (!base) return res.status(401).send('Unauthorized');
-    const fullPath = path.join(base, relPath);
-    if (!fullPath.startsWith(base) || !fs.existsSync(fullPath)) return res.status(403).send('Invalid Path');
+    const safePath = resolveContainedSavePath(base, relPath);
+    if (!safePath) return res.status(403).send('Invalid Path');
+    const fullPath = type === 'saves'
+        ? (findCanonicalFile(base, safePath.relativePath, {
+            skipEntry: entry => entry.name.startsWith('.')
+        }) || safePath.fullPath)
+        : safePath.fullPath;
+    if (!fs.existsSync(fullPath)) return res.status(404).send('File not found');
     res.download(fullPath);
 });
 
@@ -1030,9 +1136,9 @@ app.get('/api/download', requireAuth, (req, res) => {
 app.get('/api/artwork', requireAuth, (req, res) => {
     const { path: relPath } = req.query;
     if (!relPath) return res.status(400).send('No path provided');
-    const fullPath = path.join(ROMS_DIR, relPath);
-    if (!fullPath.startsWith(ROMS_DIR) || !fs.existsSync(fullPath)) return res.status(404).send('Image not found');
-    res.sendFile(fullPath);
+    const safePath = resolveContainedSavePath(ROMS_DIR, relPath);
+    if (!safePath || !fs.existsSync(safePath.fullPath)) return res.status(404).send('Image not found');
+    res.sendFile(safePath.fullPath);
 });
 
 // 6. Upload
@@ -1131,11 +1237,51 @@ app.post('/api/upload/chunk', requireAuth, chunkUpload.single('chunk'), (req, re
 
 // --- SAVE MANAGEMENT (Versioning) ---
 
+app.post('/api/saves/switch-bundle/upload', requireAuth, upload.array('files', 500), (req, res) => {
+    const uploadedFiles = Array.isArray(req.files) ? req.files : [];
+    const cleanup = () => {
+        for (const file of uploadedFiles) {
+            try { if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path); } catch (error) { }
+        }
+    };
+
+    try {
+        let relPaths;
+        try { relPaths = JSON.parse(String(req.body.relPaths || '[]')); } catch (error) { relPaths = null; }
+        if (!Array.isArray(relPaths) || relPaths.length !== uploadedFiles.length || !uploadedFiles.length) {
+            cleanup();
+            return res.status(400).json({ error: 'Bundle file manifest does not match the upload.' });
+        }
+
+        const userSavesDir = getUserSavesDir(req);
+        if (!userSavesDir) {
+            cleanup();
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const result = activateBundleUpload({
+            userSavesDir,
+            slotId: req.body.slotId,
+            titleId: req.body.titleId,
+            files: uploadedFiles.map((file, index) => ({
+                relPath: relPaths[index],
+                tempPath: file.path
+            }))
+        });
+        cleanup();
+        return res.json(result);
+    } catch (error) {
+        cleanup();
+        console.error('[Switch Bundle] Upload failed:', error);
+        return res.status(400).json({ error: error.message });
+    }
+});
+
 app.post('/api/saves/upload', requireAuth, upload.single('file'), (req, res) => {
-    const relPath = req.body.relPath;
-    if (!relPath) {
+    const relPath = normalizeSaveRelativePath(req.body.relPath);
+    if (!relPath || !req.file) {
         if (req.file) fs.unlinkSync(req.file.path);
-        return res.status(400).json({ error: 'Missing relPath' });
+        return res.status(400).json({ error: 'Missing file or invalid relPath' });
     }
 
     console.log(`[SaveSync] Upload request for: ${relPath}`);
@@ -1145,11 +1291,12 @@ app.post('/api/saves/upload', requireAuth, upload.single('file'), (req, res) => 
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const fullPath = path.join(userSavesDir, relPath);
-    if (!fullPath.startsWith(userSavesDir)) {
+    const safePath = resolveContainedSavePath(userSavesDir, relPath);
+    if (!safePath) {
         if (req.file) fs.unlinkSync(req.file.path);
         return res.status(403).json({ error: 'Invalid path' });
     }
+    const fullPath = safePath.fullPath;
 
     // Ensure dir exists
     const dir = path.dirname(fullPath);
@@ -1188,7 +1335,14 @@ app.post('/api/saves/upload', requireAuth, upload.single('file'), (req, res) => 
         fs.copyFileSync(req.file.path, fullPath);
         fs.unlinkSync(req.file.path);
         console.log(`[SaveSync] Successfully saved: ${relPath}`);
-        res.json({ success: true, message: 'Save uploaded and versioned' });
+        const savedStats = fs.statSync(fullPath);
+        res.json({
+            success: true,
+            message: 'Save uploaded and versioned',
+            relPath,
+            mtime: savedStats.mtime,
+            hash: getFileHash(fullPath)
+        });
     } catch (e) {
         console.error(`[SaveSync] Save failed for ${relPath}:`, e);
         if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
@@ -1197,13 +1351,15 @@ app.post('/api/saves/upload', requireAuth, upload.single('file'), (req, res) => 
 });
 
 app.get('/api/saves/versions', requireAuth, (req, res) => {
-    const { relPath } = req.query;
-    if (!relPath) return res.status(400).json({ error: 'Missing relPath' });
+    const relPath = normalizeSaveRelativePath(req.query.relPath);
+    if (!relPath) return res.status(400).json({ error: 'Missing or invalid relPath' });
 
     const userSavesDir = getUserSavesDir(req);
     if (!userSavesDir) return res.status(401).json({ error: 'Unauthorized' });
 
-    const versionDir = path.join(userSavesDir, '.versions', relPath);
+    const safeVersionDir = resolveContainedSavePath(path.join(userSavesDir, '.versions'), relPath);
+    if (!safeVersionDir) return res.status(403).json({ error: 'Invalid path' });
+    const versionDir = safeVersionDir.fullPath;
     if (!fs.existsSync(versionDir)) return res.json([]);
 
     const versions = fs.readdirSync(versionDir).map(f => ({
@@ -1215,14 +1371,20 @@ app.get('/api/saves/versions', requireAuth, (req, res) => {
 });
 
 app.post('/api/saves/restore', requireAuth, (req, res) => {
-    const { relPath, versionName } = req.body;
-    if (!relPath || !versionName) return res.status(400).json({ error: 'Missing params' });
+    const relPath = normalizeSaveRelativePath(req.body.relPath);
+    const versionName = String(req.body.versionName || '');
+    if (!relPath || !versionName || path.basename(versionName) !== versionName) {
+        return res.status(400).json({ error: 'Missing or invalid params' });
+    }
 
     const userSavesDir = getUserSavesDir(req);
     if (!userSavesDir) return res.status(401).json({ error: 'Unauthorized' });
 
-    const fullPath = path.join(userSavesDir, relPath);
-    const versionPath = path.join(userSavesDir, '.versions', relPath, versionName);
+    const safeFullPath = resolveContainedSavePath(userSavesDir, relPath);
+    const safeVersionDir = resolveContainedSavePath(path.join(userSavesDir, '.versions'), relPath);
+    if (!safeFullPath || !safeVersionDir) return res.status(403).json({ error: 'Invalid path' });
+    const fullPath = safeFullPath.fullPath;
+    const versionPath = path.join(safeVersionDir.fullPath, versionName);
 
     if (!fs.existsSync(versionPath)) return res.status(404).json({ error: 'Version not found' });
 
@@ -1327,8 +1489,9 @@ app.get('/api/metadata/search', requireAuth, async (req, res) => {
 
 // Apply Metadata
 app.post('/api/metadata/apply', requireAuth, async (req, res) => {
-    const { relPath, igdbData } = req.body;
-    if (!relPath || !igdbData) return res.status(400).json({ error: "Missing data" });
+    const relPath = normalizeSaveRelativePath(req.body.relPath);
+    const { igdbData } = req.body;
+    if (!relPath || !igdbData) return res.status(400).json({ error: "Missing or invalid data" });
 
     console.log(`[Apply] Applying to ${relPath}`);
 
@@ -1351,6 +1514,7 @@ app.post('/api/metadata/apply', requireAuth, async (req, res) => {
 
         // 2. Save to Metadata JSON
         gameMetadata[relPath] = {
+            ...(gameMetadata[relPath] || {}),
             title: igdbData.name,
             summary: igdbData.summary,
             igdbId: igdbData.id,
@@ -1401,7 +1565,7 @@ app.get('/api/sync/manifest', requireAuth, (req, res) => {
     // 2. Saves
     const userSavesDir = getUserSavesDir(req);
     if (!userSavesDir) return res.status(401).json({ error: 'Unauthorized' });
-    manifest.saves = scanDir(userSavesDir);
+    manifest.saves = scanDir(userSavesDir, { skipTextFiles: false });
 
     // 3. Bios
     manifest.bios = scanDir(BIOS_DIR);

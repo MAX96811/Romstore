@@ -1322,11 +1322,10 @@
                 </section>
                 <section class="settings-panel">
                     <p class="settings-panel-title">Save sync</p>
-                    <p class="settings-panel-copy">Keep save files synchronized with local backups and server-side version history.</p>
+                    <p class="settings-panel-copy">Back up compatible saves after local changes. Switch saves use complete Ryujinx bundles and are restored manually while Ryujinx is closed.</p>
                     <div class="input-group">
                     <label style="display:flex; align-items:center; cursor:pointer;">
-                        <input type="checkbox" id="auto-sync-check" style="width:auto; margin-right:10px;"> Enable
-                        Auto-Sync Saves
+                        <input type="checkbox" id="auto-sync-check" style="width:auto; margin-right:10px;"> Enable automatic backups
                     </label>
                     </div>
                 </section>
@@ -1464,6 +1463,7 @@
             let selectedUploadFiles = [];
             let uploadPlatforms = [];
             let emulatorProfileState = { detected: false, profiles: [] };
+            let switchAssociations = { games: [], slots: [] };
             let saveUploadQueue = Promise.resolve();
             let lastSaveSyncErrorToast = 0;
             const suppressedSaveChanges = new Map();
@@ -1797,6 +1797,15 @@
                     .replace(/[^a-z0-9]+/g, ' ')
                     .trim();
             }
+            async function getSwitchTitleIdForGame(game) {
+                const explicit = String(game && game.switchTitleId || '').trim().toUpperCase();
+                if (/^[0-9A-F]{16}$/.test(explicit)) return explicit;
+
+                const filenameMatch = `${game && game.relPath || ''} ${game && game.originalName || ''}`.match(/\[([0-9a-f]{16})\]/i);
+                if (filenameMatch) return filenameMatch[1].toUpperCase();
+                if (!isElectron) return null;
+                return window.electronAPI.getSwitchTitleId({ localDir, game });
+            }
             function shouldSyncSavePath(relPath) {
                 const p = String(relPath || '').replace(/\\/g, '/');
                 if (!p) return false;
@@ -1811,6 +1820,9 @@
                     /(^|\/)dolphin\/gc\/sram\.raw$/i,
                     /(^|\/)dolphin\/wii\/fst\.bin$/i,
                     /(^|\/)eden\/profiles(\/|$)/i,
+                    // Ryujinx uses transactional multi-file save bundles. The legacy
+                    // file watcher must never upload or restore one member in isolation.
+                    /^ryujinx\//i,
                     /(^|\/)ryujinx\/system(\/|$)/i,
                     /(^|\/)ryujinx\/system_saves(\/|$)/i,
                     /(^|\/)ryujinx\/savemeta(\/|$)/i,
@@ -1864,11 +1876,16 @@
             }
             async function scanLocalFiles() {
                 installedLocalPaths = new Set();
+                switchAssociations = { games: [], slots: [] };
                 if (!isElectron || !localDir) return;
                 try {
                     console.log('[Local] Scanning library folders:', localDir);
-                    const files = await window.electronAPI.scanLocalEmulation(localDir);
+                    const [files, associations] = await Promise.all([
+                        window.electronAPI.scanLocalEmulation(localDir),
+                        window.electronAPI.getSwitchAssociations(localDir)
+                    ]);
                     installedLocalPaths = new Set(files.map(file => String(file).replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase()));
+                    switchAssociations = associations || { games: [], slots: [] };
                     console.log('[Local] Found library files:', installedLocalPaths.size);
                 } catch (error) {
                     console.error('[Local] Scan failed:', error);
@@ -2000,7 +2017,15 @@
                     const state = JSON.parse(saved);
                     currentTab = state.currentTab || 'games'; activeFilters = new Set(state.activeFilters || []); isGrouped = !!state.isGrouped;
                     isListView = !!state.isListView;
-                    isAutoSync = !!state.isAutoSync;
+                    const safetyMigrationKey = 'romstore_safe_sync_v2';
+                    const needsSafetyReset = !localStorage.getItem(safetyMigrationKey);
+                    isAutoSync = needsSafetyReset ? false : !!state.isAutoSync;
+                    if (needsSafetyReset) {
+                        localStorage.setItem(safetyMigrationKey, '1');
+                        state.isAutoSync = false;
+                        localStorage.setItem('romstore_ui_state', JSON.stringify(state));
+                        showToast('Automatic save sync was paused for the Switch safety upgrade.', 'info');
+                    }
                     document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
                     const tb = document.getElementById('tab-' + currentTab); if (tb) tb.classList.add('active');
                     document.getElementById('sort-select').value = state.sortMode || 'name_asc';
@@ -2025,7 +2050,6 @@
                     const savesDir = localDir ? localDir + '/saves' : null;
                     if (savesDir) {
                         window.electronAPI.startSaveWatcher(savesDir);
-                        syncSaves(); // Trigger initial pull
                     }
                 } else {
                     window.electronAPI.stopSaveWatcher();
@@ -2042,14 +2066,15 @@
                     const f = files.find(x => x.relPath === relPath);
                     if (f) {
                         const t = new Date(f.mtime).getTime();
-                        updateManifest(relPath, t, t);
+                        const serverTime = res.mtime ? new Date(res.mtime).getTime() : t;
+                        updateManifest(relPath, t, serverTime);
                     }
                     return true;
                 }
                 return false;
             }
 
-            async function downloadSaveDirect(relPath) {
+            async function downloadSaveDirect(relPath, serverMtime) {
                 if (!shouldSyncSavePath(relPath)) return;
                 const dest = `${localDir}/saves/${relPath}`.split('\\').join('/');
                 const url = getApiUrl(`/api/download?type=saves&path=${encodeURIComponent(relPath)}`);
@@ -2067,7 +2092,7 @@
                     const f = files.find(x => x.relPath === relPath);
                     if (f) {
                         const t = new Date(f.mtime).getTime();
-                        updateManifest(relPath, t, t);
+                        updateManifest(relPath, t, serverMtime || t);
                     }
                 } catch (e) {
                     suppressedSaveChanges.delete(relPath);
@@ -2104,24 +2129,19 @@
 
                     const allPaths = new Set([...serverMap.keys(), ...localMap.keys()]);
                     const conflicts = [];
-                    let dlCount = 0, ulCount = 0;
+                    let ulCount = 0, cloudOnlyCount = 0;
 
                     for (const path of allPaths) {
                         const sTime = serverMap.get(path);
                         const lTime = localMap.get(path);
                         const manifest = syncManifest[path];
 
-                        // 1. New on Server (Missing Local) -> Download
+                        // 1. Cloud-only files are never silently restored. A missing
+                        // local save can be intentional, and cloud mtimes are not a
+                        // reliable indication of game progress.
                         if (lTime === undefined && sTime !== undefined) {
-                            if (!manifest || !manifest.l) { // If never seen locally, download
-                                console.log('[Sync] New on server:', path);
-                                await downloadSaveDirect(path); dlCount++;
-                            } else {
-                                // Was deleted locally? If manifest says we had it.
-                                // For now, re-download to be safe, or ignore? 
-                                // Steam usually re-downloads unless you explicitly deleted it.
-                                await downloadSaveDirect(path); dlCount++;
-                            }
+                            console.log('[Sync] Cloud-only save left untouched:', path);
+                            cloudOnlyCount++;
                             continue;
                         }
 
@@ -2144,23 +2164,20 @@
                         const localChanged = lTime !== undefined && Math.abs(lTime - lastL) > timeToleranceMs;
                         const serverChanged = sTime !== undefined && Math.abs(sTime - lastS) > timeToleranceMs;
 
-                        // No Manifest (First Run)
+                        // No manifest means RomStore cannot prove which copy is the
+                        // desired one. Never use a cloud upload timestamp to overwrite
+                        // local emulator data.
                         if (!manifest) {
-                            if (Math.abs(lTime - sTime) <= timeToleranceMs) {
-                                updateManifest(path, lTime, sTime); // close enough, treat as synced
-                            } else if (sTime > lTime) {
-                                await downloadSaveDirect(path); dlCount++;
-                            } else if (lTime > sTime) {
-                                await uploadSaveDirect(path); ulCount++;
-                            } else {
+                            if (lTime === sTime) {
                                 updateManifest(path, lTime, sTime);
+                            } else {
+                                conflicts.push({ path, lTime, sTime, reason: 'first-run' });
                             }
                             continue;
                         }
 
                         if (localChanged && serverChanged) {
-                            // Both changed but nearly same timestamp: assume same logical save state.
-                            if (Math.abs(lTime - sTime) <= timeToleranceMs) {
+                            if (lTime === sTime) {
                                 updateManifest(path, lTime, sTime);
                             } else {
                                 conflicts.push({ path, lTime, sTime });
@@ -2169,16 +2186,18 @@
                             console.log('[Sync] Local changed:', path);
                             await uploadSaveDirect(path); ulCount++;
                         } else if (serverChanged) {
-                            console.log('[Sync] Server changed:', path);
-                            await downloadSaveDirect(path); dlCount++;
+                            console.log('[Sync] Cloud save changed; waiting for explicit choice:', path);
+                            conflicts.push({ path, lTime, sTime, reason: 'cloud-changed' });
                         }
                     }
 
                     if (conflicts.length > 0) {
                         await enrichConflictMetadata(conflicts, serverSaves);
                         await showConflictModal(conflicts);
-                    } else if (dlCount > 0 || ulCount > 0) {
-                        showToast(`Sync: ${dlCount} ↓, ${ulCount} ↑`, 'success');
+                    } else if (ulCount > 0) {
+                        showToast(`Backed up ${ulCount} changed save file${ulCount === 1 ? '' : 's'}.`, 'success');
+                    } else if (cloudOnlyCount > 0) {
+                        showToast(`${cloudOnlyCount} cloud-only save files left untouched.`, 'info');
                     } else {
                         console.log('[Sync] Up to date');
                         showToast('Saves are up to date', 'info');
@@ -2408,8 +2427,7 @@
                     button.innerHTML = type === 'roms' ? 'Installing…' : 'Downloading…';
                 }
 
-                if (isElectron && version) {
-                    // Backup before version restore
+                if (isElectron && (version || type === 'saves') && await window.electronAPI.checkLocalFile(dest)) {
                     await window.electronAPI.backupLocalFile(dest);
                     showToast('Local backup created', 'info');
                 }
@@ -2432,13 +2450,289 @@
                     }
                 }
             }
+            async function restoreSwitchCandidate(game, slotId, files, button) {
+                if (!isElectron) return showToast('Use the desktop app to restore Switch saves.', 'error');
+                const confirmed = confirm(
+                    `Restore the complete Ryujinx save candidate ${slotId} for ${game.name}?\n\n`
+                    + 'Ryujinx must be closed. RomStore will archive the current slot before replacing it.'
+                );
+                if (!confirmed) return;
+
+                const originalLabel = button.textContent;
+                button.disabled = true;
+                button.textContent = 'Verifying and restoring…';
+                try {
+                    const result = await window.electronAPI.restoreSwitchBundle({
+                        localDir,
+                        slotId,
+                        files: files.map(file => ({
+                            relPath: file.relPath,
+                            sizeBytes: file.sizeBytes,
+                            hash: file.hash
+                        })),
+                        sessionToken
+                    });
+                    if (!result || !result.success) throw new Error(result?.error || 'Restore failed.');
+                    showToast(`Restored ${result.fileCount} Switch save files. Previous slot archived.`, 'success');
+                    await scanLocalFiles();
+                    await showGameSaves(game);
+                } catch (error) {
+                    showToast(error.message || 'Switch save restore failed.', 'error');
+                } finally {
+                    if (button.isConnected) {
+                        button.disabled = false;
+                        button.textContent = originalLabel;
+                    }
+                }
+            }
+
+            async function backupSwitchCandidate(game, titleId, slotId, button) {
+                if (!isElectron) return showToast('Use the desktop app to back up Switch saves.', 'error');
+                if (!titleId) return showToast('RomStore could not identify this game’s Switch Title ID.', 'error');
+                const confirmed = confirm(
+                    `Back up the complete local Ryujinx candidate ${slotId} for ${game.name}?\n\n`
+                    + 'Close Ryujinx first so every file belongs to the same committed save state.'
+                );
+                if (!confirmed) return;
+
+                const originalLabel = button.textContent;
+                button.disabled = true;
+                button.textContent = 'Creating safe bundle…';
+                try {
+                    const result = await window.electronAPI.backupSwitchBundle({ slotId, titleId, sessionToken });
+                    if (!result || !result.success) throw new Error(result?.error || 'Backup failed.');
+                    showToast(`Backed up ${result.fileCount} Switch save files as one generation.`, 'success');
+                    await showGameSaves(game);
+                } catch (error) {
+                    showToast(error.message || 'Switch save backup failed.', 'error');
+                } finally {
+                    if (button.isConnected) {
+                        button.disabled = false;
+                        button.textContent = originalLabel;
+                    }
+                }
+            }
+
+            async function changeSwitchGameMapping(game, list) {
+                if (!confirm(`Remove the saved Title ID link for ${game.name} and choose again? No save files will be deleted.`)) return;
+                try {
+                    const response = await fetch(getApiUrl('/api/games/switch-title-id'), getFetchOptions('POST', {
+                        relPath: game.relPath,
+                        remove: true
+                    }));
+                    const body = await response.json().catch(() => ({}));
+                    if (!response.ok) throw new Error(body.error || 'Could not remove the game mapping.');
+                    game.switchTitleId = null;
+                    game.switchTitleIdSource = null;
+                    showToast('Game link removed. Save files were left untouched.', 'success');
+                    await renderSwitchMappingPrompt(game, list);
+                } catch (error) {
+                    showToast(error.message, 'error');
+                }
+            }
+
+            function renderSwitchSaveCandidates(game, saves, list, titleId) {
+                const bySlot = new Map();
+                for (const save of saves) {
+                    const slotId = String(save.switchSlotId || '').toUpperCase();
+                    if (!/^[0-9A-F]{16}$/.test(slotId)) continue;
+                    if (!bySlot.has(slotId)) bySlot.set(slotId, []);
+                    bySlot.get(slotId).push(save);
+                }
+
+                list.innerHTML = '';
+                const safety = document.createElement('div');
+                safety.style.cssText = 'padding:12px 14px;margin-bottom:14px;border:1px solid #39546b;border-radius:10px;background:#142332;color:#cfe5f5;line-height:1.5;font-size:0.86rem;';
+                safety.textContent = 'Switch saves are copied as complete Ryujinx candidates. Close Ryujinx first. Structure and identity are verified, but candidates created by the older broken sync may still contain stale in-game data—keep separate candidates and inspect progress before choosing one.';
+                list.appendChild(safety);
+
+                if (game.switchTitleIdSource === 'metadata') {
+                    const changeLinkButton = document.createElement('button');
+                    changeLinkButton.className = 'game-secondary-action';
+                    changeLinkButton.style.marginBottom = '14px';
+                    changeLinkButton.textContent = 'Change linked Title ID';
+                    changeLinkButton.onclick = () => changeSwitchGameMapping(game, list);
+                    list.appendChild(changeLinkButton);
+                }
+
+                const localSlots = (switchAssociations.slots || [])
+                    .filter(slot => String(slot.titleId).toUpperCase() === String(titleId || '').toUpperCase());
+                if (localSlots.length) {
+                    const localPanel = document.createElement('div');
+                    localPanel.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px;margin-bottom:14px;border:1px solid #3e674b;border-radius:10px;background:#14271a;';
+                    const localCopy = document.createElement('div');
+                    localCopy.style.cssText = 'color:#ccebd4;font-size:0.84rem;line-height:1.45;';
+                    localCopy.textContent = `${localSlots.length} local Ryujinx candidate${localSlots.length === 1 ? '' : 's'} detected. Snapshotting preserves each candidate exactly; it does not prove which one contains the desired progress.`;
+                    const actions = document.createElement('div');
+                    actions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+                    for (const slot of localSlots) {
+                        const backupButton = document.createElement('button');
+                        backupButton.className = 'action-btn-small';
+                        backupButton.style.cssText = 'background:#315b3e;color:#fff;border:1px solid #477a57;';
+                        backupButton.textContent = `Snapshot slot …${String(slot.slotId).slice(-4)}`;
+                        backupButton.onclick = () => backupSwitchCandidate(game, titleId, slot.slotId, backupButton);
+                        actions.appendChild(backupButton);
+                    }
+                    localPanel.append(localCopy, actions);
+                    list.appendChild(localPanel);
+                }
+
+                if (!bySlot.size) {
+                    const empty = document.createElement('div');
+                    empty.style.cssText = 'color:#9fb2c9;line-height:1.55;';
+                    empty.textContent = localSlots.length
+                        ? 'No cloud candidate exists yet. Use the backup button above to create one.'
+                        : 'No complete Ryujinx save candidates were found for this game.';
+                    list.appendChild(empty);
+                    return;
+                }
+
+                let candidateIndex = 0;
+                for (const [slotId, files] of bySlot) {
+                    candidateIndex += 1;
+                    files.sort((a, b) => a.relPath.localeCompare(b.relPath));
+                    const newestTime = Math.max(...files.map(file => new Date(file.mtime).getTime()).filter(Number.isFinite));
+                    const totalBytes = files.reduce((sum, file) => sum + (Number(file.sizeBytes) || 0), 0);
+                    const locallyKnown = (switchAssociations.slots || []).some(slot => String(slot.slotId).toUpperCase() === slotId);
+
+                    const row = document.createElement('div');
+                    row.className = 'version-row';
+                    row.style.alignItems = 'flex-start';
+
+                    const info = document.createElement('div');
+                    info.className = 'version-info';
+                    const heading = document.createElement('div');
+                    heading.style.cssText = 'font-weight:700;color:#fff;';
+                    heading.textContent = `Candidate ${candidateIndex}${locallyKnown ? ' · detected on this PC' : ''}`;
+                    const meta = document.createElement('div');
+                    meta.style.cssText = 'font-size:0.8em;color:#9fb2c9;margin-top:4px;';
+                    meta.textContent = `${files.length} files · ${formatFileSize(totalBytes)} · Updated ${new Date(newestTime).toLocaleString()}`;
+                    const identity = document.createElement('div');
+                    identity.style.cssText = 'font-size:0.74em;color:#7892a8;margin-top:3px;font-family:monospace;';
+                    identity.textContent = `${titleId || files[0].switchTitleId || 'Unknown title'} · slot ${slotId}`;
+                    const details = document.createElement('details');
+                    details.style.cssText = 'margin-top:8px;font-size:0.76em;color:#91a6b8;';
+                    const summary = document.createElement('summary');
+                    summary.textContent = 'View bundle files';
+                    details.appendChild(summary);
+                    const fileList = document.createElement('div');
+                    fileList.style.cssText = 'margin-top:6px;max-height:130px;overflow:auto;font-family:monospace;';
+                    for (const file of files) {
+                        const fileLine = document.createElement('div');
+                        fileLine.textContent = file.relPath;
+                        fileList.appendChild(fileLine);
+                    }
+                    details.appendChild(fileList);
+                    info.append(heading, meta, identity, details);
+
+                    const restoreButton = document.createElement('button');
+                    restoreButton.className = 'action-btn-small';
+                    restoreButton.style.cssText = 'background:#2f5b3f;color:#fff;border:1px solid #3e7954;white-space:nowrap;';
+                    restoreButton.textContent = 'Restore candidate';
+                    restoreButton.onclick = () => restoreSwitchCandidate(game, slotId, files, restoreButton);
+                    row.append(info, restoreButton);
+                    list.appendChild(row);
+                }
+            }
+
+            async function renderSwitchMappingPrompt(game, list) {
+                list.innerHTML = '';
+                const intro = document.createElement('div');
+                intro.style.cssText = 'padding:14px;border:1px solid #5b4c31;border-radius:10px;background:#2a2114;color:#f0d8aa;line-height:1.55;margin-bottom:14px;';
+                intro.textContent = 'RomStore could not identify this game’s Switch Title ID. Launching it once in Ryujinx usually creates the local association. Administrators can create a persistent link below, but raw Title IDs are not game names—only choose one you have independently identified.';
+                list.appendChild(intro);
+
+                try {
+                    const response = await fetch(getApiUrl('/api/switch-save-candidates'), getFetchOptions());
+                    if (!response.ok) throw new Error('Could not load Switch save candidates.');
+                    const candidates = await response.json();
+                    const byTitle = new Map();
+                    for (const candidate of candidates) {
+                        const current = byTitle.get(candidate.titleId) || { ...candidate, slots: [], fileCount: 0, sizeBytes: 0 };
+                        current.slots.push(candidate.slotId);
+                        current.fileCount += Number(candidate.fileCount) || 0;
+                        current.sizeBytes += Number(candidate.sizeBytes) || 0;
+                        if (!current.mtime || new Date(candidate.mtime) > new Date(current.mtime)) current.mtime = candidate.mtime;
+                        if (!current.gameTitle && candidate.gameTitle) current.gameTitle = candidate.gameTitle;
+                        byTitle.set(candidate.titleId, current);
+                    }
+                    if (!byTitle.size) {
+                        const empty = document.createElement('div');
+                        empty.style.color = '#9fb2c9';
+                        empty.textContent = 'No identifiable Ryujinx save candidates are available.';
+                        list.appendChild(empty);
+                        return;
+                    }
+
+                    const panel = document.createElement('div');
+                    panel.style.cssText = 'display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;';
+                    const field = document.createElement('div');
+                    field.style.flex = '1 1 420px';
+                    const label = document.createElement('label');
+                    label.style.cssText = 'display:block;color:#9fb2c9;font-size:0.78rem;margin-bottom:6px;';
+                    label.textContent = 'Detected save candidate';
+                    const select = document.createElement('select');
+                    select.style.width = '100%';
+                    for (const candidate of byTitle.values()) {
+                        const option = document.createElement('option');
+                        option.value = candidate.titleId;
+                        option.textContent = `${candidate.gameTitle || candidate.titleId} · ${candidate.slots.length} slot${candidate.slots.length === 1 ? '' : 's'} · ${candidate.fileCount} files`;
+                        select.appendChild(option);
+                    }
+                    field.append(label, select);
+
+                    const linkButton = document.createElement('button');
+                    linkButton.className = 'action-btn';
+                    linkButton.textContent = 'Link to this game';
+                    linkButton.onclick = async () => {
+                        const chosen = select.value;
+                        if (!confirm(`Link ${chosen} to ${game.name}? Only continue if this is the correct save candidate.`)) return;
+                        linkButton.disabled = true;
+                        try {
+                            const result = await fetch(getApiUrl('/api/games/switch-title-id'), getFetchOptions('POST', {
+                                relPath: game.relPath,
+                                titleId: chosen
+                            }));
+                            const body = await result.json().catch(() => ({}));
+                            if (!result.ok) throw new Error(body.error || 'Could not save the game mapping.');
+                            game.switchTitleId = chosen;
+                            game.switchTitleIdSource = 'metadata';
+                            showToast('Switch save candidate linked.', 'success');
+                            await showGameSaves(game);
+                        } catch (error) {
+                            showToast(error.message, 'error');
+                        } finally {
+                            if (linkButton.isConnected) linkButton.disabled = false;
+                        }
+                    };
+                    panel.append(field, linkButton);
+                    list.appendChild(panel);
+                } catch (error) {
+                    const message = document.createElement('div');
+                    message.style.color = '#ff8f8f';
+                    message.textContent = error.message;
+                    list.appendChild(message);
+                }
+            }
+
             async function showGameSaves(game) {
                 document.getElementById('game-saves-modal').style.display = 'flex';
                 document.getElementById('game-saves-title').innerText = `Saves for ${game.name}`;
                 const list = document.getElementById('game-saves-list');
                 list.innerHTML = 'Loading save files...';
                 try {
-                    const res = await fetch(getApiUrl(`/api/game-saves?relPath=${encodeURIComponent(game.relPath)}`), getFetchOptions());
+                    if (isElectron && String(game.system || '').toLowerCase() === 'switch') {
+                        switchAssociations = await window.electronAPI.getSwitchAssociations(localDir) || { games: [], slots: [] };
+                    }
+                    const titleId = String(game.system || '').toLowerCase() === 'switch'
+                        ? await getSwitchTitleIdForGame(game)
+                        : null;
+                    if (String(game.system || '').toLowerCase() === 'switch' && !titleId) {
+                        await renderSwitchMappingPrompt(game, list);
+                        return;
+                    }
+                    const titleQuery = titleId ? `&titleId=${encodeURIComponent(titleId)}` : '';
+                    const res = await fetch(getApiUrl(`/api/game-saves?relPath=${encodeURIComponent(game.relPath)}${titleQuery}`), getFetchOptions());
                     if (!res.ok) {
                         const raw = await res.text();
                         let message = 'Failed to load game saves';
@@ -2455,8 +2749,15 @@
                         throw new Error(message);
                     }
                     const saves = await res.json();
+                    if (String(game.system || '').toLowerCase() === 'switch') {
+                        renderSwitchSaveCandidates(game, saves, list, titleId);
+                        return;
+                    }
                     if (saves.length === 0) {
-                        list.innerHTML = '<div style="color:#9fb2c9;">No matching saves found for this game.</div>';
+                        const isSwitch = String(game.system || '').toLowerCase() === 'switch';
+                        list.innerHTML = `<div style="color:#9fb2c9; line-height:1.55;">${isSwitch && !titleId
+                            ? 'RomStore could not identify this game’s Switch Title ID yet. Launch it once in Ryujinx, then reopen this panel.'
+                            : 'No matching saves found for this game.'}</div>`;
                         return;
                     }
                     list.innerHTML = '';
@@ -2734,7 +3035,7 @@
                         if (payload && payload.hidden) showToast('RomStore is running in background (tray)', 'info');
                     });
 
-                    window.electronAPI.onSaveChange((event, { relPath, fullPath }) => {
+                    window.electronAPI.onSaveChange((event, { relPath }) => {
                         if (!isAuthenticated || !sessionToken || !isAutoSync) return;
                         if (!shouldSyncSavePath(relPath)) return;
                         const suppressionExpiry = suppressedSaveChanges.get(relPath) || 0;
@@ -2748,14 +3049,11 @@
                         saveUploadQueue = saveUploadQueue.catch(() => {}).then(async () => {
                             if (!isAuthenticated || !sessionToken || !isAutoSync) return;
                             console.log('[AutoSync] Uploading changed save:', relPath);
-                            const result = await window.electronAPI.uploadSave(fullPath, relPath, sessionToken);
-                            const isSuccess = (typeof result === 'object' && result !== null) ? result.success : result;
+                            const isSuccess = await uploadSaveDirect(relPath);
                             if (isSuccess) return;
-
-                            const errorMsg = (typeof result === 'object' && result !== null && result.error) ? ': ' + result.error : '';
                             if (Date.now() - lastSaveSyncErrorToast > 15000) {
                                 lastSaveSyncErrorToast = Date.now();
-                                showToast('Save sync failed' + errorMsg, 'error');
+                                showToast('Save backup failed', 'error');
                             }
                         });
                     });

@@ -5,7 +5,7 @@
 ## Features
 
 *   **Centralized Library**: Host your ROMs, BIOS files, and Save data on your own server.
-*   **Save Synchronization**: "Steam-like" save syncing with conflict detection (Cloud vs Local) and version history.
+*   **Save Synchronization**: Conservative local backups, explicit cloud restore, conflict detection, and version history.
 *   **Metadata**: Automatically fetches game artwork and metadata (via IGDB).
 *   **Secure Auth**: Session-based authentication for multiple users.
 *   **Cross-Platform Client**: Electron app for Windows and Linux (AppImage).
@@ -114,13 +114,14 @@ npm run dist:linux
 *   Output: `client/dist/RomStore-<version>.AppImage`
 
 ## 🔄 Save Synchronization Logic
-The client uses a smart sync system:
+The client uses a data-protective sync system:
 1.  **Watcher**: Monitors your local save directory for changes.
 2.  **Debounce**: Waits 1 second after writing stops to prevent partial uploads.
 3.  **Conflict Detection**:
     *   **Safe Upload**: Local changed, Server unchanged → Auto-Upload.
-    *   **Safe Download**: Server changed, Local unchanged → Auto-Download.
+    *   **Explicit Restore**: Cloud-only or cloud-changed data is never written over a local save automatically.
     *   **Conflict**: Both changed since last sync → **User Prompt** (Keep Local vs Keep Cloud).
+4.  **Switch Bundles**: Ryujinx saves are backed up and restored as complete, verified candidates while Ryujinx is closed. Per-file auto-sync is disabled for Switch saves.
 
 ## 📝 Developer Notes
 *   **Logs**:

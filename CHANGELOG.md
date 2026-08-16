@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.1.2 - 2026-08-16
+
+### Fixed
+- Resolved Ryujinx save slots through the application Title ID embedded in `ExtraData0/1`, so Switch games can find their saves without treating opaque slot numbers as game IDs.
+- Canonicalized and validated save paths at both client and server boundaries, deduplicating legacy Linux filenames that contain Windows backslashes without deleting them.
+- Stopped startup timestamp reconciliation from silently replacing local emulator progress with newer cloud upload timestamps.
+- Reset previously enabled unsafe auto-sync once during the upgrade and excluded transactional Ryujinx bundles from the legacy per-file watcher.
+
+### Added
+- Complete Ryujinx bundle backup and restore for `saves`, `saveMeta`, both generations, and `ExtraData`, with Title ID/hash verification.
+- Atomic activation with rollback and preserved previous local/server candidates; Ryujinx must be closed during backup or restore.
+- Retention for the ten most recent RomStore bundle generations per slot, without touching Ryujinx `.oldsave` recovery waves.
+- Local Ryujinx title discovery, automatic matching for launched games, and an admin-assisted candidate linker for games whose ROM filename has no Title ID.
+- Save-path health APIs for safely inventorying and materializing legacy backslash paths without overwriting canonical files.
+
+### Changed
+- Switch saves are shown as independent candidates rather than a misleading list of individually restorable files.
+- Cloud-only or cloud-changed saves now require an explicit restore/conflict choice; automatic backups remain local-to-server only.
+
 ## v2.1.1 - 2026-08-16
 
 ### Fixed

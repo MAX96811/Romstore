@@ -1,6 +1,6 @@
 services:
   backend:
-    image: max96811/romstore-backend:2.1.0-local
+    image: max96811/romstore-backend:2.1.2-local
     restart: unless-stopped
     volumes:
       - /mnt/DATA/romstore/app:/usr/src/app/data

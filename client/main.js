@@ -2,13 +2,15 @@ const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage } = require
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
-const { spawn } = require('child_process');
+const { execFileSync, spawn } = require('child_process');
 const {
     listProfiles,
     sanitizeLaunchEnvironment,
     selectProfile
 } = require('./emudeck');
-const { scanDirectoryStats, scanLocalEmulation } = require('./local-library');
+const { normalizeSaveRelativePath, scanDirectoryStats, scanLocalEmulation } = require('./local-library');
+const { collectSwitchBundleFiles, discoverSwitchAssociations, matchSwitchTitleId } = require('./switch-library');
+const { restoreSwitchBundle } = require('./switch-save-restore');
 
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
 app.commandLine.appendSwitch('disable-http-cache');
@@ -202,6 +204,138 @@ ipcMain.handle('scan-dir-stat', async (event, baseDir) => {
     } catch (e) {
         console.error("Scan Stat failed", e);
         return [];
+    }
+});
+
+ipcMain.handle('get-switch-associations', async (event, localDir) => {
+    try {
+        return discoverSwitchAssociations({
+            homeDir: app.getPath('home'),
+            emulationDir: localDir || getConfig().localDir
+        });
+    } catch (error) {
+        console.error('[Switch] Association discovery failed:', error);
+        return { games: [], slots: [], error: error.message };
+    }
+});
+
+ipcMain.handle('get-switch-title-id', async (event, payload) => {
+    try {
+        const associations = discoverSwitchAssociations({
+            homeDir: app.getPath('home'),
+            emulationDir: payload?.localDir || getConfig().localDir
+        });
+        return matchSwitchTitleId(payload?.game || {}, associations);
+    } catch (error) {
+        console.error('[Switch] Title matching failed:', error);
+        return null;
+    }
+});
+
+function isRyujinxRunning() {
+    try {
+        if (process.platform === 'linux') {
+            return fs.readdirSync('/proc')
+                .filter(name => /^\d+$/.test(name))
+                .some(pid => {
+                    try {
+                        const comm = fs.readFileSync(`/proc/${pid}/comm`, 'utf8');
+                        const commandLine = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' ');
+                        return /(?:^|[\/\s])(ryujinx|ryubing)(?:[\/\s.]|$)/i.test(`${comm} ${commandLine}`);
+                    } catch (error) {
+                        return false;
+                    }
+                });
+        }
+        if (process.platform === 'win32') {
+            return /ryujinx|ryubing/i.test(execFileSync('tasklist', ['/FO', 'CSV', '/NH'], { encoding: 'utf8' }));
+        }
+        return /ryujinx|ryubing/i.test(execFileSync('ps', ['-ax', '-o', 'comm='], { encoding: 'utf8' }));
+    } catch (error) {
+        // Failing closed prevents a restore when emulator state cannot be checked.
+        console.error('[Switch Restore] Could not inspect running processes:', error.message);
+        return true;
+    }
+}
+
+ipcMain.handle('restore-switch-bundle', async (event, payload) => {
+    const config = getConfig();
+    const localDir = String(config.localDir || '');
+    let serverUrl = String(config.serverUrl || 'http://localhost:3000').replace(/\/+$/, '');
+    if (serverUrl && !serverUrl.startsWith('http')) serverUrl = 'http://' + serverUrl;
+
+    try {
+        return await restoreSwitchBundle({
+            localDir,
+            slotId: payload?.slotId,
+            files: payload?.files,
+            isRyujinxRunning,
+            downloadFile: async (file, destination) => {
+                const response = await axios.get(
+                    `${serverUrl}/api/download?type=saves&path=${encodeURIComponent(file.relPath)}`,
+                    {
+                        responseType: 'arraybuffer',
+                        headers: payload?.sessionToken ? { 'X-Session-Token': payload.sessionToken } : {}
+                    }
+                );
+                fs.writeFileSync(destination, Buffer.from(response.data));
+            }
+        });
+    } catch (error) {
+        console.error('[Switch Restore] Failed:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('backup-switch-bundle', async (event, payload) => {
+    const config = getConfig();
+    const localDir = String(config.localDir || '');
+    let serverUrl = String(config.serverUrl || 'http://localhost:3000').replace(/\/+$/, '');
+    if (serverUrl && !serverUrl.startsWith('http')) serverUrl = 'http://' + serverUrl;
+    if (isRyujinxRunning()) return { success: false, error: 'Close Ryujinx before backing up a Switch save.' };
+
+    let snapshotDir = null;
+    try {
+        const files = collectSwitchBundleFiles(localDir, payload?.slotId);
+        snapshotDir = fs.mkdtempSync(path.join(app.getPath('temp'), 'romstore-switch-backup-'));
+        const snapshotFiles = files.map((file, index) => {
+            const before = fs.statSync(file.fullPath);
+            const snapshotPath = path.join(snapshotDir, String(index).padStart(4, '0'));
+            fs.copyFileSync(file.fullPath, snapshotPath);
+            const after = fs.statSync(file.fullPath);
+            if (before.size !== after.size || before.mtimeMs !== after.mtimeMs) {
+                throw new Error(`Ryujinx save changed while snapshotting ${file.relPath}. Try again with Ryujinx closed.`);
+            }
+            return { ...file, fullPath: snapshotPath };
+        });
+        if (isRyujinxRunning()) {
+            throw new Error('Ryujinx was opened while the backup snapshot was being created. Close it and try again.');
+        }
+        const FormData = require('form-data');
+        const form = new FormData();
+        form.append('slotId', String(payload?.slotId || ''));
+        form.append('titleId', String(payload?.titleId || ''));
+        form.append('relPaths', JSON.stringify(snapshotFiles.map(file => file.relPath)));
+        for (const file of snapshotFiles) {
+            form.append('files', fs.createReadStream(file.fullPath), path.basename(file.fullPath));
+        }
+
+        const response = await axios.post(`${serverUrl}/api/saves/switch-bundle/upload?type=saves`, form, {
+            headers: {
+                ...form.getHeaders(),
+                ...(payload?.sessionToken ? { 'X-Session-Token': payload.sessionToken } : {})
+            },
+            maxBodyLength: Infinity,
+            maxContentLength: Infinity
+        });
+        return response.data || { success: response.status === 200 };
+    } catch (error) {
+        console.error('[Switch Backup] Failed:', error.response?.data || error.message);
+        return { success: false, error: error.response?.data?.error || error.message };
+    } finally {
+        if (snapshotDir && fs.existsSync(snapshotDir)) {
+            try { fs.rmSync(snapshotDir, { recursive: true, force: true }); } catch (error) { }
+        }
     }
 });
 
@@ -491,7 +625,12 @@ ipcMain.handle('start-save-watcher', async (event, saveDir) => {
 
             const timer = setTimeout(() => {
                 console.log(`[Watcher] ${eventName} (debounced): ${filePath}`);
-                const rel = path.relative(saveDir, filePath).replace(/\\\\/g, '/');
+                const rel = normalizeSaveRelativePath(path.relative(saveDir, filePath));
+                if (!rel) {
+                    console.warn('[Watcher] Rejected invalid save path:', filePath);
+                    uploadDebounceMap.delete(filePath);
+                    return;
+                }
                 event.sender.send('save-change', {
                     relPath: rel,
                     fullPath: filePath
@@ -524,6 +663,9 @@ ipcMain.handle('upload-save', async (event, { filePath, relPath, sessionToken })
         if (fs.statSync(filePath).isDirectory()) return { success: false, error: 'Skipped directory' };
     } catch (e) { return { success: false, error: 'File access failed' }; }
 
+    const safeRelPath = normalizeSaveRelativePath(relPath);
+    if (!safeRelPath) return { success: false, error: 'Invalid save path' };
+
     // Check config for server URL
     const configPath = path.join(app.getPath('userData'), 'config.json');
     let serverUrl = 'http://localhost:3000';
@@ -537,7 +679,7 @@ ipcMain.handle('upload-save', async (event, { filePath, relPath, sessionToken })
         const FormData = require('form-data');
         const form = new FormData();
         form.append('file', fs.createReadStream(filePath));
-        form.append('relPath', relPath);
+        form.append('relPath', safeRelPath);
 
         const res = await axios.post(`${serverUrl}/api/saves/upload?type=saves`, form, {
             headers: {
@@ -545,7 +687,7 @@ ipcMain.handle('upload-save', async (event, { filePath, relPath, sessionToken })
                 'X-Session-Token': sessionToken
             }
         });
-        return { success: res.status === 200 };
+        return { success: res.status === 200, ...(res.data || {}) };
     } catch (e) {
         console.error('[Upload] Failed:', e.message);
         return { success: false, error: e.message };

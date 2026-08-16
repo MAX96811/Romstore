@@ -7,9 +7,16 @@ const test = require('node:test');
 const {
     buildInstalledPathSet,
     isLibraryItemInstalled,
+    normalizeSaveRelativePath,
     scanDirectoryStats,
     scanLocalEmulation
 } = require('./local-library');
+
+test('save upload paths normalize one Windows separator and reject traversal', () => {
+    assert.equal(normalizeSaveRelativePath('ryujinx\\saves\\0000000000000002\\save.bin'), 'ryujinx/saves/0000000000000002/save.bin');
+    assert.equal(normalizeSaveRelativePath('ryujinx\\..\\outside.bin'), null);
+    assert.equal(normalizeSaveRelativePath('/outside.bin'), null);
+});
 
 function fixture(t) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'romstore-library-'));

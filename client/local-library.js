@@ -12,6 +12,15 @@ function normalizeLibraryPath(value) {
         .toLowerCase();
 }
 
+function normalizeSaveRelativePath(value) {
+    if (typeof value !== 'string' || !value || value.includes('\0')) return null;
+    const slashPath = value.replace(/\\/g, '/');
+    if (slashPath.startsWith('/') || /^[A-Za-z]:\//.test(slashPath)) return null;
+    const parts = slashPath.split('/').filter(Boolean);
+    if (!parts.length || parts.some(part => part === '.' || part === '..')) return null;
+    return parts.join('/');
+}
+
 function scanLocalEmulation(baseDir) {
     if (!baseDir || !fs.existsSync(baseDir)) return [];
 
@@ -140,6 +149,7 @@ module.exports = {
     buildInstalledPathSet,
     isLibraryItemInstalled,
     normalizeLibraryPath,
+    normalizeSaveRelativePath,
     scanDirectoryStats,
     scanLocalEmulation
 };
