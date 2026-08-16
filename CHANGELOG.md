@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.1.0 - 2026-08-16
+
+### Added
+- Integrated game uploads directly into the Electron desktop client with authenticated 8 MB chunking and per-console targets.
+- Added EmuDeck-aware **Play** actions for installed games.
+- Automatically discovers EmuDeck system definitions, launcher scripts, standalone emulator fallbacks, and installed RetroArch cores.
+- Added editable per-platform emulator profiles using `{rom}` or `%ROM%` placeholders.
+- Added `/api/platforms` for console names, supported extensions, and nested EmuDeck upload folders.
+- Added automated tests for EmuDeck command resolution, AppImage environment cleanup, platform parsing, and recursive game discovery.
+
+### Changed
+- Game discovery now supports nested EmuDeck layouts such as `wiiu/roms` while excluding artwork and metadata files.
+- Uploads automatically target an existing platform's nested `roms` directory when required by EmuDeck.
+- Emulator launches strip AppImage-mounted runtime paths before invoking Flatpak-backed EmuDeck launchers.
+- Updated Electron, electron-builder, Axios, FormData, Multer, and backend transitive dependencies; production dependency audits are clean.
+
 ## v2.0.2 - 2026-02-15
 
 ### Fixed

@@ -9,6 +9,8 @@
 *   **Metadata**: Automatically fetches game artwork and metadata (via IGDB).
 *   **Secure Auth**: Session-based authentication for multiple users.
 *   **Cross-Platform Client**: Electron app for Windows and Linux (AppImage).
+*   **Integrated Uploads**: Upload large ROMs from the desktop client directly into any EmuDeck console folder.
+*   **EmuDeck Launching**: Detect EmuDeck launchers and RetroArch cores automatically, then launch installed games from RomStore.
 
 ## Architecture
 
@@ -76,6 +78,12 @@ The client is an Electron app that connects to your server.
 *   **Settings**: Click the "Settings" gear icon in the app.
 *   **Server URL**: Enter your server address (e.g., `http://localhost:3000` or your LAN IP).
 *   **Local Directory**: Point this to your local emulation folder (e.g., `C:\Emulation` or `/home/deck/Emulation`).
+*   **Emulator Profiles**: EmuDeck profiles are detected automatically. A per-platform custom command can be supplied in Settings using `{rom}` as the installed game's path.
+
+### Uploading and Playing
+1. Click **Upload Games** in the desktop client, select one or more files, and choose an EmuDeck console folder.
+2. Click **Download** on a library game to install it into the configured local `Emulation/roms` tree.
+3. Once installed, click **Play**. RomStore resolves the platform through EmuDeck and launches the first available configured emulator/core.
 
 ## 📦 Building & Deployment
 

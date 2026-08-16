@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     checkLocalFile: (filePath) => ipcRenderer.invoke('check-local-file', filePath),
     getConfig: () => ipcRenderer.invoke('get-config'),
     saveConfig: (config) => ipcRenderer.invoke('save-config', config),
+    getEmulatorProfiles: (localDir) => ipcRenderer.invoke('get-emulator-profiles', localDir),
+    saveEmulatorProfile: (payload) => ipcRenderer.invoke('save-emulator-profile', payload),
+    launchGame: (payload) => ipcRenderer.invoke('launch-game', payload),
 
     // Events
     onDownloadProgress: (callback) => ipcRenderer.on('download-progress', callback),

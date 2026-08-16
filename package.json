@@ -1,10 +1,10 @@
 {
   "name": "romstore",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test lib/*.test.js client/*.test.js"
   },
   "repository": {
     "type": "git",
@@ -19,12 +19,13 @@
   },
   "homepage": "https://github.com/MAX96811/Romstore#readme",
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "body-parser": "^2.2.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-session": "^1.18.2",
-    "multer": "^1.4.5-lts.1",
-    "cors": "^2.8.5",
-    "bcryptjs": "^2.4.3",
+    "multer": "^2.2.0",
     "session-file-store": "^1.5.0"
   }
 }

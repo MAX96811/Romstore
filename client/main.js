@@ -2,6 +2,12 @@ const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage } = require
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
+const { spawn } = require('child_process');
+const {
+    listProfiles,
+    sanitizeLaunchEnvironment,
+    selectProfile
+} = require('./emudeck');
 
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
 app.commandLine.appendSwitch('disable-http-cache');
@@ -434,6 +440,97 @@ ipcMain.handle('save-config', (event, config) => {
         tray = null;
     }
     return next;
+});
+
+ipcMain.handle('get-emulator-profiles', async (event, localDir) => {
+    const emulationDir = localDir || getConfig().localDir;
+    if (!emulationDir) {
+        return { detected: false, profiles: [], error: 'Set the local Emulation directory first.' };
+    }
+
+    try {
+        const config = getConfig();
+        return listProfiles({
+            homeDir: app.getPath('home'),
+            emulationDir,
+            overrides: config.emulatorProfiles || {}
+        });
+    } catch (error) {
+        console.error('[EmuDeck] Profile discovery failed:', error);
+        return { detected: false, profiles: [], error: error.message };
+    }
+});
+
+ipcMain.handle('save-emulator-profile', async (event, payload) => {
+    const system = String(payload && payload.system || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    const command = String(payload && payload.command || '').trim();
+    const label = String(payload && payload.label || 'Custom profile').trim().slice(0, 80);
+    if (!system) return { success: false, error: 'Choose a platform first.' };
+    if (command && !/(?:%ROM%|\{rom\}|\{file\})/i.test(command)) {
+        return { success: false, error: 'Custom commands must contain {rom} or %ROM%.' };
+    }
+
+    const config = getConfig();
+    const emulatorProfiles = { ...(config.emulatorProfiles || {}) };
+    if (command) emulatorProfiles[system] = { label, command };
+    else delete emulatorProfiles[system];
+    saveConfig({ emulatorProfiles });
+    return { success: true, emulatorProfiles };
+});
+
+ipcMain.handle('launch-game', async (event, payload) => {
+    const config = getConfig();
+    const emulationDir = String(payload && payload.localDir || config.localDir || '');
+    const relPath = String(payload && payload.relPath || '').replace(/\\/g, '/');
+    if (!emulationDir || !relPath) return { success: false, error: 'Missing local Emulation directory or game path.' };
+
+    const romRoot = path.resolve(emulationDir, 'roms');
+    const romPath = path.resolve(romRoot, relPath);
+    if (!romPath.startsWith(romRoot + path.sep)) return { success: false, error: 'Invalid game path.' };
+    if (!fs.existsSync(romPath)) return { success: false, error: 'Install the game before launching it.' };
+    try {
+        if (!fs.statSync(romPath).isFile()) return { success: false, error: 'Directory-based games are not launchable yet.' };
+    } catch (error) {
+        return { success: false, error: `Cannot access the installed game: ${error.message}` };
+    }
+
+    const system = (relPath.split('/')[0] || payload.system || '').toLowerCase();
+    const profile = selectProfile(system, {
+        homeDir: app.getPath('home'),
+        emulationDir,
+        romPath,
+        overrides: config.emulatorProfiles || {}
+    });
+    if (!profile.available || !profile.resolved) {
+        return { success: false, error: profile.error || `No usable EmuDeck emulator was found for ${system}.` };
+    }
+
+    try {
+        const child = spawn(profile.resolved.command, profile.resolved.args, {
+            cwd: fs.existsSync(profile.resolved.cwd) ? profile.resolved.cwd : app.getPath('home'),
+            detached: true,
+            stdio: 'ignore',
+            env: sanitizeLaunchEnvironment(process.env)
+        });
+
+        await new Promise((resolve, reject) => {
+            const timeout = setTimeout(resolve, 750);
+            child.once('spawn', () => {
+                clearTimeout(timeout);
+                resolve();
+            });
+            child.once('error', error => {
+                clearTimeout(timeout);
+                reject(error);
+            });
+        });
+        child.unref();
+        console.log(`[Launch] ${system} via ${profile.label}:`, profile.resolved.command, profile.resolved.args);
+        return { success: true, system, profile: profile.label };
+    } catch (error) {
+        console.error('[Launch] Failed:', error);
+        return { success: false, error: `Failed to start ${profile.label}: ${error.message}` };
+    }
 });
 
 ipcMain.handle('check-session', () => {

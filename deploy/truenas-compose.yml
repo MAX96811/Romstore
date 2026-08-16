@@ -1,0 +1,27 @@
+services:
+  backend:
+    image: max96811/romstore-backend:2.1.0-local
+    restart: unless-stopped
+    volumes:
+      - /mnt/DATA/romstore/app:/usr/src/app/data
+      - /mnt/DATA/romstore/emulation:/emulation
+    environment:
+      - PORT=3000
+      - PUID=568
+      - PGID=568
+    networks:
+      - app-network
+
+  frontend:
+    image: max96811/romstore-frontend:latest
+    restart: unless-stopped
+    ports:
+      - "1567:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

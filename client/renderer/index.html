@@ -783,6 +783,7 @@
         <div class="header-top">
             <img src="LOGO.png" alt="ROMSTORE" style="height: 50px; width: auto;">
             <div style="display:flex; gap: 15px; align-items: center;">
+                <button id="open-upload-btn" class="action-btn">＋ Upload Games</button>
                 <button id="logout-btn" class="action-btn"
                     style="background:transparent; border: 1px solid #f44336; color: #f44336;">Logout</button>
                 <button id="open-settings-btn" class="action-btn"
@@ -883,8 +884,52 @@
                         to tray
                     </label>
                 </div>
+                <div style="border-top:1px solid #333; padding-top:18px; margin-top:18px;">
+                    <p style="font-size:1.05em; color:var(--accent); font-weight:bold; margin-bottom:8px;">EmuDeck Integration</p>
+                    <div id="emudeck-status" style="font-size:0.85em; color:#aaa; margin-bottom:12px;">Not checked yet</div>
+                    <div class="input-group">
+                        <label>Platform profile</label>
+                        <select id="emulator-platform-select"></select>
+                    </div>
+                    <div id="emulator-profile-summary" style="font-size:0.82em; color:#bbb; line-height:1.5; margin-bottom:10px;"></div>
+                    <div class="input-group">
+                        <label>Custom launch command (optional)</label>
+                        <input id="emulator-command-override" type="text" placeholder="Leave blank for EmuDeck auto-detection; use {rom} for the game path">
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button id="save-emulator-profile-btn" class="action-btn" style="flex:1;">Save Profile</button>
+                        <button id="refresh-emudeck-btn" class="action-btn" style="flex:1; background:#333; color:#fff; border-color:#555;">Refresh Detection</button>
+                    </div>
+                </div>
             </div>
             <button class="action-btn" id="auto-scan-btn" style="width:100%">✨ Auto Scan Missing Metadata</button>
+        </div>
+    </div>
+    <div id="upload-modal" class="modal">
+        <div class="modal-content" style="width:650px; max-width:95%;">
+            <div class="modal-header"><span>Upload Games</span><span class="close-btn" id="close-upload-btn">&times;</span></div>
+            <p style="color:#bbb; font-size:0.9em; line-height:1.5; margin-bottom:16px;">
+                Select one or more game files, then choose the EmuDeck console folder. Uploads are chunked so large Wii and Switch images can resume cleanly after each completed chunk.
+            </p>
+            <div class="input-group">
+                <label>Game files</label>
+                <button id="select-upload-files-btn" class="action-btn" style="width:100%; background:#3a2b1f; color:#fff;">Choose Files</button>
+                <input type="file" id="upload-file-input" multiple style="display:none;">
+                <div id="upload-file-summary" style="font-size:0.82em; color:#aaa; margin-top:8px;">No files selected</div>
+            </div>
+            <div class="input-group">
+                <label>Target console</label>
+                <select id="upload-system-select"></select>
+                <div id="upload-system-hint" style="font-size:0.78em; color:#888; margin-top:6px;"></div>
+            </div>
+            <button id="start-game-upload-btn" class="action-btn" style="width:100%;">Upload Games</button>
+            <div id="game-upload-progress" style="display:none; margin-top:18px;">
+                <div id="game-upload-current" style="color:#ddd; margin-bottom:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></div>
+                <div class="progress-label"><span>Current file</span><span id="game-upload-percent">0%</span></div>
+                <div class="progress-bar-bg"><div id="game-upload-file-bar" class="progress-bar-fill"></div></div>
+                <div class="progress-label" style="margin-top:12px;"><span>Overall</span><span id="game-upload-overall-label">0 / 0</span></div>
+                <div class="progress-bar-bg"><div id="game-upload-overall-bar" class="progress-bar-fill"></div></div>
+            </div>
         </div>
     </div>
     <div id="versions-modal" class="modal">
@@ -936,6 +981,9 @@
             let minimizeToTray = false;
             let startWithSystem = false;
             let launchToTray = false;
+            let selectedUploadFiles = [];
+            let uploadPlatforms = [];
+            let emulatorProfileState = { detected: false, profiles: [] };
 
             // Sync Manifest: Tracks last known state of files to detect conflicts
             let syncManifest = {};
@@ -997,6 +1045,211 @@
                 toast.innerText = message;
                 container.appendChild(toast);
                 setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+            }
+
+            function updateUploadSystemHint() {
+                const select = document.getElementById('upload-system-select');
+                const hint = document.getElementById('upload-system-hint');
+                const platform = uploadPlatforms.find(item => item.system === select.value);
+                if (!platform) {
+                    hint.textContent = select.value === '__custom__' ? 'A new EmuDeck-compatible console folder will be created.' : '';
+                    return;
+                }
+                const extensions = (platform.extensions || []).slice(0, 12).join(', ');
+                const nested = platform.uploadSubdir ? ` Files will be placed in ${platform.system}/${platform.uploadSubdir}.` : '';
+                hint.textContent = `${platform.fullName || platform.system}${extensions ? ` • ${extensions}` : ''}.${nested}`;
+            }
+
+            async function openUploadModal() {
+                const modal = document.getElementById('upload-modal');
+                modal.style.display = 'flex';
+                try {
+                    const res = await fetch(getApiUrl('/api/platforms'), getFetchOptions());
+                    if (!res.ok) throw new Error('Could not load console folders');
+                    uploadPlatforms = await res.json();
+                    const select = document.getElementById('upload-system-select');
+                    select.innerHTML = '';
+                    for (const platform of uploadPlatforms) {
+                        const option = document.createElement('option');
+                        option.value = platform.system;
+                        option.textContent = `${platform.fullName || platform.system} (${platform.system})`;
+                        select.appendChild(option);
+                    }
+                    const custom = document.createElement('option');
+                    custom.value = '__custom__';
+                    custom.textContent = '— New console folder —';
+                    select.appendChild(custom);
+                    updateUploadSystemHint();
+                } catch (error) {
+                    showToast(error.message, 'error');
+                }
+            }
+
+            function uploadGameChunk({ file, blob, system, uploadId, chunkIndex, totalChunks, onProgress }) {
+                return new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    const form = new FormData();
+                    form.append('chunk', blob, file.name);
+                    form.append('uploadId', uploadId);
+                    form.append('fileName', file.name);
+                    form.append('chunkIndex', String(chunkIndex));
+                    form.append('totalChunks', String(totalChunks));
+                    xhr.upload.onprogress = event => {
+                        if (event.lengthComputable && onProgress) onProgress(event.loaded);
+                    };
+                    xhr.onload = () => {
+                        if (xhr.status === 200) return resolve(xhr.responseText);
+                        let message = `Upload failed (HTTP ${xhr.status})`;
+                        try { message = JSON.parse(xhr.responseText || '{}').error || message; } catch (error) { }
+                        reject(new Error(message));
+                    };
+                    xhr.onerror = () => reject(new Error('Network error while uploading'));
+                    xhr.onabort = () => reject(new Error('Upload cancelled'));
+                    xhr.ontimeout = () => reject(new Error('Upload chunk timed out'));
+                    xhr.timeout = 120000;
+                    xhr.open('POST', getApiUrl(`/api/upload/chunk?path=${encodeURIComponent(system)}`), true);
+                    if (sessionToken) xhr.setRequestHeader('X-Session-Token', sessionToken);
+                    xhr.withCredentials = true;
+                    xhr.send(form);
+                });
+            }
+
+            async function uploadGameFile(file, system, onPercent) {
+                const chunkSize = 8 * 1024 * 1024;
+                const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize));
+                const uploadId = `client_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+                let completedBytes = 0;
+                for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                    const start = chunkIndex * chunkSize;
+                    const blob = file.slice(start, Math.min(start + chunkSize, file.size));
+                    await uploadGameChunk({
+                        file,
+                        blob,
+                        system,
+                        uploadId,
+                        chunkIndex,
+                        totalChunks,
+                        onProgress: loaded => onPercent(Math.min(100, Math.round(((completedBytes + loaded) / Math.max(file.size, 1)) * 100)))
+                    });
+                    completedBytes += blob.size;
+                    onPercent(Math.min(100, Math.round((completedBytes / Math.max(file.size, 1)) * 100)));
+                }
+            }
+
+            async function startGameUpload() {
+                if (!selectedUploadFiles.length) return showToast('Choose at least one game file.', 'error');
+                const select = document.getElementById('upload-system-select');
+                let system = select.value;
+                if (system === '__custom__') {
+                    const value = prompt("Enter the EmuDeck folder name (for example 'ps2', 'gc', or 'n64'):");
+                    if (!value) return;
+                    system = value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+                }
+                if (!system) return showToast('Choose a target console.', 'error');
+
+                const button = document.getElementById('start-game-upload-btn');
+                const progress = document.getElementById('game-upload-progress');
+                const current = document.getElementById('game-upload-current');
+                const percent = document.getElementById('game-upload-percent');
+                const fileBar = document.getElementById('game-upload-file-bar');
+                const overallLabel = document.getElementById('game-upload-overall-label');
+                const overallBar = document.getElementById('game-upload-overall-bar');
+                button.disabled = true;
+                progress.style.display = 'block';
+
+                let uploaded = 0;
+                for (let index = 0; index < selectedUploadFiles.length; index++) {
+                    const file = selectedUploadFiles[index];
+                    current.textContent = file.name;
+                    overallLabel.textContent = `${index + 1} / ${selectedUploadFiles.length}`;
+                    overallBar.style.width = `${Math.round((index / selectedUploadFiles.length) * 100)}%`;
+                    try {
+                        await uploadGameFile(file, system, value => {
+                            percent.textContent = `${value}%`;
+                            fileBar.style.width = `${value}%`;
+                        });
+                        uploaded++;
+                    } catch (error) {
+                        showToast(`${file.name}: ${error.message}`, 'error');
+                    }
+                }
+
+                overallBar.style.width = '100%';
+                button.disabled = false;
+                showToast(`Uploaded ${uploaded} of ${selectedUploadFiles.length} game file(s).`, uploaded === selectedUploadFiles.length ? 'success' : 'error');
+                if (uploaded) await loadLibrary();
+            }
+
+            function showSelectedEmulatorProfile() {
+                const select = document.getElementById('emulator-platform-select');
+                const summary = document.getElementById('emulator-profile-summary');
+                const commandInput = document.getElementById('emulator-command-override');
+                const profile = (emulatorProfileState.profiles || []).find(item => item.system === select.value);
+                if (!profile) {
+                    summary.textContent = 'No profile selected.';
+                    commandInput.value = '';
+                    return;
+                }
+                summary.textContent = profile.available
+                    ? `Ready: ${profile.label}. ${profile.template}`
+                    : `Unavailable: ${profile.error}`;
+                commandInput.value = profile.custom ? profile.template : '';
+            }
+
+            async function refreshEmuDeckProfiles() {
+                if (!isElectron) return;
+                const status = document.getElementById('emudeck-status');
+                status.textContent = 'Detecting EmuDeck launchers and RetroArch cores…';
+                emulatorProfileState = await window.electronAPI.getEmulatorProfiles(localDir);
+                const profiles = emulatorProfileState.profiles || [];
+                const readyCount = profiles.filter(profile => profile.available).length;
+                status.textContent = emulatorProfileState.error
+                    ? emulatorProfileState.error
+                    : emulatorProfileState.detected
+                        ? `EmuDeck detected • ${readyCount} launchable platform profile(s)`
+                        : `EmuDeck backend not found • ${readyCount} fallback profile(s) available`;
+                const select = document.getElementById('emulator-platform-select');
+                const previous = select.value;
+                select.innerHTML = '';
+                for (const profile of profiles) {
+                    const option = document.createElement('option');
+                    option.value = profile.system;
+                    option.textContent = `${profile.fullName || profile.system} (${profile.system})${profile.available ? ' ✓' : ''}`;
+                    select.appendChild(option);
+                }
+                if (profiles.some(profile => profile.system === previous)) select.value = previous;
+                else if (profiles.some(profile => profile.system === 'wii')) select.value = 'wii';
+                showSelectedEmulatorProfile();
+            }
+
+            async function saveSelectedEmulatorProfile() {
+                if (!isElectron) return;
+                const system = document.getElementById('emulator-platform-select').value;
+                const command = document.getElementById('emulator-command-override').value.trim();
+                const result = await window.electronAPI.saveEmulatorProfile({ system, command, label: 'RomStore custom' });
+                if (!result.success) return showToast(result.error || 'Profile could not be saved.', 'error');
+                showToast(command ? 'Custom emulator profile saved.' : 'Using automatic EmuDeck profile.', 'success');
+                await refreshEmuDeckProfiles();
+            }
+
+            async function launchGame(item) {
+                if (!isElectron) return;
+                const result = await window.electronAPI.launchGame({
+                    localDir,
+                    relPath: item.relPath,
+                    system: item.system
+                });
+                if (result.success) showToast(`Launching with ${result.profile}…`, 'success');
+                else {
+                    showToast(result.error || 'Game could not be launched.', 'error');
+                    document.getElementById('settings-modal').style.display = 'flex';
+                    await refreshEmuDeckProfiles();
+                    const select = document.getElementById('emulator-platform-select');
+                    if (Array.from(select.options).some(option => option.value === item.system)) {
+                        select.value = item.system;
+                        showSelectedEmulatorProfile();
+                    }
+                }
             }
             function normalizeTitle(value) {
                 return (value || '')
@@ -1456,7 +1709,7 @@
 
                 let actionBtn = `<button class="action-btn-small dl-btn">Download</button>`;
                 if (isLocal) {
-                    actionBtn = `<button class="action-btn-small uninstall-btn" style="background-color: #f44336; color: white;">Uninstall</button>`;
+                    actionBtn = `<div style="display:flex; gap:7px;"><button class="action-btn-small play-btn">Play</button><button class="action-btn-small uninstall-btn" style="background-color:#7d2626; border-color:#a83a3a; color:white;">Uninstall</button></div>`;
                 }
                 let versionsBtn = '';
                 if (currentTab === 'saves' || item._type === 'saves') {
@@ -1482,6 +1735,7 @@
             <div class="game-title-below">${title}</div>`;
                 card.onclick = e => { if (e.target.tagName !== 'BUTTON') card.classList.toggle('active'); };
                 if (isLocal) {
+                    card.querySelector('.play-btn').onclick = e => { e.stopPropagation(); launchGame(item); };
                     card.querySelector('.uninstall-btn').onclick = e => { e.stopPropagation(); uninstallGame(item); };
                 } else {
                     card.querySelector('.dl-btn').onclick = e => { e.stopPropagation(); startDownload(item); };
@@ -1500,7 +1754,7 @@
 
                 let actionBtn = `<button class="action-btn-small dl-btn">Download</button>`;
                 if (isLocal) {
-                    actionBtn = `<button class="action-btn-small uninstall-btn" style="background-color: #f44336; color: white;">Uninstall</button>`;
+                    actionBtn = `<button class="action-btn-small play-btn">Play</button><button class="action-btn-small uninstall-btn" style="background-color:#7d2626; border-color:#a83a3a; color:white;">Uninstall</button>`;
                 }
                 let versionsBtn = '';
                 if (currentTab === 'saves' || item._type === 'saves') {
@@ -1526,6 +1780,7 @@
             </div>`;
                 row.onclick = e => { if (e.target.tagName !== 'BUTTON') row.classList.toggle('active'); };
                 if (isLocal) {
+                    row.querySelector('.play-btn').onclick = e => { e.stopPropagation(); launchGame(item); };
                     row.querySelector('.uninstall-btn').onclick = e => { e.stopPropagation(); uninstallGame(item); };
                 } else {
                     row.querySelector('.dl-btn').onclick = e => { e.stopPropagation(); startDownload(item); };
@@ -1725,11 +1980,30 @@
                     location.reload();
                 };
                 document.getElementById('handle-auth-btn').onclick = handleAuth;
-                document.getElementById('open-settings-btn').onclick = () => { document.getElementById('settings-modal').style.display = 'flex'; };
+                document.getElementById('open-settings-btn').onclick = async () => {
+                    document.getElementById('settings-modal').style.display = 'flex';
+                    await refreshEmuDeckProfiles();
+                };
+                document.getElementById('open-upload-btn').onclick = openUploadModal;
+                document.getElementById('close-upload-btn').onclick = () => { document.getElementById('upload-modal').style.display = 'none'; };
+                document.getElementById('select-upload-files-btn').onclick = () => document.getElementById('upload-file-input').click();
+                document.getElementById('upload-file-input').onchange = event => {
+                    selectedUploadFiles = Array.from(event.target.files || []);
+                    const totalBytes = selectedUploadFiles.reduce((total, file) => total + file.size, 0);
+                    document.getElementById('upload-file-summary').textContent = selectedUploadFiles.length
+                        ? `${selectedUploadFiles.length} file(s) • ${(totalBytes / 1024 / 1024 / 1024).toFixed(2)} GB`
+                        : 'No files selected';
+                };
+                document.getElementById('upload-system-select').onchange = updateUploadSystemHint;
+                document.getElementById('start-game-upload-btn').onclick = startGameUpload;
+                document.getElementById('emulator-platform-select').onchange = showSelectedEmulatorProfile;
+                document.getElementById('refresh-emudeck-btn').onclick = refreshEmuDeckProfiles;
+                document.getElementById('save-emulator-profile-btn').onclick = saveSelectedEmulatorProfile;
                 document.getElementById('close-settings-btn').onclick = () => { document.getElementById('settings-modal').style.display = 'none'; };
                 document.getElementById('close-versions-btn').onclick = () => { document.getElementById('versions-modal').style.display = 'none'; };
                 document.getElementById('close-game-saves-btn').onclick = () => { document.getElementById('game-saves-modal').style.display = 'none'; };
                 document.getElementById('settings-modal').onclick = (e) => { if (e.target === document.getElementById('settings-modal')) document.getElementById('settings-modal').style.display = 'none'; };
+                document.getElementById('upload-modal').onclick = (e) => { if (e.target === document.getElementById('upload-modal')) document.getElementById('upload-modal').style.display = 'none'; };
                 document.getElementById('versions-modal').onclick = (e) => { if (e.target === document.getElementById('versions-modal')) document.getElementById('versions-modal').style.display = 'none'; };
                 document.getElementById('game-saves-modal').onclick = (e) => { if (e.target === document.getElementById('game-saves-modal')) document.getElementById('game-saves-modal').style.display = 'none'; };
                 document.getElementById('conflict-modal').onclick = (e) => { if (e.target === document.getElementById('conflict-modal')) document.getElementById('conflict-modal').style.display = 'none'; };

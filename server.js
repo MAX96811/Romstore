@@ -8,6 +8,12 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
+const {
+    findGameFiles,
+    getPlatformInfo,
+    listPlatforms,
+    resolveUploadDirectory
+} = require('./lib/rom-library');
 require('dotenv').config();
 
 const app = express();
@@ -399,19 +405,8 @@ function scanDir(baseDir, relativePath = '') {
 function findRomsForSystem(systemName) {
     const systemDir = path.join(ROMS_DIR, systemName);
     if (!fs.existsSync(systemDir)) return [];
-
-    function walk(dir, results = []) {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-            if (entry.name.startsWith('.')) continue;
-            const full = path.join(dir, entry.name);
-            if (entry.isDirectory()) walk(full, results);
-            else results.push(full);
-        }
-        return results;
-    }
-
-    return walk(systemDir);
+    const platform = getPlatformInfo(systemDir, systemName);
+    return findGameFiles(systemDir, platform.extensions);
 }
 
 function getDisplayTitleFromRomPath(absRomPath) {
@@ -840,11 +835,11 @@ app.post('/api/admin/switch-save-map', requireAuth, requireAdmin, (req, res) => 
 // 1. List Games (ROMs) with Metadata
 app.get('/api/games', requireAuth, (req, res) => {
     if (!fs.existsSync(ROMS_DIR)) return res.json([]);
-    const systems = fs.readdirSync(ROMS_DIR, { withFileTypes: true }).filter(d => d.isDirectory());
+    const systems = listPlatforms(ROMS_DIR);
     const games = [];
 
-    const findArtwork = (systemPath, gameName) => {
-        const baseName = path.parse(gameName).name;
+    const findArtwork = (systemPath, gamePath) => {
+        const baseName = path.parse(gamePath).name;
         // Priority: Metadata-downloaded > Local folders
         const potentialDirs = [
             'media/boxart',
@@ -868,17 +863,16 @@ app.get('/api/games', requireAuth, (req, res) => {
 
     systems.forEach(system => {
         try {
-            const systemPath = path.join(ROMS_DIR, system.name);
-            const files = fs.readdirSync(systemPath, { withFileTypes: true }).filter(f => !f.isDirectory());
-            files.forEach(file => {
-                if (file.name.startsWith('.') || file.name.toLowerCase().endsWith('.txt')) return;
-
-                const relPath = path.join(system.name, file.name).replace(/\\/g, '/');
-                const stats = fs.statSync(path.join(systemPath, file.name));
-                let artPath = findArtwork(systemPath, file.name);
+            const systemPath = path.join(ROMS_DIR, system.system);
+            const files = findGameFiles(systemPath, system.extensions);
+            files.forEach(filePath => {
+                const fileName = path.basename(filePath);
+                const relPath = path.relative(ROMS_DIR, filePath).replace(/\\/g, '/');
+                const stats = fs.statSync(filePath);
+                let artPath = findArtwork(systemPath, filePath);
 
                 // Apply Metadata
-                let displayName = file.name;
+                let displayName = fileName;
                 let description = '';
                 let meta = gameMetadata[relPath];
 
@@ -891,8 +885,9 @@ app.get('/api/games', requireAuth, (req, res) => {
 
                 games.push({
                     name: displayName,
-                    originalName: file.name,
-                    system: system.name,
+                    originalName: fileName,
+                    system: system.system,
+                    systemName: system.fullName,
                     relPath: relPath,
                     size: (stats.size / 1024 / 1024).toFixed(2) + ' MB',
                     mtime: stats.mtime,
@@ -1052,11 +1047,11 @@ app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
         return res.status(400).json({ error: 'Invalid or missing target system folder' });
     }
 
-    const targetDir = path.join(ROMS_DIR, safeSystem);
+    const targetDir = resolveUploadDirectory(ROMS_DIR, safeSystem);
     const fileName = path.basename(req.file.originalname || req.file.filename);
     const targetPath = path.join(targetDir, fileName);
 
-    if (!targetPath.startsWith(targetDir)) {
+    if (!path.resolve(targetPath).startsWith(path.resolve(targetDir) + path.sep)) {
         try { if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); } catch (e) { }
         return res.status(403).json({ error: 'Invalid upload path' });
     }
@@ -1069,7 +1064,7 @@ app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
         res.json({
             success: true,
             message: 'File uploaded successfully',
-            relPath: path.join(safeSystem, fileName).replace(/\\/g, '/')
+            relPath: path.relative(ROMS_DIR, targetPath).replace(/\\/g, '/')
         });
     } catch (e) {
         console.error('[Upload] Failed to finalize upload:', e.message);
@@ -1098,10 +1093,11 @@ app.post('/api/upload/chunk', requireAuth, chunkUpload.single('chunk'), (req, re
 
     const chunksDir = path.join(ROMS_DIR, '.tmp_chunks');
     const assembledPath = path.join(chunksDir, `${uploadId}.part`);
-    const targetDir = path.join(ROMS_DIR, safeSystem);
+    const targetDir = resolveUploadDirectory(ROMS_DIR, safeSystem);
     const targetPath = path.join(targetDir, safeFileName);
 
-    if (!assembledPath.startsWith(chunksDir) || !targetPath.startsWith(targetDir)) {
+    if (!path.resolve(assembledPath).startsWith(path.resolve(chunksDir) + path.sep) ||
+        !path.resolve(targetPath).startsWith(path.resolve(targetDir) + path.sep)) {
         return res.status(403).json({ error: 'Invalid upload path' });
     }
 
@@ -1117,7 +1113,7 @@ app.post('/api/upload/chunk', requireAuth, chunkUpload.single('chunk'), (req, re
             return res.json({
                 success: true,
                 complete: true,
-                relPath: path.join(safeSystem, safeFileName).replace(/\\/g, '/')
+                relPath: path.relative(ROMS_DIR, targetPath).replace(/\\/g, '/')
             });
         }
 
@@ -1245,15 +1241,20 @@ app.post('/api/saves/restore', requireAuth, (req, res) => {
 
 // 7. List all available systems (folders in roms dir)
 app.get('/api/systems', requireAuth, (req, res) => {
-    if (!fs.existsSync(ROMS_DIR)) return res.json([]);
     try {
-        const systems = fs.readdirSync(ROMS_DIR, { withFileTypes: true })
-            .filter(d => d.isDirectory())
-            .map(d => d.name)
-            .sort();
+        const systems = listPlatforms(ROMS_DIR).map(platform => platform.system).sort();
         res.json(systems);
     } catch (e) {
         res.status(500).json({ error: "Failed to list systems" });
+    }
+});
+
+// Platform details are used by the desktop uploader and EmuDeck integration.
+app.get('/api/platforms', requireAuth, (req, res) => {
+    try {
+        res.json(listPlatforms(ROMS_DIR));
+    } catch (e) {
+        res.status(500).json({ error: 'Failed to list platform definitions' });
     }
 });
 
