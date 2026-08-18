@@ -2051,8 +2051,13 @@
                     if (savesDir) {
                         window.electronAPI.startSaveWatcher(savesDir);
                     }
+                    // Ryujinx paths are excluded from the per-file watcher on
+                    // purpose, so Switch slots need their own bundle watcher or
+                    // auto-sync would silently skip every Switch game.
+                    window.electronAPI.startSwitchAutoSync(sessionToken);
                 } else {
                     window.electronAPI.stopSaveWatcher();
+                    window.electronAPI.stopSwitchAutoSync();
                 }
             }
 
@@ -2562,7 +2567,11 @@
                     localPanel.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px;margin-bottom:14px;border:1px solid #3e674b;border-radius:10px;background:#14271a;';
                     const localCopy = document.createElement('div');
                     localCopy.style.cssText = 'color:#ccebd4;font-size:0.84rem;line-height:1.45;';
-                    localCopy.textContent = `${localSlots.length} local Ryujinx candidate${localSlots.length === 1 ? '' : 's'} detected. Snapshotting preserves each candidate exactly; it does not prove which one contains the desired progress.`;
+                    localCopy.textContent = `${localSlots.length} local Ryujinx candidate${localSlots.length === 1 ? '' : 's'} detected. `
+                        + (isAutoSync
+                            ? 'Auto-sync uploads each changed candidate as a whole bundle once Ryujinx closes; snapshot now to upload immediately. '
+                            : 'Auto-sync is off, so Switch saves upload only when you snapshot them. ')
+                        + 'Snapshotting preserves each candidate exactly; it does not prove which one contains the desired progress.';
                     const actions = document.createElement('div');
                     actions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
                     for (const slot of localSlots) {
@@ -3033,6 +3042,21 @@
                     });
                     window.electronAPI.onVisibilityChanged((event, payload) => {
                         if (payload && payload.hidden) showToast('RomStore is running in background (tray)', 'info');
+                    });
+
+                    window.electronAPI.onSwitchAutoSync((event, payload) => {
+                        if (!payload) return;
+                        if (payload.queued) {
+                            console.log('[Switch AutoSync] Queued slot', payload.slotId, '- uploads after Ryujinx closes');
+                            return;
+                        }
+                        if (payload.success) {
+                            showToast(`Switch save synced (${payload.fileCount} files, slot \u2026${String(payload.slotId).slice(-4)})`, 'success');
+                            return;
+                        }
+                        if (payload.giveUp) {
+                            showToast(`Switch save sync failed for slot \u2026${String(payload.slotId).slice(-4)}: ${payload.error || 'unknown error'}`, 'error');
+                        }
                     });
 
                     window.electronAPI.onSaveChange((event, { relPath }) => {

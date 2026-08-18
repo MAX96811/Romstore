@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.1.3 - 2026-08-18
+
+### Added
+- Automatic Switch save sync. Enabling auto-sync now also watches the live Ryujinx save root; slots that change while you play are queued and uploaded as complete bundles once Ryujinx exits and the files settle. Previously the auto-sync toggle silently covered no Switch game at all, because Ryujinx paths are excluded from the per-file watcher by design.
+- Auto-sync covers every slot with a readable Title ID, so a game does not have to be linked in the library first.
+- Toasts reporting each automatic bundle upload, and a failure notice once a slot has exhausted its retries.
+
+### Fixed
+- The Switch watcher ignores dot-entries relative to the slots root rather than anywhere in the path. The obvious `/(^|[\/\\])\../` rule matches the Flatpak root itself (`~/.var/app/...`) and would have ignored the entire save tree.
+- Auto-sync fails closed: if the running-process check throws, the bundle is treated as in use and left for the next tick instead of being snapshotted from live files.
+- The emulator re-check now runs after every bundle in a flush, not only after a failed one, so relaunching Ryujinx mid-flush cannot expose the remaining slots to a live snapshot.
+
+### Changed
+- The local-candidate panel states whether auto-sync will pick the candidates up, instead of implying a manual snapshot is the only route.
+
 ## v2.1.2 - 2026-08-16
 
 ### Fixed

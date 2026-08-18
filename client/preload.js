@@ -31,6 +31,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Save Sync
     startSaveWatcher: (saveDir) => ipcRenderer.invoke('start-save-watcher', saveDir),
     stopSaveWatcher: () => ipcRenderer.invoke('stop-save-watcher'),
+
+    // Switch saves sync as whole bundles after Ryujinx exits, not per file.
+    startSwitchAutoSync: (sessionToken) => ipcRenderer.invoke('start-switch-autosync', sessionToken),
+    stopSwitchAutoSync: () => ipcRenderer.invoke('stop-switch-autosync'),
+    onSwitchAutoSync: (callback) => ipcRenderer.on('switch-autosync', callback),
     uploadSave: (filePath, relPath, sessionToken) => ipcRenderer.invoke('upload-save', { filePath, relPath, sessionToken }),
     triggerManualSync: () => ipcRenderer.invoke('trigger-manual-sync'),
     resolveConflict: (path, choice) => ipcRenderer.invoke('resolve-conflict', { path, choice }),

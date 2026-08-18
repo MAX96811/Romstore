@@ -24,6 +24,31 @@ function parseRyujinxTitleId(extraData) {
     return titleId.startsWith('0100') ? normalizeSwitchTitleId(titleId) : null;
 }
 
+// Ryujinx's Flatpak layout nests slots under `user/save`, while the legacy
+// native layout uses `<root>/saves`. Both the discovery scan and the auto-sync
+// watcher must agree on this, so it lives in one place.
+function resolveSwitchSlotsRoot({ homeDir, emulationDir } = {}) {
+    const userRoot = resolveRyujinxUserRoot({ homeDir, emulationDir });
+    if (!userRoot) return null;
+    return path.basename(userRoot) === 'user'
+        ? path.join(userRoot, 'save')
+        : path.join(userRoot, 'saves');
+}
+
+// A slot directory carries its owning title in ExtraData; the server refuses a
+// bundle without one, so auto-sync resolves it from disk rather than the UI.
+function readSlotTitleId(slotsRoot, slotIdValue) {
+    const slotId = normalizeSwitchTitleId(slotIdValue);
+    if (!slotsRoot || !slotId) return null;
+    for (const extraDataName of ['ExtraData0', 'ExtraData1']) {
+        try {
+            const titleId = parseRyujinxTitleId(fs.readFileSync(path.join(slotsRoot, slotId, extraDataName)));
+            if (titleId) return titleId;
+        } catch (error) { }
+    }
+    return null;
+}
+
 function discoverMetadataRoots(homeDir, emulationDir) {
     return [
         path.join(homeDir, '.config', 'Ryujinx', 'games'),
@@ -72,9 +97,7 @@ function discoverSwitchAssociations({ homeDir, emulationDir } = {}) {
         }
     }
 
-    const userRoot = resolveRyujinxUserRoot({ homeDir, emulationDir });
-    const slotsRoot = userRoot && path.basename(userRoot) === 'user'
-        ? path.join(userRoot, 'save') : (userRoot ? path.join(userRoot, 'saves') : null);
+    const slotsRoot = resolveSwitchSlotsRoot({ homeDir, emulationDir });
     if (slotsRoot && fs.existsSync(slotsRoot)) {
         let entries = [];
         try { entries = fs.readdirSync(slotsRoot, { withFileTypes: true }); } catch (error) { entries = []; }
@@ -160,6 +183,8 @@ module.exports = {
     collectSwitchBundleFiles,
     discoverSwitchAssociations,
     resolveRyujinxUserRoot,
+    resolveSwitchSlotsRoot,
+    readSlotTitleId,
     matchSwitchTitleId,
     normalizeGameTitle,
     normalizeSwitchTitleId,

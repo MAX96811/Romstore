@@ -9,7 +9,8 @@ const {
     selectProfile
 } = require('./emudeck');
 const { normalizeSaveRelativePath, scanDirectoryStats, scanLocalEmulation } = require('./local-library');
-const { collectSwitchBundleFiles, discoverSwitchAssociations, matchSwitchTitleId, resolveRyujinxUserRoot } = require('./switch-library');
+const { collectSwitchBundleFiles, discoverSwitchAssociations, matchSwitchTitleId, readSlotTitleId, resolveRyujinxUserRoot, resolveSwitchSlotsRoot } = require('./switch-library');
+const { createSwitchAutoSync, slotIdFromRelativePath } = require('./switch-autosync');
 const { restoreSwitchBundle } = require('./switch-save-restore');
 
 app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
@@ -289,10 +290,12 @@ ipcMain.handle('restore-switch-bundle', async (event, payload) => {
     }
 });
 
-ipcMain.handle('backup-switch-bundle', async (event, payload) => {
+// Shared by the manual "Snapshot slot" button and by auto-sync, so both paths
+// get the same identity checks, the same mid-write abort, and the same
+// all-or-nothing upload.
+async function uploadSwitchBundle(payload) {
     const config = getConfig();
     const localDir = String(config.localDir || '');
-    const ryujinxUserRoot = resolveRyujinxUserRoot({ homeDir: app.getPath('home'), emulationDir: localDir });
     let serverUrl = String(config.serverUrl || 'http://localhost:3000').replace(/\/+$/, '');
     if (serverUrl && !serverUrl.startsWith('http')) serverUrl = 'http://' + serverUrl;
     if (isRyujinxRunning()) return { success: false, error: 'Close Ryujinx before backing up a Switch save.' };
@@ -340,7 +343,9 @@ ipcMain.handle('backup-switch-bundle', async (event, payload) => {
             try { fs.rmSync(snapshotDir, { recursive: true, force: true }); } catch (error) { }
         }
     }
-});
+}
+
+ipcMain.handle('backup-switch-bundle', async (event, payload) => uploadSwitchBundle(payload));
 
 ipcMain.handle('download-file', async (event, { url, destPath, sessionToken, relPath }) => {
     // Ensure directory exists
@@ -656,6 +661,89 @@ ipcMain.handle('stop-save-watcher', async () => {
         await saveWatcher.close();
         saveWatcher = null;
     }
+    return true;
+});
+
+// --- SWITCH AUTO-SYNC ---
+// The per-file watcher above deliberately refuses Ryujinx paths, so Switch
+// saves get their own watcher: it only records which slots changed, and defers
+// every upload until Ryujinx has exited and the slot has settled.
+let switchWatcher = null;
+let switchAutoSync = null;
+let switchSessionToken = '';
+
+function switchAutoSyncStatus(payload) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('switch-autosync', payload);
+    }
+}
+
+ipcMain.handle('start-switch-autosync', async (event, sessionToken) => {
+    switchSessionToken = String(sessionToken || '');
+    const config = getConfig();
+    const slotsRoot = resolveSwitchSlotsRoot({
+        homeDir: app.getPath('home'),
+        emulationDir: String(config.localDir || '')
+    });
+    if (!slotsRoot || !fs.existsSync(slotsRoot)) {
+        return { success: false, error: 'No Ryujinx save directory was found on this PC.' };
+    }
+    if (switchWatcher) return { success: true, slotsRoot };
+
+    if (!switchAutoSync) {
+        switchAutoSync = createSwitchAutoSync({
+            isEmulatorRunning: () => isRyujinxRunning(),
+            uploadBundle: async slotId => {
+                const titleId = readSlotTitleId(slotsRoot, slotId);
+                if (!titleId) return { success: false, error: `Slot ${slotId} has no readable Title ID.` };
+                return uploadSwitchBundle({ slotId, titleId, sessionToken: switchSessionToken });
+            },
+            onResult: result => switchAutoSyncStatus(result)
+        });
+    }
+
+    try {
+        const { watch } = await import('chokidar');
+        switchWatcher = watch(slotsRoot, {
+            persistent: true,
+            ignoreInitial: true,
+            // NOTE: a naive /(^|[\/\\])\../ ignore matches nothing here on Linux -
+            // the Flatpak root itself lives under ~/.var, so it would silently
+            // ignore the entire tree. Only path segments *below* the slots root
+            // are tested, which still skips .oldsave, .lock and our own backups.
+            ignored: targetPath => {
+                const relative = path.relative(slotsRoot, targetPath);
+                if (!relative) return false;
+                return relative.split(path.sep).some(part => part.startsWith('.'));
+            },
+            awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 100 }
+        });
+
+        switchWatcher.on('all', (eventName, filePath) => {
+            if (eventName !== 'add' && eventName !== 'change') return;
+            const slotId = slotIdFromRelativePath(path.relative(slotsRoot, filePath));
+            if (!slotId) return;
+            if (switchAutoSync.markDirty(slotId)) {
+                console.log('[Switch AutoSync] Slot queued:', slotId);
+                switchAutoSyncStatus({ slotId, queued: true });
+            }
+        });
+
+        console.log('[Switch AutoSync] Watching:', slotsRoot);
+        return { success: true, slotsRoot };
+    } catch (error) {
+        console.error('[Switch AutoSync] Failed to start:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('stop-switch-autosync', async () => {
+    if (switchWatcher) {
+        await switchWatcher.close();
+        switchWatcher = null;
+    }
+    if (switchAutoSync) switchAutoSync.stop();
+    switchSessionToken = '';
     return true;
 });
 
