@@ -8,6 +8,7 @@
 - Toasts reporting each automatic bundle upload, and a failure notice once a slot has exhausted its retries.
 
 ### Fixed
+- Server: a Switch slot that changed hands is now adopted instead of rejected. Ryujinx reuses slot numbers across games, so an upload whose Title ID disagreed with the slot's previous owner was refused outright, permanently stranding every future upload for that slot. The previous contents are archived under their own Title ID and the incoming bundle goes live, so neither game loses history. Without this, automatic sync fails for exactly the slots Ryujinx has reassigned.
 - The Switch watcher ignores dot-entries relative to the slots root rather than anywhere in the path. The obvious `/(^|[\/\\])\../` rule matches the Flatpak root itself (`~/.var/app/...`) and would have ignored the entire save tree.
 - Auto-sync fails closed: if the running-process check throws, the bundle is treated as in use and left for the next tick instead of being snapshotted from live files.
 - The emulator re-check now runs after every bundle in a flush, not only after a failed one, so relaunching Ryujinx mid-flush cannot expose the remaining slots to a live snapshot.
