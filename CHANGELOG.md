@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.1.4 - 2026-08-19
+
+### Security
+- `.env` is no longer baked into the backend image. `.dockerignore` excluded `client`, `frontend` and `.git` but not `.env`, so `COPY . .` shipped a live `SESSION_SECRET` inside every published image.
+- `.env` is no longer tracked in git. It was committed to a public repository, so the previous `SESSION_SECRET` must be treated as disclosed and has been rotated.
+- The session secret is now supplied to the container through its environment rather than a file in the image. `server.js` falls back to `crypto.randomBytes(32)` when `SESSION_SECRET` is unset, which would silently regenerate the secret on every restart and invalidate all sessions, so the value has to be injected by the deployment.
+
 ## v2.1.3 - 2026-08-18
 
 ### Added
