@@ -672,6 +672,33 @@ let switchWatcher = null;
 let switchAutoSync = null;
 let switchSessionToken = '';
 
+// The queue outlives the process so that saves made while the server was
+// unreachable - or while Ryujinx crashed before a flush - are still uploaded.
+function switchQueuePath() {
+    return path.join(app.getPath('userData'), 'switch-autosync-queue.json');
+}
+
+function readSwitchQueue() {
+    try {
+        const parsed = JSON.parse(fs.readFileSync(switchQueuePath(), 'utf8'));
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+function writeSwitchQueue(slotIds) {
+    try {
+        if (!Array.isArray(slotIds) || !slotIds.length) {
+            if (fs.existsSync(switchQueuePath())) fs.unlinkSync(switchQueuePath());
+            return;
+        }
+        fs.writeFileSync(switchQueuePath(), JSON.stringify(slotIds));
+    } catch (error) {
+        console.error('[Switch AutoSync] Could not persist the queue:', error.message);
+    }
+}
+
 function switchAutoSyncStatus(payload) {
     if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('switch-autosync', payload);
@@ -698,8 +725,18 @@ ipcMain.handle('start-switch-autosync', async (event, sessionToken) => {
                 if (!titleId) return { success: false, error: `Slot ${slotId} has no readable Title ID.` };
                 return uploadSwitchBundle({ slotId, titleId, sessionToken: switchSessionToken });
             },
-            onResult: result => switchAutoSyncStatus(result)
+            onResult: result => switchAutoSyncStatus(result),
+            persistPending: writeSwitchQueue,
+            restorePending: readSwitchQueue
         });
+    }
+
+    // A queue restored from disk has no timer running yet, and the emulator may
+    // not touch those slots again for days. Start it explicitly.
+    const resumed = switchAutoSync.resumePending();
+    if (resumed.length) {
+        console.log('[Switch AutoSync] Resuming queued slots from a previous session:', resumed.join(', '));
+        switchAutoSyncStatus({ resumed: resumed.length });
     }
 
     try {

@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.1.5 - 2026-08-19
+
+### Added
+- Offline mode. If the RomStore server cannot be reached, the client no longer stops at a login box it has no way of satisfying. It falls back to the last cached library, still scans local files, and still launches installed games — everything needed to play is local already. A banner states how old the cached listing is, and the client re-probes the server every 30 seconds (or on demand) and rejoins automatically.
+- The Switch auto-sync queue is persisted to disk. Saves made while the server was down, or during a session that ended in a crash rather than a clean exit, are uploaded once the server returns instead of being lost with the process.
+
+### Changed
+- Server-only actions (download, upload, Switch backup/restore, Title ID relinking) are refused with an explanatory message while offline, rather than failing obscurely. Launching and uninstalling stay available, since neither touches the server.
+
+### Fixed
+- Offline is distinguished from unauthorized. Only a failed connection triggers offline mode; any real HTTP response, 401 included, still routes to the login screen, so an auth problem is never hidden behind an offline banner.
+
 ## v2.1.4 - 2026-08-19
 
 ### Security

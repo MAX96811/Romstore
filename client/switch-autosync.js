@@ -18,6 +18,10 @@ function createSwitchAutoSync(options = {}) {
         settleMs = DEFAULT_SETTLE_MS,
         maxAttempts = DEFAULT_MAX_ATTEMPTS,
         onResult = () => { },
+        // Offline play and crashes both end a session without a flush, so the
+        // queue has to outlive the process rather than living only in memory.
+        persistPending = () => { },
+        restorePending = () => [],
         now = () => Date.now(),
         setTimer = setInterval,
         clearTimer = clearInterval
@@ -30,6 +34,17 @@ function createSwitchAutoSync(options = {}) {
     let timer = null;
     let flushing = false;
     let lastRunningAt = 0;
+
+    function snapshotPending() {
+        try { persistPending([...pending.keys()]); } catch (error) { }
+    }
+
+    // A queue restored from disk is resumed on the next tick, so saves made
+    // while the server was unreachable are uploaded once it comes back.
+    for (const slotId of (restorePending() || [])) {
+        const key = String(slotId || '').toUpperCase();
+        if (/^[0-9A-F]{16}$/.test(key)) pending.set(key, { attempts: 0 });
+    }
 
     function ensureTimer() {
         if (timer || !pending.size) return;
@@ -46,7 +61,10 @@ function createSwitchAutoSync(options = {}) {
     function markDirty(slotId) {
         const key = String(slotId || '').toUpperCase();
         if (!/^[0-9A-F]{16}$/.test(key)) return false;
-        if (!pending.has(key)) pending.set(key, { attempts: 0 });
+        if (!pending.has(key)) {
+            pending.set(key, { attempts: 0 });
+            snapshotPending();
+        }
         ensureTimer();
         return true;
     }
@@ -117,10 +135,18 @@ function createSwitchAutoSync(options = {}) {
             }
         } finally {
             flushing = false;
+            snapshotPending();
             if (!pending.size) stopTimer();
         }
 
         return { flushed, reason: 'flushed' };
+    }
+
+    // Called when connectivity returns: a restored queue has no timer until
+    // something asks for one, and nothing new may be written for hours.
+    function resumePending() {
+        ensureTimer();
+        return [...pending.keys()];
     }
 
     function stop() {
@@ -134,6 +160,7 @@ function createSwitchAutoSync(options = {}) {
         markDirty,
         tick,
         stop,
+        resumePending,
         pendingSlots: () => [...pending.keys()],
         isFlushing: () => flushing
     };

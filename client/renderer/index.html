@@ -1285,6 +1285,11 @@
                 <span id="client-status-text">Checking desktop integration…</span>
             </div>
         </section>
+        <div id="offline-banner" style="display:none;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;margin-bottom:14px;border:1px solid #7a5c2e;border-radius:10px;background:#2a2113;color:#f0dcb8;font-size:0.88rem;line-height:1.5;">
+            <strong style="color:#ffd489;">Offline</strong>
+            <span id="offline-banner-copy" style="flex:1;min-width:220px;"></span>
+            <button id="offline-retry" class="game-secondary-action" style="white-space:nowrap;">Retry now</button>
+        </div>
         <div id="main-content" class="content-area"></div>
     </main>
     <div id="auth-modal" class="modal" style="display:none; backdrop-filter: blur(15px);">
@@ -1520,6 +1525,113 @@
                 if (body) { options.headers['Content-Type'] = 'application/json'; options.body = JSON.stringify(body); }
                 return options;
             }
+            // ---- OFFLINE MODE ----
+            // Everything needed to browse and launch an installed game is local:
+            // scanLocalEmulation finds the ROMs and launch-game spawns the
+            // emulator. Only the library listing comes from the server, so it is
+            // cached and replayed when the server cannot be reached.
+            const LIBRARY_CACHE_KEY = 'romstore_library_cache';
+            let isOffline = false;
+            let offlineRetryTimer = null;
+
+            function cacheLibrary(tab, items) {
+                try {
+                    const all = JSON.parse(localStorage.getItem(LIBRARY_CACHE_KEY) || '{}');
+                    all[tab] = { savedAt: Date.now(), items };
+                    localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify(all));
+                } catch (error) { console.warn('[Offline] Could not cache the library:', error); }
+            }
+
+            function readCachedLibrary(tab) {
+                try {
+                    const all = JSON.parse(localStorage.getItem(LIBRARY_CACHE_KEY) || '{}');
+                    const entry = all[tab];
+                    return entry && Array.isArray(entry.items) ? entry : null;
+                } catch (error) { return null; }
+            }
+
+            function describeCacheAge(savedAt) {
+                const minutes = Math.max(0, Math.round((Date.now() - Number(savedAt || 0)) / 60000));
+                if (minutes < 1) return 'just now';
+                if (minutes < 60) return `${minutes} min ago`;
+                const hours = Math.round(minutes / 60);
+                return hours < 24 ? `${hours} h ago` : `${Math.round(hours / 24)} d ago`;
+            }
+
+            // A failed fetch (server down, DNS, refused) is an offline signal.
+            // An HTTP response - including 401 - is not: the server answered, so
+            // an auth problem must still surface as the login screen.
+            function isOfflineError(error) {
+                return error instanceof TypeError || /Failed to fetch|NetworkError|ECONNREFUSED/i.test(String(error && error.message));
+            }
+
+            function setOfflineMode(on, reason) {
+                isOffline = !!on;
+                const banner = document.getElementById('offline-banner');
+                if (banner) {
+                    banner.style.display = on ? 'flex' : 'none';
+                    const copy = document.getElementById('offline-banner-copy');
+                    if (copy && reason) copy.textContent = reason;
+                }
+                document.body.classList.toggle('is-offline', !!on);
+                if (on) startReconnectPolling(); else stopReconnectPolling();
+            }
+
+            function requireOnline(actionLabel) {
+                if (!isOffline) return true;
+                showToast(`${actionLabel} needs the RomStore server, which is offline.`, 'error');
+                return false;
+            }
+
+            async function probeServer() {
+                try {
+                    const res = await fetch(getApiUrl('/api/system'), { method: 'GET', cache: 'no-store' });
+                    return res.ok;
+                } catch (error) { return false; }
+            }
+
+            function stopReconnectPolling() {
+                if (!offlineRetryTimer) return;
+                clearInterval(offlineRetryTimer);
+                offlineRetryTimer = null;
+            }
+
+            function startReconnectPolling() {
+                if (offlineRetryTimer) return;
+                offlineRetryTimer = setInterval(() => { reconnectIfPossible(); }, 30000);
+            }
+
+            async function reconnectIfPossible(manual) {
+                if (!isOffline) return true;
+                if (!(await probeServer())) {
+                    if (manual) showToast('The RomStore server is still unreachable.', 'error');
+                    return false;
+                }
+                setOfflineMode(false);
+                showToast('Reconnected to the RomStore server.', 'success');
+                // Re-run the normal path so auth, local scan and sync all resume.
+                await checkAuth();
+                return true;
+            }
+
+            async function enterOfflineMode(tab) {
+                const cached = readCachedLibrary(tab || currentTab);
+                if (!cached) return false;
+                isAuthenticated = true;
+                document.getElementById('auth-modal').style.display = 'none';
+                loadUIState();
+                await scanLocalFiles();
+                refreshEmuDeckProfiles().catch(() => { });
+                rawData = cached.items.map(item => {
+                    if (!item.system) item.system = String(item.relPath || '').split('/')[0] || 'Unknown';
+                    return item;
+                });
+                setOfflineMode(true, `Showing your library as it was cached ${describeCacheAge(cached.savedAt)}. Installed games still launch; downloads, backups and restores are unavailable until the server returns.`);
+                renderFilters();
+                await renderContent();
+                return true;
+            }
+
             function showToast(message, type) {
                 console.log('[Toast]', message);
                 const container = document.getElementById('toast-container');
@@ -1578,6 +1690,7 @@
             }
 
             async function openUploadModal() {
+                if (!requireOnline('Uploading a game')) return;
                 const modal = document.getElementById('upload-modal');
                 modal.style.display = 'flex';
                 try {
@@ -1964,6 +2077,13 @@
                     }
                 } catch (e) {
                     console.error('[Auth] Status check failed', e);
+                    // The server answered nothing at all. If this client has been
+                    // signed in before and has a cached library, offline mode is
+                    // far more useful than a login box that cannot succeed.
+                    if (isOfflineError(e) && sessionToken && readCachedLibrary(currentTab)) {
+                        console.log('[Offline] Server unreachable - entering offline mode');
+                        if (await enterOfflineMode(currentTab)) return;
+                    }
                     isAuthenticated = false;
                     if (isElectron) window.electronAPI.stopSaveWatcher();
                     document.getElementById('auth-modal').style.display = 'flex';
@@ -2106,6 +2226,7 @@
             }
 
             async function syncSaves() {
+                if (isOffline) return;
                 if (!isElectron || !localDir || !isAuthenticated || !sessionToken) return;
                 console.log('[Sync] Starting conflict-aware sync...');
                 showToast('Checking for cloud saves...', 'info');
@@ -2301,9 +2422,12 @@
                     if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
                     const data = await res.json();
                     rawData = data.map(item => { if (!item.system) item.system = item.relPath.split('/')[0] || 'Unknown'; return item; });
+                    cacheLibrary(currentTab, data);
+                    if (isOffline) setOfflineMode(false);
                     renderFilters(); await renderContent();
                 } catch (err) {
                     console.error('[Library] Load failed', err);
+                    if (isOfflineError(err) && await enterOfflineMode(currentTab)) return;
                     document.getElementById('library-summary').textContent = 'The library could not be loaded.';
                     content.innerHTML = '<div class="library-state"><div class="library-state-icon">!</div><strong>Could not load the library</strong><span id="library-error-copy"></span></div>';
                     document.getElementById('library-error-copy').textContent = err.message;
@@ -2422,6 +2546,7 @@
                 }
             }
             async function startDownload(item, version = null, forcedType = null, button = null) {
+                if (!requireOnline('Downloading a game')) return;
                 const type = forcedType || getItemLibrarySection(item);
                 const dest = localDir ? `${localDir}/${type}/${item.relPath}`.split('\\').join('/') : null;
                 if (isElectron && !dest) return showToast('Set local directory in Settings', 'error');
@@ -2456,6 +2581,7 @@
                 }
             }
             async function restoreSwitchCandidate(game, slotId, files, button) {
+                if (!requireOnline('Restoring a Switch save')) return;
                 if (!isElectron) return showToast('Use the desktop app to restore Switch saves.', 'error');
                 const confirmed = confirm(
                     `Restore the complete Ryujinx save candidate ${slotId} for ${game.name}?\n\n`
@@ -2492,6 +2618,7 @@
             }
 
             async function backupSwitchCandidate(game, titleId, slotId, button) {
+                if (!requireOnline('Backing up a Switch save')) return;
                 if (!isElectron) return showToast('Use the desktop app to back up Switch saves.', 'error');
                 if (!titleId) return showToast('RomStore could not identify this game’s Switch Title ID.', 'error');
                 const confirmed = confirm(
@@ -2519,6 +2646,7 @@
             }
 
             async function changeSwitchGameMapping(game, list) {
+                if (!requireOnline('Changing the Title ID link')) return;
                 if (!confirm(`Remove the saved Title ID link for ${game.name} and choose again? No save files will be deleted.`)) return;
                 try {
                     const response = await fetch(getApiUrl('/api/games/switch-title-id'), getFetchOptions('POST', {
@@ -3043,6 +3171,9 @@
                     window.electronAPI.onVisibilityChanged((event, payload) => {
                         if (payload && payload.hidden) showToast('RomStore is running in background (tray)', 'info');
                     });
+
+                    const offlineRetry = document.getElementById('offline-retry');
+                    if (offlineRetry) offlineRetry.onclick = () => reconnectIfPossible(true);
 
                     window.electronAPI.onSwitchAutoSync((event, payload) => {
                         if (!payload) return;

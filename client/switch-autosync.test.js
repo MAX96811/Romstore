@@ -134,3 +134,56 @@ test('invalid slot identifiers are never queued', () => {
     assert.equal(h.sync.markDirty(''), false);
     assert.deepEqual(h.sync.pendingSlots(), []);
 });
+
+test('a queue built while the server was unreachable survives a restart', async () => {
+    let disk = [];
+    const persist = { persistPending: ids => { disk = ids; }, restorePending: () => disk };
+
+    // Session one: the emulator writes, but every upload fails (server down).
+    const first = createSwitchAutoSync({
+        isEmulatorRunning: () => false,
+        uploadBundle: async () => ({ success: false, error: 'ECONNREFUSED' }),
+        now: () => 1000, setTimer: () => null, clearTimer: () => { }, settleMs: 0,
+        maxAttempts: 99, ...persist
+    });
+    first.markDirty(SLOT_A);
+    await first.tick();
+    assert.deepEqual(disk, [SLOT_A], 'the pending slot is written to disk');
+
+    // The process goes away entirely.
+    first.stop();
+
+    // Session two: the server is back.
+    const uploaded = [];
+    const second = createSwitchAutoSync({
+        isEmulatorRunning: () => false,
+        uploadBundle: async id => { uploaded.push(id); return { success: true, fileCount: 4 }; },
+        now: () => 2000, setTimer: () => null, clearTimer: () => { }, settleMs: 0,
+        ...persist
+    });
+    assert.deepEqual(second.pendingSlots(), [SLOT_A], 'queue is restored from disk');
+
+    await second.tick();
+    assert.deepEqual(uploaded, [SLOT_A], 'the offline save is uploaded once the server returns');
+    assert.deepEqual(disk, [], 'disk queue is cleared after a successful flush');
+});
+
+test('restored queues ignore corrupt or non-slot entries', () => {
+    const sync = createSwitchAutoSync({
+        isEmulatorRunning: () => false,
+        uploadBundle: async () => ({ success: true }),
+        restorePending: () => ['not-a-slot', '', null, SLOT_B],
+        setTimer: () => null, clearTimer: () => { }
+    });
+    assert.deepEqual(sync.pendingSlots(), [SLOT_B]);
+});
+
+test('resumePending reports what is still queued when connectivity returns', () => {
+    const sync = createSwitchAutoSync({
+        isEmulatorRunning: () => true,
+        uploadBundle: async () => ({ success: true }),
+        restorePending: () => [SLOT_A, SLOT_B],
+        setTimer: () => null, clearTimer: () => { }
+    });
+    assert.deepEqual(sync.resumePending().sort(), [SLOT_A, SLOT_B]);
+});
