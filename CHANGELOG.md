@@ -3,6 +3,7 @@
 ## v2.1.5 - 2026-08-19
 
 ### Added
+- Offline mode works on a cold start. With no cached listing — a fresh install, or a client that has never reached the server — the library is rebuilt from the ROMs on disk, applying the same rules the server uses (each platform's `systeminfo.txt` extensions, and the same ignored directories), so offline mode does not depend on having been online first.
 - Offline mode. If the RomStore server cannot be reached, the client no longer stops at a login box it has no way of satisfying. It falls back to the last cached library, still scans local files, and still launches installed games — everything needed to play is local already. A banner states how old the cached listing is, and the client re-probes the server every 30 seconds (or on demand) and rejoins automatically.
 - The Switch auto-sync queue is persisted to disk. Saves made while the server was down, or during a session that ended in a crash rather than a clean exit, are uploaded once the server returns instead of being lost with the process.
 

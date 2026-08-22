@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
     selectDir: () => ipcRenderer.invoke('select-dirs'),
     scanLocalEmulation: (baseDir) => ipcRenderer.invoke('scan-local-emulation', baseDir),
+    scanLocalGames: (baseDir) => ipcRenderer.invoke('scan-local-games', baseDir),
     scanDirStat: (baseDir) => ipcRenderer.invoke('scan-dir-stat', baseDir),
     getSwitchAssociations: (localDir) => ipcRenderer.invoke('get-switch-associations', localDir),
     getSwitchTitleId: (payload) => ipcRenderer.invoke('get-switch-title-id', payload),

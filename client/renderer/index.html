@@ -1614,19 +1614,54 @@
                 return true;
             }
 
+            // With no cache - a fresh install, or a client that has never reached
+            // the server - the local library is still fully knowable: the ROMs are
+            // on disk. Rebuilding the listing from them means offline mode works
+            // on a cold start instead of falling back to an unusable login box.
+            async function buildLibraryFromLocalScan() {
+                if (!isElectron || !localDir) return null;
+                try {
+                    const games = await window.electronAPI.scanLocalGames(localDir);
+                    if (!Array.isArray(games) || !games.length) return null;
+                    return games.map(game => ({
+                        relPath: game.relPath,
+                        name: String(game.name || '').replace(/\.[^.]+$/, ''),
+                        originalName: game.originalName || game.name,
+                        system: game.system,
+                        _offlineLocal: true
+                    }));
+                } catch (error) {
+                    console.error('[Offline] Local game scan failed:', error);
+                    return null;
+                }
+            }
+
             async function enterOfflineMode(tab) {
-                const cached = readCachedLibrary(tab || currentTab);
-                if (!cached) return false;
+                const targetTab = tab || currentTab;
+                const cached = readCachedLibrary(targetTab);
+                let items = cached ? cached.items : null;
+                let sourceCopy = cached
+                    ? `Showing your library as it was cached ${describeCacheAge(cached.savedAt)}.`
+                    : '';
+
+                // Only games can be reconstructed from disk; BIOS listings cannot.
+                if (!items && targetTab === 'games') {
+                    items = await buildLibraryFromLocalScan();
+                    if (items) sourceCopy = `No cached listing yet, so this was rebuilt from the ${items.length} files in your local library folder.`;
+                }
+                if (!items) return false;
+
+                const cachedEntry = { items, savedAt: cached ? cached.savedAt : Date.now() };
                 isAuthenticated = true;
                 document.getElementById('auth-modal').style.display = 'none';
                 loadUIState();
                 await scanLocalFiles();
                 refreshEmuDeckProfiles().catch(() => { });
-                rawData = cached.items.map(item => {
+                rawData = cachedEntry.items.map(item => {
                     if (!item.system) item.system = String(item.relPath || '').split('/')[0] || 'Unknown';
                     return item;
                 });
-                setOfflineMode(true, `Showing your library as it was cached ${describeCacheAge(cached.savedAt)}. Installed games still launch; downloads, backups and restores are unavailable until the server returns.`);
+                setOfflineMode(true, `${sourceCopy} Installed games still launch; downloads, backups and restores are unavailable until the server returns.`);
                 renderFilters();
                 await renderContent();
                 return true;
@@ -2080,7 +2115,7 @@
                     // The server answered nothing at all. If this client has been
                     // signed in before and has a cached library, offline mode is
                     // far more useful than a login box that cannot succeed.
-                    if (isOfflineError(e) && sessionToken && readCachedLibrary(currentTab)) {
+                    if (isOfflineError(e)) {
                         console.log('[Offline] Server unreachable - entering offline mode');
                         if (await enterOfflineMode(currentTab)) return;
                     }

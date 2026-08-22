@@ -8,7 +8,7 @@ const {
     sanitizeLaunchEnvironment,
     selectProfile
 } = require('./emudeck');
-const { normalizeSaveRelativePath, scanDirectoryStats, scanLocalEmulation } = require('./local-library');
+const { normalizeSaveRelativePath, scanDirectoryStats, scanLocalEmulation, scanLocalGames } = require('./local-library');
 const { collectSwitchBundleFiles, discoverSwitchAssociations, matchSwitchTitleId, readSlotTitleId, resolveRyujinxUserRoot, resolveSwitchSlotsRoot } = require('./switch-library');
 const { createSwitchAutoSync, slotIdFromRelativePath } = require('./switch-autosync');
 const { restoreSwitchBundle } = require('./switch-save-restore');
@@ -195,6 +195,15 @@ ipcMain.handle('scan-local-emulation', async (event, baseDir) => {
         return results;
     } catch (e) {
         console.error('[Scan] Walk failed:', e);
+        return [];
+    }
+});
+
+// Offline listing: the same rules the server uses to decide what is a game,
+// applied to the local disk when the server cannot be reached.
+ipcMain.handle('scan-local-games', async (event, baseDir) => {
+    try { return scanLocalGames(baseDir); } catch (error) {
+        console.error('[Offline] Local game scan failed:', error.message);
         return [];
     }
 });

@@ -9,8 +9,7 @@ const {
     isLibraryItemInstalled,
     normalizeSaveRelativePath,
     scanDirectoryStats,
-    scanLocalEmulation
-} = require('./local-library');
+    scanLocalEmulation, scanLocalGames } = require('./local-library');
 
 test('save upload paths normalize one Windows separator and reject traversal', () => {
     assert.equal(normalizeSaveRelativePath('ryujinx\\saves\\0000000000000002\\save.bin'), 'ryujinx/saves/0000000000000002/save.bin');
@@ -64,4 +63,40 @@ test('stat scans do not leak physical paths through symlinked save folders', t =
     assert.equal(files[0].relPath, 'ryujinx/profiles/save.bin');
     assert.equal(files[0].relPath.includes('..'), false);
     assert.ok(files[0].mtime instanceof Date);
+});
+
+test('offline game scan applies the same rules the server uses', t => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'romstore-offline-scan-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+    const switchDir = path.join(root, 'roms', 'switch');
+    fs.mkdirSync(path.join(switchDir, 'media', 'boxart'), { recursive: true });
+    fs.writeFileSync(path.join(switchDir, 'systeminfo.txt'),
+        'System name:\nswitch\n\nSupported file extensions:\n.nsp .xci\n');
+    fs.writeFileSync(path.join(switchDir, 'Mario.xci'), 'rom');
+    fs.writeFileSync(path.join(switchDir, 'Zelda.nsp'), 'rom');
+    fs.writeFileSync(path.join(switchDir, 'notes.txt'), 'x');
+    fs.writeFileSync(path.join(switchDir, 'cover.png'), 'x');
+    fs.writeFileSync(path.join(switchDir, 'media', 'boxart', 'Mario.png'), 'art');
+
+    // Config-only tree with no systeminfo.txt must not masquerade as games.
+    const model2 = path.join(root, 'roms', 'model2', 'CFG');
+    fs.mkdirSync(model2, { recursive: true });
+    fs.writeFileSync(path.join(model2, 'daytona.input'), 'cfg');
+    fs.writeFileSync(path.join(model2, 'readme.txt'), 'x');
+
+    // Emulator launchers are never games.
+    fs.mkdirSync(path.join(root, 'roms', 'emulators'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'roms', 'emulators', 'cemu.sh'), '#!/bin/sh');
+
+    const games = scanLocalGames(root).map(game => game.relPath);
+    assert.deepEqual(games.filter(p => p.startsWith('switch/')), ['switch/Mario.xci', 'switch/Zelda.nsp']);
+    assert.equal(games.some(p => p.includes('media/')), false, 'artwork directories are skipped');
+    assert.equal(games.some(p => p.startsWith('emulators/')), false, 'emulator launchers are skipped');
+    assert.equal(games.some(p => p.endsWith('.txt') || p.endsWith('.png')), false);
+});
+
+test('offline game scan returns nothing when there is no local library', () => {
+    assert.deepEqual(scanLocalGames('/nonexistent-romstore-path'), []);
+    assert.deepEqual(scanLocalGames(''), []);
 });
