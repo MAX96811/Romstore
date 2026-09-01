@@ -79,6 +79,7 @@ The client is an Electron app that connects to your server.
 *   **Server URL**: Enter your server address (e.g., `http://localhost:3000` or your LAN IP).
 *   **Local Directory**: Point this to your local emulation folder (e.g., `C:\Emulation` or `/home/deck/Emulation`).
 *   **Emulator Profiles**: EmuDeck profiles are detected automatically. A per-platform custom command can be supplied in Settings using `{rom}` as the installed game's path.
+*   **Controller Support**: The client menu is fully navigable with a gamepad (d-pad/stick to move, A to select, B to back out) — handy for Steam Big Picture. Dolphin/Ryujinx controller input is configured manually in each emulator as usual; RomStore doesn't touch those. Launching RomStore through Steam (as a non-Steam game) is the recommended path, since Steam Input's virtual controller is always detected correctly. If you run the client standalone and a Bluetooth controller isn't detected, some controllers (e.g. the Bluetooth Xbox Wireless Controller) aren't tagged as a joystick by Linux's default udev rules, which hides them from the browser Gamepad API — see `deploy/udev/65-xbox-bt-joystick-fix.rules` for the one-command fix.
 
 ### Uploading and Playing
 1. Click **Upload Games** in the desktop client, select one or more files, and choose an EmuDeck console folder.

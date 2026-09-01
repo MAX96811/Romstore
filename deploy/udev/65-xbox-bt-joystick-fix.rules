@@ -1,0 +1,10 @@
+# The Bluetooth "Xbox Wireless Controller" (045e:0b22) isn't classified as a
+# joystick by the default input_id heuristic, which hides it from the
+# Gamepad API in Chromium/Electron apps -- including RomStore's own client
+# when it's run standalone rather than launched through Steam (Steam Input's
+# virtual controller is tagged correctly and doesn't need this).
+#
+# Install: sudo cp 65-xbox-bt-joystick-fix.rules /etc/udev/rules.d/
+#          sudo udevadm control --reload-rules
+#          sudo udevadm trigger --subsystem-match=input
+SUBSYSTEM=="input", ATTRS{name}=="Xbox Wireless Controller", ENV{ID_INPUT_JOYSTICK}="1"
