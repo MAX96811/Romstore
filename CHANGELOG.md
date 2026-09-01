@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.2.1 - 2026-09-01
+
+### Fixed
+- The desktop client's "Scan missing artwork and metadata" button did nothing at all. The button existed with no handler behind it; the only implementation lived in the web admin panel and was never ported to the client.
+- That web implementation applied a match only when IGDB returned exactly one result, which real dump filenames never produce, so it opened a blocking "Select Match" dialog for every unmatched game in turn rather than scanning.
+- Search queries no longer lose the game. No-Intro set indexes (`0573 - `), region and language tags, Title IDs, version and content markers are stripped, and a trailing article is restored (`Legend of Zelda, The` becomes `The Legend of Zelda`). The set index alone was why every Nintendo DS game returned no results whatsoever.
+- DLC can no longer inherit its base game's artwork. The query cleaner used to strip `[DLC ...]` along with every other bracketed tag, collapsing each add-on onto the base game title.
+
+### Added
+- The scan runs as a background job on the server (`POST /api/metadata/autoscan`, polled through `/api/metadata/autoscan/status`), since a full library is hundreds of IGDB requests against a four-per-second rate limit. Both the client and the web panel show live progress.
+- Artwork is applied unattended only when the cleaned filename and the result title are identical once normalized, with platform and original release date breaking ties. Everything ambiguous is collected for a single review pass instead of being guessed at.
+- DLC is filed separately. Files under a `DLC` or `Updates` folder stay in the library and stay downloadable, but are tagged and moved out of the main grid into a collapsed "DLC & updates" section, and the library count reports games and DLC apart.
+- Uploads whose filename carries a `[DLC ...]` marker are placed in `<system>/DLC/` automatically.
+
 ## v2.2.0 - 2026-08-31
 
 ### Added
