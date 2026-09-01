@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.2.0 - 2026-08-31
+
+### Added
+- Full gamepad navigation in the desktop client. The d-pad or left stick moves focus to the nearest control in that direction, A activates it, B closes the open dialog (or clears the search box), LB/RB step through the system filters, and Start opens Settings — so the client is usable from Steam Big Picture on a TV with no mouse or keyboard. Focus is confined to the topmost open dialog while one is up, and the focus ring only appears once a controller has actually been used, so nothing changes for mouse users.
+- `deploy/udev/65-xbox-bt-joystick-fix.rules`, for the Bluetooth Xbox Wireless Controller. Linux's default `input_id` heuristic does not tag it `ID_INPUT_JOYSTICK`, which hides it from the Gamepad API entirely when the client is run standalone. Launching RomStore through Steam avoids this, since Steam Input's virtual pad is tagged correctly.
+
 ## v2.1.5 - 2026-08-19
 
 ### Added

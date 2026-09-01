@@ -1,6 +1,6 @@
 {
   "name": "romstore-client",
-  "version": "2.1.5",
+  "version": "2.2.0",
   "description": "RomStore Desktop Client",
   "author": "RomStore Team",
   "desktopName": "com.romstore.client",
