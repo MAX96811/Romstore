@@ -427,6 +427,65 @@
             margin-top: 0;
         }
 
+        .dlc-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dlc-header:hover {
+            color: var(--accent);
+        }
+
+        .dlc-caret {
+            font-size: 0.8em;
+            color: var(--accent);
+        }
+
+        .dlc-count {
+            margin-left: auto;
+            font-size: 0.8em;
+            color: #888;
+            letter-spacing: 0;
+        }
+
+        .scan-review-item {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #232323;
+        }
+
+        .scan-review-item:last-child {
+            border-bottom: none;
+        }
+
+        .scan-candidate {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 6px 8px;
+            border: 1px solid #2a2a2a;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #141414;
+        }
+
+        .scan-candidate:hover {
+            border-color: var(--accent);
+        }
+
+        .scan-candidate img {
+            width: 34px;
+            height: 46px;
+            object-fit: cover;
+            border-radius: 4px;
+            background: #222;
+        }
+
         .library-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
@@ -1391,6 +1450,15 @@
             <button class="action-btn" id="auto-scan-btn" style="width:100%">Scan missing artwork and metadata</button>
         </div>
     </div>
+    <div id="scan-review-modal" class="modal">
+        <div class="modal-content" style="width:720px; max-width:96%;">
+            <div class="modal-header"><span>Review artwork matches</span><span class="close-btn" id="close-scan-review-btn">&times;</span></div>
+            <p style="color:#bbb; font-size:0.9em; line-height:1.5; margin-bottom:16px;">
+                These titles had no confident match, so nothing was applied. Pick the right game to fetch its artwork, or leave it alone.
+            </p>
+            <div id="scan-review-list" style="max-height:60vh; overflow-y:auto;"></div>
+        </div>
+    </div>
     <div id="upload-modal" class="modal">
         <div class="modal-content" style="width:650px; max-width:95%;">
             <div class="modal-header"><span>Upload Games</span><span class="close-btn" id="close-upload-btn">&times;</span></div>
@@ -1465,7 +1533,7 @@
             const isElectron = !!(window.electronAPI);
             let serverUrl = '', localDir = '', sessionToken = localStorage.getItem('romstore_token') || '';
             let currentTab = 'games', rawData = [], activeFilters = new Set(), installedLocalPaths = new Set(), isGrouped = false, isSetupMode = false;
-            let isListView = false, isAutoSync = false;
+            let isListView = false, isAutoSync = false, showDlc = false;
             let isAuthenticated = false;
             let rememberMe = true;
             let keepInBackground = false;
@@ -2060,13 +2128,20 @@
                 return installedLocalPaths.has(`${section}/${relPath}`);
             }
 
-            function updateLibraryChrome(filteredCount = rawData.length) {
+            function updateLibraryChrome(filteredCount) {
                 const isGames = currentTab === 'games';
                 const noun = isGames ? 'game' : 'BIOS file';
                 const installedCount = rawData.filter(item => isInstalledLocally(item)).length;
+                // DLC is counted apart from the games, so the headline number
+                // still answers "how many games do I have".
+                const dlcTotal = rawData.filter(item => item.isDlc).length;
+                const gameTotal = rawData.length - dlcTotal;
+                const shown = filteredCount === undefined ? gameTotal : filteredCount;
                 document.getElementById('library-heading').textContent = isGames ? 'Game library' : 'BIOS library';
                 document.getElementById('library-summary').textContent =
-                    `${rawData.length} ${noun}${rawData.length === 1 ? '' : 's'} · ${installedCount} ${isGames ? 'ready to play' : 'on this PC'}${filteredCount !== rawData.length ? ` · ${filteredCount} shown` : ''}`;
+                    `${gameTotal} ${noun}${gameTotal === 1 ? '' : 's'} · ${installedCount} ${isGames ? 'ready to play' : 'on this PC'}`
+                    + (dlcTotal ? ` · ${dlcTotal} DLC` : '')
+                    + (shown !== gameTotal ? ` · ${shown} shown` : '');
                 document.getElementById('installed-filter-label').textContent = `Installed (${installedCount})`;
 
                 const statusPill = document.getElementById('client-status-pill');
@@ -2169,7 +2244,8 @@
                     sortMode: document.getElementById('sort-select').value,
                     searchVal: document.getElementById('search-filter').value,
                     installedOnly: document.getElementById('installed-only-filter').checked,
-                    isAutoSync
+                    isAutoSync,
+                    showDlc
                 }));
             }
             function loadUIState() {
@@ -2179,6 +2255,7 @@
                     const state = JSON.parse(saved);
                     currentTab = state.currentTab || 'games'; activeFilters = new Set(state.activeFilters || []); isGrouped = !!state.isGrouped;
                     isListView = !!state.isListView;
+                    showDlc = !!state.showDlc;
                     const safetyMigrationKey = 'romstore_safe_sync_v2';
                     const needsSafetyReset = !localStorage.getItem(safetyMigrationKey);
                     isAutoSync = needsSafetyReset ? false : !!state.isAutoSync;
@@ -3034,9 +3111,15 @@
                     return 0;
                 });
 
+                // Add-on content is kept out of the main grid: a hundred costume
+                // packs bury the twenty games they belong to. It stays in the
+                // library and stays installable, just behind its own header.
+                const dlcItems = filtered.filter(item => item.isDlc);
+                filtered = filtered.filter(item => !item.isDlc);
+
                 updateLibraryChrome(filtered.length);
 
-                if (filtered.length === 0) {
+                if (filtered.length === 0 && dlcItems.length === 0) {
                     const installedOnly = document.getElementById('installed-only-filter').checked;
                     c.innerHTML = `<div class="library-state"><div class="library-state-icon">${installedOnly ? '↓' : '⌕'}</div><strong>${installedOnly ? 'No installed items match' : 'No library items found'}</strong><span>${installedOnly ? 'Choose Install on a game to add it to this PC.' : 'Try clearing the search or console filters.'}</span></div>`;
                     return;
@@ -3064,10 +3147,163 @@
                         c.appendChild(header);
                         c.appendChild(await renderGroup(groups[system]));
                     }
-                } else {
+                } else if (filtered.length) {
                     c.appendChild(await renderGroup(filtered));
                 }
+
+                if (dlcItems.length) {
+                    const header = document.createElement('div');
+                    header.className = 'section-header dlc-header';
+                    header.tabIndex = 0;
+                    header.innerHTML = `<span class="dlc-caret">${showDlc ? '▾' : '▸'}</span> DLC &amp; updates <span class="dlc-count">${dlcItems.length}</span>`;
+                    header.onclick = () => { showDlc = !showDlc; saveUIState(); renderContent(); };
+                    c.appendChild(header);
+                    if (showDlc) c.appendChild(await renderGroup(dlcItems));
+                }
             }
+            // ---- ARTWORK & METADATA SCAN ----
+            // A full library is hundreds of IGDB round trips at a rate limit of
+            // four a second, well past any HTTP timeout, so the server runs the
+            // scan as a background job and the client polls it for progress.
+            const SCAN_BUTTON_LABEL = 'Scan missing artwork and metadata';
+            let scanPollTimer = null;
+
+            function setScanButton(text, disabled) {
+                const btn = document.getElementById('auto-scan-btn');
+                if (!btn) return;
+                btn.innerText = text;
+                btn.disabled = !!disabled;
+            }
+
+            async function startArtworkScan() {
+                if (!requireOnline('Scanning for artwork')) return;
+                setScanButton('Starting scan…', true);
+                try {
+                    const res = await fetch(getApiUrl('/api/metadata/autoscan'), getFetchOptions('POST', { includeDlc: false }));
+                    if (res.status === 409) {
+                        showToast('A scan is already running.', 'info');
+                        pollArtworkScan();
+                        return;
+                    }
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const status = await res.json();
+                    if (!status.total) {
+                        setScanButton(SCAN_BUTTON_LABEL, false);
+                        showToast('Every game already has artwork and metadata.', 'success');
+                        return;
+                    }
+                    showToast(`Scanning ${status.total} game${status.total === 1 ? '' : 's'}…`, 'info');
+                    pollArtworkScan();
+                } catch (error) {
+                    console.error('[Scan] Could not start:', error);
+                    showToast('Could not start the scan.', 'error');
+                    setScanButton(SCAN_BUTTON_LABEL, false);
+                }
+            }
+
+            function pollArtworkScan() {
+                clearTimeout(scanPollTimer);
+                scanPollTimer = setTimeout(async () => {
+                    try {
+                        const res = await fetch(getApiUrl('/api/metadata/autoscan/status'), getFetchOptions());
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        const status = await res.json();
+
+                        if (status.running) {
+                            setScanButton(`Scanning… ${status.processed}/${status.total}`, true);
+                            pollArtworkScan();
+                            return;
+                        }
+
+                        setScanButton(SCAN_BUTTON_LABEL, false);
+                        if (!status.started) return;
+
+                        const review = status.review || [];
+                        showToast(`Scan complete — ${status.applied} matched, ${review.length} to review.`, 'success');
+                        await loadLibrary();
+                        if (review.length) renderScanReview(review);
+                    } catch (error) {
+                        console.error('[Scan] Status check failed:', error);
+                        setScanButton(SCAN_BUTTON_LABEL, false);
+                        showToast('Lost track of the running scan.', 'error');
+                    }
+                }, 1200);
+            }
+
+            async function applyScanChoice(relPath, candidate, row) {
+                try {
+                    const res = await fetch(getApiUrl('/api/metadata/apply'), getFetchOptions('POST', { relPath, igdbData: candidate }));
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    row.innerHTML = '';
+                    const done = document.createElement('div');
+                    done.style.cssText = 'color:#8bc34a; font-size:0.9em;';
+                    done.textContent = `Applied “${candidate.name}”`;
+                    row.appendChild(done);
+                    await loadLibrary();
+                } catch (error) {
+                    console.error('[Scan] Apply failed:', error);
+                    showToast('Could not apply that match.', 'error');
+                }
+            }
+
+            function renderScanReview(review) {
+                const list = document.getElementById('scan-review-list');
+                list.innerHTML = '';
+
+                const choosable = review.filter(entry => (entry.candidates || []).length);
+                const unmatched = review.filter(entry => !(entry.candidates || []).length);
+
+                choosable.forEach(entry => {
+                    const row = document.createElement('div');
+                    row.className = 'scan-review-item';
+
+                    const label = document.createElement('div');
+                    label.style.cssText = 'min-width:190px; max-width:190px;';
+                    const title = document.createElement('div');
+                    title.style.cssText = 'color:#fff; font-size:0.9em; word-break:break-word;';
+                    title.textContent = entry.name;
+                    const query = document.createElement('div');
+                    query.style.cssText = 'color:#777; font-size:0.78em; margin-top:2px;';
+                    query.textContent = `searched “${entry.query}”`;
+                    label.appendChild(title);
+                    label.appendChild(query);
+
+                    const options = document.createElement('div');
+                    options.style.cssText = 'display:flex; gap:8px; overflow-x:auto; flex:1;';
+                    entry.candidates.slice(0, 6).forEach(candidate => {
+                        const option = document.createElement('div');
+                        option.className = 'scan-candidate';
+                        if (candidate.coverUrl) {
+                            const img = document.createElement('img');
+                            img.src = candidate.coverUrl;
+                            img.loading = 'lazy';
+                            option.appendChild(img);
+                        }
+                        const text = document.createElement('div');
+                        text.style.cssText = 'font-size:0.8em; color:#ddd; max-width:130px;';
+                        const year = candidate.first_release_date ? new Date(candidate.first_release_date * 1000).getFullYear() : '';
+                        text.textContent = year ? `${candidate.name} (${year})` : candidate.name;
+                        option.appendChild(text);
+                        option.onclick = () => applyScanChoice(entry.relPath, candidate, row);
+                        options.appendChild(option);
+                    });
+
+                    row.appendChild(label);
+                    row.appendChild(options);
+                    list.appendChild(row);
+                });
+
+                if (unmatched.length) {
+                    const note = document.createElement('div');
+                    note.style.cssText = 'margin-top:16px; color:#888; font-size:0.85em; line-height:1.6;';
+                    note.textContent = `No IGDB results at all for ${unmatched.length} item${unmatched.length === 1 ? '' : 's'}: `
+                        + unmatched.map(entry => entry.name).join(', ');
+                    list.appendChild(note);
+                }
+
+                document.getElementById('scan-review-modal').style.display = 'flex';
+            }
+
             function changeTab(t) { currentTab = t; document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.id === 'tab-' + t)); activeFilters.clear(); document.getElementById('search-filter').value = ''; saveUIState(); loadLibrary(); }
 
             document.addEventListener('DOMContentLoaded', async () => {
@@ -3084,6 +3320,8 @@
                 };
                 document.getElementById('open-upload-btn').onclick = openUploadModal;
                 document.getElementById('close-upload-btn').onclick = () => { document.getElementById('upload-modal').style.display = 'none'; };
+                document.getElementById('auto-scan-btn').onclick = startArtworkScan;
+                document.getElementById('close-scan-review-btn').onclick = () => { document.getElementById('scan-review-modal').style.display = 'none'; };
                 document.getElementById('select-upload-files-btn').onclick = () => document.getElementById('upload-file-input').click();
                 document.getElementById('upload-file-input').onchange = event => setSelectedUploadFiles(event.target.files);
                 const uploadDropzone = document.getElementById('upload-dropzone');

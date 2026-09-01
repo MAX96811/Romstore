@@ -772,6 +772,7 @@ input[type='password']:focus,
     // State
     let currentTab = 'games';
     let rawData = [];
+    let showDlc = false;
     let activeFilters = new Set(); 
     let isGrouped = false;
     let editingGamePath = null;
@@ -779,7 +780,7 @@ input[type='password']:focus,
     
     // Auto Scan State
     let isAutoScanning = false;
-    let autoScanQueue = [];
+    let autoScanReview = [];
     let autoScanResolver = null;
 
     // Upload State
@@ -1258,42 +1259,94 @@ input[type='password']:focus,
         } catch(e) { showToast('Error applying metadata', 'error'); }
     }
 
+    // The scan runs server-side as a background job: a full library is hundreds
+    // of IGDB round trips at four requests a second, and only an exact title
+    // match is applied unattended. Anything ambiguous comes back for review
+    // instead of interrupting the scan with a modal per game.
+    let scanPollTimer = null;
+
     async function autoScanLibrary() {
-        if(isAutoScanning) return;
         const btn = document.getElementById('auto-scan-btn');
-        autoScanQueue = rawData.filter(g => !g.hasMetadata);
-        if(autoScanQueue.length === 0) return showToast('All games already have metadata!', 'success');
-        isAutoScanning = true;
-        btn.innerText = "Scanning Queue...";
         btn.disabled = true;
-        document.getElementById('settings-modal').style.display = 'none';
-        let appliedCount = 0;
-        showToast(`Auto-Scanning ${autoScanQueue.length} games...`, 'info');
-        for (const game of autoScanQueue) {
-            editingGamePath = game.relPath; 
-            try {
-                const res = await fetch(`/api/metadata/search?q=${encodeURIComponent(game.originalName || game.name)}`);
-                const results = await res.json();
-                if (results && results.length > 0) {
-                    if (results.length === 1) {
-                        await applyMetadata(results[0], true);
-                        appliedCount++;
-                    } else {
-                        await new Promise(resolve => {
-                            autoScanResolver = resolve;
-                            startMetadataFlow(game.name, game.relPath, results);
-                        });
-                        appliedCount++;
-                    }
-                }
-            } catch (err) { console.error(err); }
+        btn.innerText = 'Starting scan...';
+        try {
+            const res = await fetch('/api/metadata/autoscan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ includeDlc: false })
+            });
+            if (res.status === 409) {
+                showToast('A scan is already running.', 'info');
+                pollAutoScan();
+                return;
+            }
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const status = await res.json();
+            if (!status.total) {
+                resetScanButton();
+                showToast('All games already have artwork and metadata!', 'success');
+                return;
+            }
+            document.getElementById('settings-modal').style.display = 'none';
+            showToast(`Auto-scanning ${status.total} games...`, 'info');
+            pollAutoScan();
+        } catch (err) {
+            console.error(err);
+            resetScanButton();
+            showToast('Could not start the scan.', 'error');
         }
-        isAutoScanning = false;
-        autoScanResolver = null;
-        btn.innerText = "✨ Auto Scan Metadata";
+    }
+
+    function resetScanButton() {
+        const btn = document.getElementById('auto-scan-btn');
         btn.disabled = false;
-        loadLibrary();
-        showToast(`Scan Complete! Updated ${appliedCount} games.`, 'success');
+        btn.innerText = '\u2728 Auto Scan Missing Metadata';
+    }
+
+    function pollAutoScan() {
+        clearTimeout(scanPollTimer);
+        scanPollTimer = setTimeout(async () => {
+            try {
+                const res = await fetch('/api/metadata/autoscan/status');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const status = await res.json();
+
+                if (status.running) {
+                    const btn = document.getElementById('auto-scan-btn');
+                    btn.disabled = true;
+                    btn.innerText = `Scanning ${status.processed}/${status.total}...`;
+                    pollAutoScan();
+                    return;
+                }
+
+                resetScanButton();
+                if (!status.started) return;
+                autoScanReview = (status.review || []).filter(entry => (entry.candidates || []).length);
+                showToast(`Scan complete! Matched ${status.applied}, ${(status.review || []).length} need review.`, 'success');
+                loadLibrary();
+                if (autoScanReview.length) reviewNextScanResult();
+            } catch (err) {
+                console.error(err);
+                resetScanButton();
+                showToast('Lost track of the running scan.', 'error');
+            }
+        }, 1200);
+    }
+
+    // The review queue reuses the existing conflict modal, one entry at a time.
+    function reviewNextScanResult() {
+        const entry = autoScanReview.shift();
+        if (!entry) return;
+        isAutoScanning = true;
+        new Promise(resolve => {
+            autoScanResolver = resolve;
+            startMetadataFlow(entry.name, entry.relPath, entry.candidates);
+        }).then(() => {
+            isAutoScanning = false;
+            autoScanResolver = null;
+            if (autoScanReview.length) reviewNextScanResult();
+            else loadLibrary();
+        });
     }
 
     function skipCurrentAutoGame() {
@@ -1517,7 +1570,12 @@ input[type='password']:focus,
             });
         }
 
-        if (filtered.length === 0) {
+        // Add-on content sits behind its own header instead of burying the
+        // games it belongs to.
+        const dlcItems = filtered.filter(item => item.isDlc);
+        filtered = filtered.filter(item => !item.isDlc);
+
+        if (filtered.length === 0 && dlcItems.length === 0) {
             content.innerHTML = '<div style="text-align:center; margin-top:20px;">No items match the current filters.</div>';
             return;
         }
@@ -1548,11 +1606,26 @@ input[type='password']:focus,
                 groups[sys].forEach(item => grid.appendChild(createCard(item)));
                 content.appendChild(grid);
             });
-        } else {
+        } else if (filtered.length) {
             const grid = document.createElement('div');
             grid.className = 'library-grid';
             filtered.forEach(item => grid.appendChild(createCard(item)));
             content.appendChild(grid);
+        }
+
+        if (dlcItems.length) {
+            const header = document.createElement('div');
+            header.className = 'section-header';
+            header.style.cursor = 'pointer';
+            header.textContent = `${showDlc ? '▾' : '▸'} DLC & updates (${dlcItems.length})`;
+            header.onclick = () => { showDlc = !showDlc; renderContent(); };
+            content.appendChild(header);
+            if (showDlc) {
+                const grid = document.createElement('div');
+                grid.className = 'library-grid';
+                dlcItems.forEach(item => grid.appendChild(createCard(item)));
+                content.appendChild(grid);
+            }
         }
     }
 

@@ -11,9 +11,15 @@ const { execSync } = require('child_process');
 const {
     findGameFiles,
     getPlatformInfo,
+    isDlcRelPath,
     listPlatforms,
+    looksLikeDlcFileName,
     resolveUploadDirectory
 } = require('./lib/rom-library');
+const {
+    cleanSearchQuery,
+    pickConfidentMatch
+} = require('./lib/game-title');
 const {
     findCanonicalFile,
     inventoryLegacyBackslashFiles,
@@ -898,8 +904,8 @@ app.get('/api/switch-save-candidates', requireAuth, (req, res) => {
 // --- API ROUTES ---
 
 // 1. List Games (ROMs) with Metadata
-app.get('/api/games', requireAuth, (req, res) => {
-    if (!fs.existsSync(ROMS_DIR)) return res.json([]);
+function buildGameList() {
+    if (!fs.existsSync(ROMS_DIR)) return [];
     const systems = listPlatforms(ROMS_DIR);
     const games = [];
 
@@ -964,12 +970,17 @@ app.get('/api/games', requireAuth, (req, res) => {
                     description: description,
                     hasMetadata: !!meta,
                     switchTitleId: filenameSwitchTitleId || metadataSwitchTitleId,
-                    switchTitleIdSource: filenameSwitchTitleId ? 'filename' : (metadataSwitchTitleId ? 'metadata' : null)
+                    switchTitleIdSource: filenameSwitchTitleId ? 'filename' : (metadataSwitchTitleId ? 'metadata' : null),
+                    isDlc: isDlcRelPath(relPath)
                 });
             });
         } catch (e) { }
     });
-    res.json(games);
+    return games;
+}
+
+app.get('/api/games', requireAuth, (req, res) => {
+    res.json(buildGameList());
 });
 
 // 2. List Saves
@@ -1142,6 +1153,14 @@ app.get('/api/artwork', requireAuth, (req, res) => {
 });
 
 // 6. Upload
+// DLC is add-on content, not a game, and mixing it into the platform root is
+// what buries a library under a hundred Smash costume packs. Uploads whose name
+// carries a DLC marker are filed under <system>/DLC/ instead.
+function resolveUploadTargetDir(system, fileName) {
+    const baseDir = resolveUploadDirectory(ROMS_DIR, system);
+    return looksLikeDlcFileName(fileName) ? path.join(baseDir, 'DLC') : baseDir;
+}
+
 app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
     console.log(`[Upload] Request started (single) - path=${req.query.path || 'none'} - user=${req.session?.user?.username || 'unknown'}`);
     if (!req.file) return res.status(400).json({ error: 'Missing file' });
@@ -1153,8 +1172,8 @@ app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
         return res.status(400).json({ error: 'Invalid or missing target system folder' });
     }
 
-    const targetDir = resolveUploadDirectory(ROMS_DIR, safeSystem);
     const fileName = path.basename(req.file.originalname || req.file.filename);
+    const targetDir = resolveUploadTargetDir(safeSystem, fileName);
     const targetPath = path.join(targetDir, fileName);
 
     if (!path.resolve(targetPath).startsWith(path.resolve(targetDir) + path.sep)) {
@@ -1199,7 +1218,7 @@ app.post('/api/upload/chunk', requireAuth, chunkUpload.single('chunk'), (req, re
 
     const chunksDir = path.join(ROMS_DIR, '.tmp_chunks');
     const assembledPath = path.join(chunksDir, `${uploadId}.part`);
-    const targetDir = resolveUploadDirectory(ROMS_DIR, safeSystem);
+    const targetDir = resolveUploadTargetDir(safeSystem, safeFileName);
     const targetPath = path.join(targetDir, safeFileName);
 
     if (!path.resolve(assembledPath).startsWith(path.resolve(chunksDir) + path.sep) ||
@@ -1440,54 +1459,77 @@ app.post('/api/settings/keys', requireAuth, (req, res) => {
 });
 
 // Search IGDB
-app.get('/api/metadata/search', requireAuth, async (req, res) => {
-    let query = req.query.q;
-    if (!query) return res.status(400).json({ error: "Missing query" });
+async function searchIgdb(rawQuery) {
+    const query = cleanSearchQuery(rawQuery);
+    if (!query) return { query, results: [] };
 
-    // Clean Query Logic
-    console.log(`[IGDB] Original Query: "${query}"`);
+    const token = await getIgdbToken();
+    // Quotes would terminate the Apicalypse string literal early.
+    const escaped = query.replace(/["\\]/g, ' ').replace(/\s+/g, ' ').trim();
+    const response = await fetch('https://api.igdb.com/v4/games', {
+        method: 'POST',
+        headers: {
+            'Client-ID': apiKeys.clientId,
+            'Authorization': `Bearer ${token}`
+        },
+        body: `search "${escaped}"; fields name, cover.url, summary, first_release_date, platforms.name; limit 10;`
+    });
 
-    // 1. Remove extension
-    query = path.parse(query).name;
+    if (!response.ok) throw new Error(`IGDB request failed (${response.status})`);
+    const data = await response.json();
 
-    // 2. Remove things in brackets/parentheses e.g. (USA), [v1.0]
-    // Also remove common dump info like "En,Fr,Es", "Rev 1" if inside brackets
-    query = query.replace(/\s*[\(\[].*?[\)\]]/g, '');
-
-    // 3. Trim extra spaces
-    query = query.trim();
-
-    console.log(`[IGDB] Cleaned Query: "${query}"`);
-
-    try {
-        const token = await getIgdbToken();
-        // IGDB API: Search games, get cover, summary, etc.
-        const response = await fetch('https://api.igdb.com/v4/games', {
-            method: 'POST',
-            headers: {
-                'Client-ID': apiKeys.clientId,
-                'Authorization': `Bearer ${token}`
-            },
-            body: `search "${query}"; fields name, cover.url, summary, first_release_date, platforms.name; limit 10;`
-        });
-
-        if (!response.ok) throw new Error("IGDB Request Failed");
-        const data = await response.json();
-
-        // Fix cover URLs (they come as //images.igdb.com...)
-        const results = data.map(g => ({
+    // Fix cover URLs (they come as //images.igdb.com...)
+    return {
+        query,
+        results: data.map(g => ({
             ...g,
             coverUrl: g.cover ? `https:${g.cover.url}`.replace('t_thumb', 't_cover_big') : null
-        }));
+        }))
+    };
+}
 
+app.get('/api/metadata/search', requireAuth, async (req, res) => {
+    const rawQuery = req.query.q;
+    if (!rawQuery) return res.status(400).json({ error: "Missing query" });
+
+    try {
+        const { query, results } = await searchIgdb(rawQuery);
+        console.log(`[IGDB] "${rawQuery}" -> "${query}" (${results.length} results)`);
         res.json(results);
     } catch (err) {
-        console.error(err);
+        console.error('[IGDB] Search failed:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
 // Apply Metadata
+async function applyMetadataToGame(relPath, igdbData) {
+    // 1. Download Cover if exists
+    if (igdbData.coverUrl) {
+        const system = relPath.split('/')[0];
+        const gameFileName = path.basename(relPath);
+        const gameBaseName = path.parse(gameFileName).name;
+        // Target: roms/[system]/media/boxart/[gameName].png
+        const targetDir = path.join(ROMS_DIR, system, 'media', 'boxart');
+
+        // Check ext from url
+        const ext = path.extname(igdbData.coverUrl) || '.jpg';
+        const finalPath = path.join(targetDir, `${gameBaseName}${ext}`);
+
+        await downloadFile(igdbData.coverUrl, finalPath);
+    }
+
+    // 2. Save to Metadata JSON
+    gameMetadata[relPath] = {
+        ...(gameMetadata[relPath] || {}),
+        title: igdbData.name,
+        summary: igdbData.summary,
+        igdbId: igdbData.id,
+        releaseDate: igdbData.first_release_date
+    };
+    fs.writeFileSync(METADATA_FILE, JSON.stringify(gameMetadata, null, 2));
+}
+
 app.post('/api/metadata/apply', requireAuth, async (req, res) => {
     const relPath = normalizeSaveRelativePath(req.body.relPath);
     const { igdbData } = req.body;
@@ -1496,37 +1538,116 @@ app.post('/api/metadata/apply', requireAuth, async (req, res) => {
     console.log(`[Apply] Applying to ${relPath}`);
 
     try {
-        // 1. Download Cover if exists
-        if (igdbData.coverUrl) {
-            const system = relPath.split('/')[0];
-            const gameFileName = path.basename(relPath);
-            const gameBaseName = path.parse(gameFileName).name;
-            // Target: roms/[system]/media/boxart/[gameName].png
-            const targetDir = path.join(ROMS_DIR, system, 'media', 'boxart');
-            console.log(`[Apply] Target Dir: ${targetDir}`);
-
-            // Check ext from url
-            const ext = path.extname(igdbData.coverUrl) || '.jpg';
-            const finalPath = path.join(targetDir, `${gameBaseName}${ext}`);
-
-            await downloadFile(igdbData.coverUrl, finalPath);
-        }
-
-        // 2. Save to Metadata JSON
-        gameMetadata[relPath] = {
-            ...(gameMetadata[relPath] || {}),
-            title: igdbData.name,
-            summary: igdbData.summary,
-            igdbId: igdbData.id,
-            releaseDate: igdbData.first_release_date
-        };
-        fs.writeFileSync(METADATA_FILE, JSON.stringify(gameMetadata, null, 2));
-
+        await applyMetadataToGame(relPath, igdbData);
         res.json({ success: true });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: "Failed to apply metadata" });
     }
+});
+
+// --- Unattended artwork/metadata scan ---
+// The scan is a background job rather than one long request: a full library is
+// hundreds of IGDB round trips at a rate limit of 4/second, far past any
+// sensible HTTP timeout. Clients start it, then poll for progress.
+const IGDB_REQUEST_SPACING_MS = 300;
+let autoScanJob = null;
+
+function autoScanSnapshot() {
+    if (!autoScanJob) return { running: false, started: false };
+    return {
+        running: autoScanJob.running,
+        started: true,
+        startedAt: autoScanJob.startedAt,
+        finishedAt: autoScanJob.finishedAt,
+        cancelled: autoScanJob.cancelled,
+        total: autoScanJob.total,
+        processed: autoScanJob.processed,
+        applied: autoScanJob.applied,
+        failed: autoScanJob.failed,
+        current: autoScanJob.current,
+        error: autoScanJob.error,
+        // Everything the confidence check refused to decide, for manual review.
+        review: autoScanJob.review
+    };
+}
+
+async function runAutoScan(job) {
+    for (const game of job.queue) {
+        if (job.cancelled) break;
+        job.current = game.name;
+
+        try {
+            const { query, results } = await searchIgdb(game.originalName || game.name);
+            if (results.length === 0) {
+                job.review.push({ relPath: game.relPath, name: game.name, query, candidates: [], reason: 'no-results' });
+            } else {
+                const match = pickConfidentMatch(query, results, game.system);
+                if (match) {
+                    await applyMetadataToGame(game.relPath, match);
+                    job.applied += 1;
+                } else {
+                    job.review.push({ relPath: game.relPath, name: game.name, query, candidates: results.slice(0, 10), reason: 'ambiguous' });
+                }
+            }
+        } catch (err) {
+            console.error(`[AutoScan] ${game.relPath}: ${err.message}`);
+            job.failed += 1;
+            job.review.push({ relPath: game.relPath, name: game.name, query: game.originalName, candidates: [], reason: 'error' });
+        }
+
+        job.processed += 1;
+        if (!job.cancelled) await new Promise(resolve => setTimeout(resolve, IGDB_REQUEST_SPACING_MS));
+    }
+
+    job.running = false;
+    job.current = null;
+    job.finishedAt = Date.now();
+    console.log(`[AutoScan] Finished: ${job.applied} applied, ${job.review.length} for review, ${job.failed} failed`);
+}
+
+app.post('/api/metadata/autoscan', requireAuth, (req, res) => {
+    if (autoScanJob && autoScanJob.running) return res.status(409).json({ error: 'A scan is already running', status: autoScanSnapshot() });
+
+    const includeDlc = req.body && req.body.includeDlc === true;
+    const queue = buildGameList().filter(game => {
+        if (!includeDlc && game.isDlc) return false;
+        return !game.hasMetadata || !game.artworkPath;
+    });
+
+    autoScanJob = {
+        running: true,
+        cancelled: false,
+        startedAt: Date.now(),
+        finishedAt: null,
+        queue,
+        total: queue.length,
+        processed: 0,
+        applied: 0,
+        failed: 0,
+        current: null,
+        error: null,
+        review: []
+    };
+
+    console.log(`[AutoScan] Starting for ${queue.length} items (includeDlc=${includeDlc})`);
+    runAutoScan(autoScanJob).catch(err => {
+        console.error('[AutoScan] Aborted:', err.message);
+        autoScanJob.running = false;
+        autoScanJob.error = err.message;
+        autoScanJob.finishedAt = Date.now();
+    });
+
+    res.status(202).json(autoScanSnapshot());
+});
+
+app.get('/api/metadata/autoscan/status', requireAuth, (req, res) => {
+    res.json(autoScanSnapshot());
+});
+
+app.post('/api/metadata/autoscan/cancel', requireAuth, (req, res) => {
+    if (autoScanJob && autoScanJob.running) autoScanJob.cancelled = true;
+    res.json(autoScanSnapshot());
 });
 
 app.get('/api/sync/manifest', requireAuth, (req, res) => {

@@ -153,6 +153,14 @@ const OFFLINE_IGNORED_DIRECTORIES = new Set([
     'emulators', 'images', 'manuals', 'media', 'screenshots', 'videos'
 ]);
 const OFFLINE_IGNORED_FILES = new Set(['metadata.txt', 'systeminfo.txt']);
+const OFFLINE_DLC_DIRECTORIES = new Set(['dlc', 'dlcs', 'updates', 'update']);
+
+// Mirrors isDlcRelPath in lib/rom-library.js so an offline library separates
+// add-on content from games exactly the way the server's listing does.
+function isOfflineDlcRelPath(relPath) {
+    const segments = String(relPath || '').split(/[\\/]+/).slice(0, -1);
+    return segments.some(segment => OFFLINE_DLC_DIRECTORIES.has(segment.toLowerCase()));
+}
 
 function readSupportedExtensions(systemPath) {
     const infoPath = path.join(systemPath, 'systeminfo.txt');
@@ -206,11 +214,13 @@ function scanLocalGames(baseDir) {
                 const extension = path.extname(entry.name).toLowerCase();
                 if (supported.size && !supported.has(extension)) continue;
                 if (!supported.size && /\.(?:jpe?g|png|gif|webp|mp4|webm|pdf|txt|sh|bat|cfg|ini|json|log)$/i.test(entry.name)) continue;
+                const relPath = path.relative(romsDir, fullPath).replace(/\\/g, '/');
                 games.push({
-                    relPath: path.relative(romsDir, fullPath).replace(/\\/g, '/'),
+                    relPath,
                     name: entry.name,
                     originalName: entry.name,
-                    system: systemEntry.name
+                    system: systemEntry.name,
+                    isDlc: isOfflineDlcRelPath(relPath)
                 });
             }
         })(systemPath);
