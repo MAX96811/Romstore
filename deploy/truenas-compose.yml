@@ -1,6 +1,6 @@
 services:
   backend:
-    image: max96811/romstore-backend:2.1.2-local
+    image: ghcr.io/max96811/romstore-backend:2.2.0
     restart: unless-stopped
     volumes:
       - /mnt/DATA/romstore/app:/usr/src/app/data
@@ -13,7 +13,7 @@ services:
       - app-network
 
   frontend:
-    image: max96811/romstore-frontend:latest
+    image: max96811/romstore-frontend:2.2.0
     restart: unless-stopped
     ports:
       - "1567:80"
