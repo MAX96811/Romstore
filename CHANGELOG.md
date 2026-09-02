@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.2.2 - 2026-09-01
+
+### Fixed
+- A controller no longer drives the menu and the running game at the same time. Chromium keeps reporting pad state to a window that has lost focus, so every press was landing in the game and in the library behind it at once. Pad input is ignored unless the client actually holds focus, and is suspended explicitly from the moment a game is launched until focus returns — the window still has focus for the moment between pressing Play and the emulator appearing.
+- Dolphin starts with a window again. EmuDeck's launch template passes `-b`, Dolphin's batch mode, which boots the game with no main window and quits when it exits, leaving no way to reach Controller settings. The flag is dropped for Dolphin and Primehack; `-e` still boots the game directly.
+
+### Added
+- Controllers are configured in Ryujinx automatically. Every connected pad is detected and assigned to a player in order, before each Switch launch and from a button in Settings. Ryujinx identifies pads by SDL GUID, which changes with the device and the order it was connected, so this previously had to be redone by hand whenever anything changed.
+- Existing mappings are preserved. A pad that was customised in Ryujinx keeps its buttons, matched by GUID; a pad seen for the first time inherits the first configured mapping rather than a generic one. The configuration file is backed up before any change, is left untouched when nothing has changed, and is never written while Ryujinx is open, since the emulator rewrites it on exit.
+
 ## v2.2.1 - 2026-09-01
 
 ### Fixed
