@@ -44,7 +44,23 @@ test('profile selection falls back from a missing RetroArch core to standalone E
     assert.equal(profile.available, true);
     assert.equal(profile.label, 'EmuDeck alternative');
     assert.equal(profile.resolved.command, '/bin/bash');
-    assert.deepEqual(profile.resolved.args, [path.join(paths.emulationDir, 'tools', 'launchers', 'dolphin-emu.sh'), '-b', '-e', romPath]);
+    // EmuDeck's template is `-b -e %ROM%`; the batch flag is dropped so Dolphin
+    // still shows a window and its Controller settings stay reachable.
+    assert.deepEqual(profile.resolved.args, [path.join(paths.emulationDir, 'tools', 'launchers', 'dolphin-emu.sh'), '-e', romPath]);
+});
+
+test('the batch flag is dropped only for the emulators it makes windowless', t => {
+    const paths = fixture(t);
+    const romPath = path.join(paths.emulationDir, 'roms', 'wii', 'Game.iso');
+
+    const dolphin = resolveCommand('%EMULATOR_DOLPHIN% -b -e %ROM%', { ...paths, romPath, system: 'wii' });
+    assert.equal(dolphin.args.includes('-b'), false);
+    assert.equal(dolphin.args.includes('-e'), true);
+
+    // Other emulators use the same letter for something harmless, so the flag
+    // is only stripped from the launchers it actually makes windowless.
+    const retroarch = resolveCommand('%EMULATOR_RETROARCH% -b %ROM%', { ...paths, romPath, system: 'wii' });
+    assert.equal(retroarch.args.includes('-b'), true);
 });
 
 test('custom profiles support the Retrom-style {rom} placeholder', t => {

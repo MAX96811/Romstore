@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getEmulatorProfiles: (localDir) => ipcRenderer.invoke('get-emulator-profiles', localDir),
     saveEmulatorProfile: (payload) => ipcRenderer.invoke('save-emulator-profile', payload),
     launchGame: (payload) => ipcRenderer.invoke('launch-game', payload),
+    setupRyujinxControllers: () => ipcRenderer.invoke('setup-ryujinx-controllers'),
 
     // Events
     onDownloadProgress: (callback) => ipcRenderer.on('download-progress', callback),

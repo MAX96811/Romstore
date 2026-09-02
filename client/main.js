@@ -10,6 +10,7 @@ const {
 } = require('./emudeck');
 const { normalizeSaveRelativePath, scanDirectoryStats, scanLocalEmulation, scanLocalGames } = require('./local-library');
 const { collectSwitchBundleFiles, discoverSwitchAssociations, matchSwitchTitleId, readSlotTitleId, resolveRyujinxUserRoot, resolveSwitchSlotsRoot } = require('./switch-library');
+const { setupControllers } = require('./ryujinx-input');
 const { createSwitchAutoSync, slotIdFromRelativePath } = require('./switch-autosync');
 const { restoreSwitchBundle } = require('./switch-save-restore');
 
@@ -540,6 +541,25 @@ ipcMain.handle('launch-game', async (event, payload) => {
         return { success: false, error: profile.error || `No usable EmuDeck emulator was found for ${system}.` };
     }
 
+    // Ryujinx binds pads by SDL GUID, which changes as controllers come and go,
+    // so the mapping is refreshed from what is actually plugged in right before
+    // the emulator reads its config. It is a no-op when nothing has changed.
+    let controllerSetup = null;
+    if (system === 'switch') {
+        try {
+            controllerSetup = setupControllers({
+                homeDir: app.getPath('home'),
+                isEmulatorRunning: isRyujinxRunning
+            });
+            if (controllerSetup.changed) {
+                console.log(`[Controllers] Configured ${controllerSetup.controllers.length} for Ryujinx`);
+            }
+        } catch (error) {
+            // Never block a launch over controller setup.
+            console.error('[Controllers] Setup failed:', error.message);
+        }
+    }
+
     try {
         const child = spawn(profile.resolved.command, profile.resolved.args, {
             cwd: fs.existsSync(profile.resolved.cwd) ? profile.resolved.cwd : app.getPath('home'),
@@ -561,10 +581,24 @@ ipcMain.handle('launch-game', async (event, payload) => {
         });
         child.unref();
         console.log(`[Launch] ${system} via ${profile.label}:`, profile.resolved.command, profile.resolved.args);
-        return { success: true, system, profile: profile.label };
+        return {
+            success: true,
+            system,
+            profile: profile.label,
+            controllers: controllerSetup && controllerSetup.changed ? controllerSetup.controllers.length : 0
+        };
     } catch (error) {
         console.error('[Launch] Failed:', error);
         return { success: false, error: `Failed to start ${profile.label}: ${error.message}` };
+    }
+});
+
+ipcMain.handle('setup-ryujinx-controllers', () => {
+    try {
+        return setupControllers({ homeDir: app.getPath('home'), isEmulatorRunning: isRyujinxRunning });
+    } catch (error) {
+        console.error('[Controllers] Setup failed:', error.message);
+        return { success: false, reason: 'error', error: error.message, controllers: [], results: [] };
     }
 });
 

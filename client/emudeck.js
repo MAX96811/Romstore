@@ -38,7 +38,7 @@ const LAUNCHER_ALIASES = {
 };
 
 const FALLBACK_DEFINITIONS = {
-    gc: { fullName: 'Nintendo GameCube', commands: [{ label: 'Dolphin', template: '%EMULATOR_DOLPHIN% -b -e %ROM%' }] },
+    gc: { fullName: 'Nintendo GameCube', commands: [{ label: 'Dolphin', template: '%EMULATOR_DOLPHIN% -e %ROM%' }] },
     n3ds: { fullName: 'Nintendo 3DS', commands: [{ label: 'Azahar', template: '%EMULATOR_AZAHAR% %ROM%' }] },
     nds: { fullName: 'Nintendo DS', commands: [{ label: 'melonDS', template: '%EMULATOR_MELONDS% %ROM%' }] },
     ps2: { fullName: 'Sony PlayStation 2', commands: [{ label: 'PCSX2', template: '%EMULATOR_PCSX2% -batch %ROM%' }] },
@@ -46,7 +46,7 @@ const FALLBACK_DEFINITIONS = {
     psp: { fullName: 'Sony PSP', commands: [{ label: 'PPSSPP', template: '%EMULATOR_PPSSPP% %ROM%' }] },
     psx: { fullName: 'Sony PlayStation', commands: [{ label: 'DuckStation', template: '%EMULATOR_DUCKSTATION% -batch %ROM%' }] },
     switch: { fullName: 'Nintendo Switch', commands: [{ label: 'Ryujinx', template: '%EMULATOR_RYUJINX% %ROM%' }] },
-    wii: { fullName: 'Nintendo Wii', commands: [{ label: 'Dolphin', template: '%EMULATOR_DOLPHIN% -b -e %ROM%' }] },
+    wii: { fullName: 'Nintendo Wii', commands: [{ label: 'Dolphin', template: '%EMULATOR_DOLPHIN% -e %ROM%' }] },
     wiiu: { fullName: 'Nintendo Wii U', commands: [{ label: 'Cemu', template: '%EMULATOR_CEMU% -f -g %ROM%' }] },
     xbox: { fullName: 'Microsoft Xbox', commands: [{ label: 'xemu', template: '%EMULATOR_XEMU% -dvd_path %ROM%' }] }
 };
@@ -224,6 +224,18 @@ function normalizeLauncherPath(token, launcherDir) {
     return fs.existsSync(candidate) ? candidate : token;
 }
 
+// Dolphin's `-b` is batch mode: it boots straight into the game with no main
+// window and quits when the game does. That leaves no way to reach Controller
+// settings, or anything else in the GUI, so the flag is dropped. `-e` still
+// boots the game directly -- the difference is only that the window exists.
+const FRAMELESS_LAUNCHERS = ['dolphin-emu.sh', 'primehack.sh'];
+
+function keepEmulatorWindow(tokens) {
+    const launcher = tokens.find(token => FRAMELESS_LAUNCHERS.some(name => token.endsWith(name)));
+    if (!launcher) return tokens;
+    return tokens.filter(token => token !== '-b' && token !== '--batch');
+}
+
 function resolveCommand(template, options = {}) {
     const homeDir = options.homeDir || os.homedir();
     const emulationDir = options.emulationDir || path.join(homeDir, 'Emulation');
@@ -283,6 +295,8 @@ function resolveCommand(template, options = {}) {
             throw new Error(`RetroArch core is not installed: ${path.basename(token)}`);
         }
     }
+
+    tokens = keepEmulatorWindow(tokens);
 
     let command = tokens.shift();
     let args = tokens;
