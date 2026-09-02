@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.2.3 - 2026-09-01
+
+### Changed
+- Ryujinx controller setup is only automatic now. It already ran before every Switch launch, so the button in Settings was a second way to do the same thing and has been removed. Launching a game reports how many controllers were configured, and says so when an already-open Ryujinx meant they were left alone.
+
 ## v2.2.2 - 2026-09-01
 
 ### Fixed

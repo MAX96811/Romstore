@@ -1445,10 +1445,6 @@
                         <button id="save-emulator-profile-btn" class="action-btn" style="flex:1;">Save Profile</button>
                         <button id="refresh-emudeck-btn" class="action-btn" style="flex:1; background:#333; color:#fff; border-color:#555;">Refresh Detection</button>
                     </div>
-                    <div style="margin-top:12px;">
-                        <button id="setup-controllers-btn" class="action-btn" style="width:100%; background:#333; color:#fff; border-color:#555;">Set up controllers in Ryujinx</button>
-                        <div id="setup-controllers-status" style="font-size:0.8em; color:#888; margin-top:6px; line-height:1.5;">Runs on its own before each Switch game. Close Ryujinx first.</div>
-                    </div>
                 </section>
             </div>
             <button class="action-btn" id="auto-scan-btn" style="width:100%">Scan missing artwork and metadata</button>
@@ -1999,6 +1995,8 @@
                     if (result.success) {
                         if (result.controllers) {
                             showToast(`${result.controllers} controller${result.controllers === 1 ? '' : 's'} set up in Ryujinx.`, 'info');
+                        } else if (result.controllerSkipped) {
+                            showToast('Ryujinx is already open, so controllers were left as they are.', 'info');
                         }
                         showToast(`Launching with ${result.profile}…`, 'success');
                         return;
@@ -3184,48 +3182,6 @@
                 btn.disabled = !!disabled;
             }
 
-            async function setupRyujinxControllers() {
-                const button = document.getElementById('setup-controllers-btn');
-                const status = document.getElementById('setup-controllers-status');
-                if (!isElectron) {
-                    status.textContent = 'Controller setup needs the RomStore desktop client.';
-                    return;
-                }
-
-                button.disabled = true;
-                const originalLabel = button.innerText;
-                button.innerText = 'Detecting controllers…';
-                try {
-                    const result = await window.electronAPI.setupRyujinxControllers();
-                    const names = (result.controllers || []).map(controller => controller.name);
-
-                    if (result.success) {
-                        status.textContent = result.changed
-                            ? `${names.length} controller${names.length === 1 ? '' : 's'} configured: ${names.join(', ')}.`
-                            : `Already set up for ${names.join(', ')}. Nothing to change.`;
-                        showToast(result.changed ? 'Ryujinx controllers configured.' : 'Ryujinx controllers already match.', 'success');
-                    } else if (result.reason === 'emulator-running') {
-                        status.textContent = 'Close Ryujinx first — it rewrites its config when it exits, which would undo this.';
-                        showToast('Close Ryujinx first.', 'error');
-                    } else if (result.reason === 'no-controllers') {
-                        status.textContent = 'No controllers detected. Connect one and try again.';
-                        showToast('No controllers detected.', 'error');
-                    } else if (result.reason === 'no-config') {
-                        status.textContent = 'No Ryujinx configuration found. Start Ryujinx once so it writes one.';
-                        showToast('No Ryujinx configuration found.', 'error');
-                    } else {
-                        status.textContent = result.error || 'Controller setup failed.';
-                        showToast('Controller setup failed.', 'error');
-                    }
-                } catch (error) {
-                    console.error('[Controllers] Setup failed:', error);
-                    status.textContent = error.message || 'Controller setup failed.';
-                } finally {
-                    button.disabled = false;
-                    button.innerText = originalLabel;
-                }
-            }
-
             async function startArtworkScan() {
                 if (!requireOnline('Scanning for artwork')) return;
                 setScanButton('Starting scan…', true);
@@ -3372,7 +3328,6 @@
                 document.getElementById('open-upload-btn').onclick = openUploadModal;
                 document.getElementById('close-upload-btn').onclick = () => { document.getElementById('upload-modal').style.display = 'none'; };
                 document.getElementById('auto-scan-btn').onclick = startArtworkScan;
-                document.getElementById('setup-controllers-btn').onclick = setupRyujinxControllers;
                 document.getElementById('close-scan-review-btn').onclick = () => { document.getElementById('scan-review-modal').style.display = 'none'; };
                 document.getElementById('select-upload-files-btn').onclick = () => document.getElementById('upload-file-input').click();
                 document.getElementById('upload-file-input').onchange = event => setSelectedUploadFiles(event.target.files);

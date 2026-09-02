@@ -585,20 +585,15 @@ ipcMain.handle('launch-game', async (event, payload) => {
             success: true,
             system,
             profile: profile.label,
-            controllers: controllerSetup && controllerSetup.changed ? controllerSetup.controllers.length : 0
+            controllers: controllerSetup && controllerSetup.changed ? controllerSetup.controllers.length : 0,
+            // The one refusal worth mentioning: a Ryujinx that is already open
+            // will overwrite the configuration when it exits, so the pads keep
+            // whatever mapping they had and the player would not know why.
+            controllerSkipped: controllerSetup && controllerSetup.reason === 'emulator-running'
         };
     } catch (error) {
         console.error('[Launch] Failed:', error);
         return { success: false, error: `Failed to start ${profile.label}: ${error.message}` };
-    }
-});
-
-ipcMain.handle('setup-ryujinx-controllers', () => {
-    try {
-        return setupControllers({ homeDir: app.getPath('home'), isEmulatorRunning: isRyujinxRunning });
-    } catch (error) {
-        console.error('[Controllers] Setup failed:', error.message);
-        return { success: false, reason: 'error', error: error.message, controllers: [], results: [] };
     }
 });
 
