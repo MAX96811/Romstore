@@ -174,6 +174,7 @@ async function execute(actions) {
                 const tmp = path.join(tmpDir, 'up.bin');
                 execFileSync('adb', ['-s', ADDR, 'pull', a.thorPath, tmp], { stdio: 'pipe' });
                 const resp = await uploadSave(a.serverRel, tmp);
+                if (a.alsoUploadTo) await uploadSave(a.alsoUploadTo, tmp);
                 state[a.serverRel] = { thorMtimeMs: a.thor.mtimeMs, thorSize: a.thor.size, serverHash: resp.hash };
             }
             up++;
@@ -210,6 +211,40 @@ async function execute(actions) {
     const localUuids = adb(['shell', `ls ${shq(EDEN_THOR_BASE)} 2>/dev/null`]).split('\n')
         .map(s => s.trim()).filter(s => /^[0-9A-Fa-f]{32}$/.test(s) && !/^0+$/.test(s));
     const localUuid = localUuids[0] || null;
+
+    // Ryujinx bridge: the PC plays through Ryujinx (per-slot layout), the Thor
+    // through Eden (per-title layout). Join the two on the title id the server
+    // resolves from each slot's ExtraData, so one game shares one save.
+    if (localUuid) {
+        const slotByTitle = {};
+        for (const s of saves) {
+            const m = s.relPath.match(/^ryujinx\/saves\/([0-9a-f]{16})\/([01])\/(.+)$/i);
+            if (!m || !s.switchTitleId) continue;
+            const t = s.switchTitleId.toUpperCase();
+            (slotByTitle[t] ||= { slot: m[1], gens: {} });
+            (slotByTitle[t].gens[m[2]] ||= []).push({ ...s, file: m[3] });
+        }
+        for (const [title, info] of Object.entries(slotByTitle)) {
+            // Newest generation directory is Ryujinx's committed state.
+            const gens = Object.entries(info.gens);
+            if (!gens.length) continue;
+            const newest = gens.sort((a, b) =>
+                Math.max(...b[1].map(f => new Date(f.mtime).getTime())) -
+                Math.max(...a[1].map(f => new Date(f.mtime).getTime())))[0];
+            const [gen, files] = newest;
+            const thorBase = `${EDEN_THOR_BASE}/${localUuid}/${title}`;
+            const thorFiles = listThorFiles(thorBase);
+            const pairs = pairUp(thorFiles, files.map(f => ({ ...f, relPath: f.relPath })),
+                thorBase, `ryujinx/saves/${info.slot}/${gen}`);
+            // Uploads must land in BOTH generation dirs so Ryujinx sees a
+            // consistent committed state whichever one it opens.
+            for (const a of plan(pairs)) {
+                if (a.type === 'upload') a.alsoUploadTo = `ryujinx/saves/${info.slot}/${gen === '0' ? '1' : '0'}/${a.rel}`;
+                allActions.push(a);
+            }
+        }
+    }
+
     const serverEden = saves.filter(s => s.relPath.startsWith(EDEN_SERVER_BASE + '/'));
     const titleToServerUuid = {};
     for (const s of serverEden) {

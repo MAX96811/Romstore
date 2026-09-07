@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import 'cloud_sync.dart';
+
 // RomStore Android client — talks to the RomStore server and installs ROMs
 // directly into the on-device emulator tree at /storage/emulated/0/ROMs.
 
@@ -105,6 +107,48 @@ class Api {
 
   Map<String, String> get authHeaders =>
       config.cookie.isEmpty ? {} : {'cookie': config.cookie};
+
+  Future<List<Map>> saves() async {
+    final res = await _send('GET', '/api/saves');
+    if (res.statusCode != 200) throw Exception('saves: HTTP ${res.statusCode}');
+    final data = jsonDecode(await res.transform(utf8.decoder).join());
+    return (data as List).cast<Map>();
+  }
+
+  Future<List<int>> downloadSaveBytes(String relPath) async {
+    final res = await _send('GET', '/api/download', query: {'type': 'saves', 'path': relPath});
+    if (res.statusCode != 200) {
+      await res.drain();
+      throw Exception('save download $relPath: HTTP ${res.statusCode}');
+    }
+    final chunks = <int>[];
+    await for (final c in res) {
+      chunks.addAll(c);
+    }
+    return chunks;
+  }
+
+  Future<Map> uploadSaveBytes(String relPath, List<int> bytes) async {
+    const boundary = '----romstore-sync-boundary';
+    final name = relPath.split('/').last;
+    final head = utf8.encode('--$boundary\r\n'
+        'Content-Disposition: form-data; name="relPath"\r\n\r\n$relPath\r\n'
+        '--$boundary\r\n'
+        'Content-Disposition: form-data; name="file"; filename="$name"\r\n'
+        'Content-Type: application/octet-stream\r\n\r\n');
+    final tail = utf8.encode('\r\n--$boundary--\r\n');
+    final req = await _client.openUrl('POST', _uri('/api/saves/upload'));
+    if (config.cookie.isNotEmpty) req.headers.set('cookie', config.cookie);
+    req.headers.set('content-type', 'multipart/form-data; boundary=$boundary');
+    req.contentLength = head.length + bytes.length + tail.length;
+    req.add(head);
+    req.add(bytes);
+    req.add(tail);
+    final res = await req.close();
+    final body = await res.transform(utf8.decoder).join();
+    if (res.statusCode != 200) throw Exception('save upload $relPath: HTTP ${res.statusCode} $body');
+    return jsonDecode(body);
+  }
 
   // Streams the ROM to its place in the on-device tree, reporting progress 0..1.
   Future<void> download(Game g, void Function(double) onProgress) async {
@@ -449,6 +493,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
       appBar: AppBar(
         title: const Text('RomStore'),
         actions: [
+          IconButton(
+            tooltip: 'Cloud Sync',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (c) => SyncScreen(api: widget.api))),
+            icon: const Icon(Icons.cloud_sync),
+          ),
           IconButton(onPressed: _refresh, icon: const Icon(Icons.refresh)),
           IconButton(onPressed: widget.onLogout, icon: const Icon(Icons.logout)),
         ],
