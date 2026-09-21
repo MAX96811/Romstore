@@ -1,8 +1,11 @@
 package com.maxime.romstore_client
 
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import rikka.shizuku.Shizuku
 import java.io.BufferedReader
@@ -28,6 +31,58 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         Shizuku.addRequestPermissionResultListener(permissionListener)
+
+        // Downloads run in a foreground service so they survive leaving the
+        // app; Flutter only enqueues and listens.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "romstore/downloads")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "enqueue" -> {
+                        val intent = Intent(this, DownloadService::class.java)
+                            .setAction(DownloadService.ACTION_ENQUEUE)
+                            .putExtra("jobs", call.argument<String>("jobs") ?: "[]")
+                        startForegroundService(intent)
+                        result.success(true)
+                    }
+                    "cancel" -> {
+                        startForegroundService(
+                            Intent(this, DownloadService::class.java)
+                                .setAction(DownloadService.ACTION_CANCEL)
+                                .putExtra("id", call.argument<String>("id"))
+                        )
+                        result.success(true)
+                    }
+                    "cancelAll" -> {
+                        startForegroundService(
+                            Intent(this, DownloadService::class.java)
+                                .setAction(DownloadService.ACTION_CANCEL_ALL)
+                        )
+                        result.success(true)
+                    }
+                    "state" -> result.success(DownloadService.snapshot())
+                    else -> result.notImplemented()
+                }
+            }
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, "romstore/downloads/events")
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, sink: EventChannel.EventSink?) {
+                    DownloadService.events = { payload -> sink?.success(payload) }
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    DownloadService.events = null
+                }
+            })
+
+        // Android 13+ hides the progress notification without this. The
+        // download itself does not depend on it, so a refusal is not fatal.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1001)
+        }
 
         launchLink = intent?.dataString
         linkChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "romstore/link")
