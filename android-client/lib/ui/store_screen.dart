@@ -31,6 +31,8 @@ class _StoreScreenState extends State<StoreScreen> {
   String systemFilter = 'all';
   String search = '';
   bool searching = false;
+  // A fetch is in flight behind an already-visible (cached) library.
+  bool refreshing = false;
 
   final Map<String, String> addonStatus = {};
   bool syncingAddons = false;
@@ -67,13 +69,24 @@ class _StoreScreenState extends State<StoreScreen> {
   // ---------------------------------------------------------------- library
 
   Future<void> _refresh() async {
+    // The server rebuilds its game list by walking the whole library, which
+    // measured 15s. Paint the last known one first so the store is usable
+    // immediately, and let the fresh copy replace it when it lands.
+    if (all == null) {
+      final cached = Api.cachedGames();
+      if (cached.isNotEmpty) {
+        cached.sort(_byName);
+        setState(() => all = cached);
+      }
+    }
     setState(() {
       error = null;
-      all = null;
+      refreshing = true;
     });
+
     try {
       final games = await widget.api.games();
-      games.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      games.sort(_byName);
       if (!mounted) return;
       setState(() => all = games);
       // Anything that landed while the UI was gone still needs its metadata
@@ -82,9 +95,22 @@ class _StoreScreenState extends State<StoreScreen> {
         _onDownloadFinished(id);
       }
     } catch (e) {
-      if (mounted) setState(() => error = '$e');
+      if (!mounted) return;
+      // With a cached library already on screen, a failed refresh is worth a
+      // mention, not a blank page.
+      if (all == null) {
+        setState(() => error = '$e');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Could not reach the server — showing the last library.')));
+      }
+    } finally {
+      if (mounted) setState(() => refreshing = false);
     }
   }
+
+  static int _byName(Game a, Game b) =>
+      a.name.toLowerCase().compareTo(b.name.toLowerCase());
 
   List<Game> get _library => (all ?? []).where((g) => !g.isDlc).toList();
 
@@ -446,9 +472,19 @@ class _StoreScreenState extends State<StoreScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 15))),
               ])
-            : const Text('RomStore',
-                key: ValueKey('title'),
-                style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2)),
+            : Row(key: const ValueKey('title'), children: [
+                const Text('RomStore',
+                    style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2)),
+                // Quiet marker that the cached library on screen is being
+                // replaced by a fresh one.
+                if (refreshing) ...[
+                  const SizedBox(width: 10),
+                  const SizedBox(
+                      width: 13,
+                      height: 13,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+                ],
+              ]),
       ),
       actions: [
         _DownloadsButton(count: downloads.activeCount, onPressed: _openDownloads),

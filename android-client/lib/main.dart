@@ -18,6 +18,9 @@ const kConfigFile = '$kConfigDir/config.json';
 // Games installed or removed since Cocoon last rescanned. Kept on disk so
 // closing the app does not lose track of what still has to reach the library.
 const kPendingFile = '$kConfigDir/cocoon-pending.json';
+// Last library fetched from the server, so a launch shows games immediately
+// instead of a spinner while /api/games rebuilds itself.
+const kLibraryCacheFile = '$kConfigDir/library-cache.json';
 
 // Carries romstore://shop?platform=nds in from the launcher tile.
 const kLinkChannel = MethodChannel('romstore/link');
@@ -100,13 +103,19 @@ class Api {
     return true;
   }
 
+  // Deliberately not /api/games: that walks the whole 687GB tree and parses
+  // Switch headers, which measured 15s for 2.5MB. Asking it twice on launch --
+  // once here, once for the library -- was the whole startup wait.
   Future<bool> checkSession() async {
     if (config.cookie.isEmpty) return false;
     try {
-      final res = await _send('GET', '/api/games');
-      final ok = res.statusCode == 200;
-      await res.drain();
-      return ok;
+      final res = await _send('GET', '/api/auth/status');
+      if (res.statusCode != 200) {
+        await res.drain();
+        return false;
+      }
+      final body = jsonDecode(await res.transform(utf8.decoder).join());
+      return body is Map && body['authenticated'] == true;
     } catch (_) {
       return false;
     }
@@ -115,8 +124,30 @@ class Api {
   Future<List<Game>> games() async {
     final res = await _send('GET', '/api/games');
     if (res.statusCode != 200) throw Exception('games: HTTP ${res.statusCode}');
-    final data = jsonDecode(await res.transform(utf8.decoder).join());
-    return (data as List).map((j) => Game.fromJson(j)).toList();
+    final body = await res.transform(utf8.decoder).join();
+    _cacheLibrary(body);
+    return (jsonDecode(body) as List).map((j) => Game.fromJson(j)).toList();
+  }
+
+  void _cacheLibrary(String body) {
+    try {
+      Directory(kConfigDir).createSync(recursive: true);
+      File(kLibraryCacheFile).writeAsStringSync(body);
+    } catch (_) {}
+  }
+
+  // The last library we saw. Shown immediately on launch so the store is on
+  // screen while the fresh copy is still being fetched.
+  static List<Game> cachedGames() {
+    try {
+      final f = File(kLibraryCacheFile);
+      if (!f.existsSync()) return const [];
+      return (jsonDecode(f.readAsStringSync()) as List)
+          .map((j) => Game.fromJson(j))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
   }
 
   String artworkUrl(String artworkPath) =>
