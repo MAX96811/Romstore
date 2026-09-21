@@ -1990,9 +1990,24 @@
                     const result = await window.electronAPI.launchGame({
                         localDir,
                         relPath: item.relPath,
-                        system: item.system
+                        system: item.system,
+                        serverUrl,
+                        sessionToken
                     });
                     if (result.success) {
+                        if (result.addons) {
+                            const a = result.addons;
+                            if (a.error) {
+                                showToast('Could not check for updates/DLC: ' + a.error, 'error');
+                            } else if (a.failed) {
+                                showToast(`${a.failed} update/DLC download${a.failed === 1 ? '' : 's'} failed; playing without it.`, 'error');
+                            } else if (a.downloaded) {
+                                showToast(`${a.downloaded} update/DLC file${a.downloaded === 1 ? '' : 's'} installed for Ryujinx.`, 'success');
+                            }
+                            if (a.autoloadDeferred) {
+                                showToast('Ryujinx was already open, so the new content applies on the next launch.', 'info');
+                            }
+                        }
                         if (result.controllers) {
                             showToast(`${result.controllers} controller${result.controllers === 1 ? '' : 's'} set up in Ryujinx.`, 'info');
                         } else if (result.controllerSkipped) {
@@ -3429,6 +3444,14 @@
                             setStoredToken('');
                         }
                     }
+
+                    // Add-on downloads happen inside the launch call, so the
+                    // only feedback is these events: one toast per file.
+                    window.electronAPI.onSwitchAddons((event, info) => {
+                        if (info.phase !== 'start' || !info.addon) return;
+                        const label = info.addon.kind === 'update' ? 'update' : 'DLC';
+                        showToast(`Downloading ${label} ${info.index}/${info.count}: ${info.addon.name}…`, 'info');
+                    });
 
                     window.electronAPI.onDownloadProgress((event, { relPath, percent, bytesPerSec, downloadedBytes }) => {
                         const el = document.querySelector(`[data-rel-path="${relPath}"]`);

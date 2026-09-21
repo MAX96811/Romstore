@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Events
     onDownloadProgress: (callback) => ipcRenderer.on('download-progress', callback),
+    onSwitchAddons: (callback) => ipcRenderer.on('switch-addons', callback),
     onSaveChange: (callback) => ipcRenderer.on('save-change', callback),
     onTriggerSync: (callback) => ipcRenderer.on('trigger-sync', callback),
     onVisibilityChanged: (callback) => ipcRenderer.on('visibility-changed', callback),

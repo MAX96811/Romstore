@@ -35,6 +35,11 @@ const {
     normalizeSwitchTitleId
 } = require('./lib/switch-saves');
 const { activateBundleUpload } = require('./lib/switch-bundle-store');
+const {
+    buildAddonIndex,
+    resolveSwitchIdentity,
+    selectAddonsForBase
+} = require('./lib/switch-addons');
 require('dotenv').config();
 
 const app = express();
@@ -955,8 +960,13 @@ function buildGameList() {
                 }
 
                 const isSwitchGame = system.system.toLowerCase() === 'switch';
-                const filenameSwitchTitleId = isSwitchGame ? getSwitchTitleIdFromRelPath(relPath) : null;
-                const metadataSwitchTitleId = isSwitchGame ? getSwitchTitleIdFromMetadata(relPath) : null;
+                // File name first, then the admin override, then the ticket
+                // inside the NSP: updates and DLC without an ID in their name
+                // would otherwise never be matched to their base game.
+                const identity = isSwitchGame
+                    ? resolveSwitchIdentity({ filePath, relPath, metadataTitleId: getSwitchTitleIdFromMetadata(relPath) })
+                    : null;
+                const isAddon = !!identity && (identity.kind === 'update' || identity.kind === 'dlc');
 
                 games.push({
                     name: displayName,
@@ -965,22 +975,86 @@ function buildGameList() {
                     systemName: system.fullName,
                     relPath: relPath,
                     size: (stats.size / 1024 / 1024).toFixed(2) + ' MB',
+                    sizeBytes: stats.size,
                     mtime: stats.mtime,
                     artworkPath: artPath,
                     description: description,
+                    // Epoch seconds, straight from IGDB. Clients that publish
+                    // an ES-DE library need it for <releasedate>.
+                    releaseDate: meta && typeof meta.releaseDate === 'number' ? meta.releaseDate : null,
                     hasMetadata: !!meta,
-                    switchTitleId: filenameSwitchTitleId || metadataSwitchTitleId,
-                    switchTitleIdSource: filenameSwitchTitleId ? 'filename' : (metadataSwitchTitleId ? 'metadata' : null),
-                    isDlc: isDlcRelPath(relPath)
+                    switchTitleId: identity ? identity.titleId : null,
+                    switchTitleIdSource: identity ? identity.source : null,
+                    switchKind: identity ? identity.kind : null,
+                    switchBaseTitleId: identity ? identity.baseTitleId : null,
+                    switchVersion: identity ? identity.version : null,
+                    // An update sitting next to the base game is still add-on
+                    // content, whatever folder it was dropped in.
+                    isDlc: isDlcRelPath(relPath) || isAddon
                 });
             });
         } catch (e) { }
     });
+    attachSwitchAddons(games);
+    return games;
+}
+
+// Base Switch games get `addons`: the newest update plus every DLC that
+// shares their title family, in the order a client should install them.
+function describeAddon(game) {
+    return {
+        relPath: game.relPath,
+        name: game.name,
+        kind: game.switchKind,
+        titleId: game.switchTitleId,
+        baseTitleId: game.switchBaseTitleId,
+        version: game.switchVersion,
+        sizeBytes: game.sizeBytes,
+        mtime: game.mtime
+    };
+}
+
+function attachSwitchAddons(games) {
+    const index = buildAddonIndex(games
+        .filter(game => game.switchKind === 'update' || game.switchKind === 'dlc')
+        .map(game => ({
+            relPath: game.relPath,
+            titleId: game.switchTitleId,
+            baseTitleId: game.switchBaseTitleId,
+            kind: game.switchKind,
+            version: game.switchVersion,
+            game
+        })));
+    for (const game of games) {
+        if (game.switchKind !== 'base' || !game.switchBaseTitleId) continue;
+        game.addons = selectAddonsForBase(index, game.switchBaseTitleId).map(entry => describeAddon(entry.game));
+    }
     return games;
 }
 
 app.get('/api/games', requireAuth, (req, res) => {
     res.json(buildGameList());
+});
+
+// Add-ons for one base game, looked up by its library path or by any title
+// ID in the family. Used by clients right before a launch, so it answers
+// from a fresh scan rather than a cached list.
+app.get('/api/switch/addons', requireAuth, (req, res) => {
+    const relPath = String(req.query.relPath || '').replace(/\\/g, '/');
+    const titleId = normalizeSwitchTitleId(req.query.titleId);
+    if (!relPath && !titleId) return res.status(400).json({ error: 'relPath or titleId is required' });
+
+    const games = buildGameList();
+    const base = games.find(game => game.switchKind === 'base' && (
+        (relPath && game.relPath === relPath)
+        || (titleId && game.switchBaseTitleId === titleId)
+    ));
+    if (!base) {
+        const anyMember = titleId && games.find(game => game.switchTitleId === titleId);
+        if (!anyMember) return res.status(404).json({ error: 'No Switch game matches that path or title ID' });
+        return res.json({ baseTitleId: anyMember.switchBaseTitleId, base: null, addons: [] });
+    }
+    res.json({ baseTitleId: base.switchBaseTitleId, base: base.relPath, addons: base.addons || [] });
 });
 
 // 2. List Saves

@@ -25,7 +25,24 @@ const MAPPINGS = [
     { thor: '/sdcard/Android/data/org.dolphinemu.dolphinemu/files/GC', server: 'dolphin/GC' },
     { thor: '/sdcard/Android/data/me.magnum.melondualds/files/saves', server: 'melonds/saves' },
 ];
-const EDEN_THOR_BASE = '/sdcard/Android/data/com.miHoYo.Yuanshen/files/nand/user/save/0000000000000000';
+// Eden's package name depends on the flavour installed (the Genshin-spoof
+// build stopped supporting Android 13 in Sep 2026, so the nightly took over).
+// The first flavour with a NAND on the device wins.
+const EDEN_PACKAGES = [
+    'dev.eden.eden_emulator.nightly',
+    'dev.eden.eden_emulator',
+    'com.miHoYo.Yuanshen.nightly',
+    'com.miHoYo.Yuanshen'
+];
+const edenSaveBase = pkg => `/sdcard/Android/data/${pkg}/files/nand/user/save/0000000000000000`;
+let EDEN_THOR_BASE = null;
+function resolveEdenBase() {
+    for (const pkg of EDEN_PACKAGES) {
+        const base = edenSaveBase(pkg);
+        if (adb(['shell', `[ -d ${shq(base)} ] && echo yes`]).includes('yes')) return base;
+    }
+    return null;
+}
 const EDEN_SERVER_BASE = 'eden/saves/0000000000000000';
 
 const args = process.argv.slice(2);
@@ -208,7 +225,9 @@ async function execute(actions) {
     }
 
     // Eden: join on title id, profile UUID differs per device.
-    const localUuids = adb(['shell', `ls ${shq(EDEN_THOR_BASE)} 2>/dev/null`]).split('\n')
+    EDEN_THOR_BASE = resolveEdenBase();
+    if (!EDEN_THOR_BASE) log('No Eden installation found on the Thor; skipping Eden saves.');
+    const localUuids = (EDEN_THOR_BASE ? adb(['shell', `ls ${shq(EDEN_THOR_BASE)} 2>/dev/null`]) : '').split('\n')
         .map(s => s.trim()).filter(s => /^[0-9A-Fa-f]{32}$/.test(s) && !/^0+$/.test(s));
     const localUuid = localUuids[0] || null;
 

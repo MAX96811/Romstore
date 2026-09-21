@@ -1,5 +1,6 @@
 package com.maxime.romstore_client
 
+import android.content.Intent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -13,6 +14,11 @@ import java.io.InputStreamReader
 class MainActivity : FlutterActivity() {
     private var pendingPermissionResult: MethodChannel.Result? = null
 
+    // romstore://shop?platform=nds. Held here because Flutter asks for it
+    // after its first frame, which is later than onCreate.
+    private var launchLink: String? = null
+    private var linkChannel: MethodChannel? = null
+
     private val permissionListener =
         Shizuku.OnRequestPermissionResultListener { _, grantResult ->
             pendingPermissionResult?.success(grantResult == android.content.pm.PackageManager.PERMISSION_GRANTED)
@@ -22,6 +28,20 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         Shizuku.addRequestPermissionResultListener(permissionListener)
+
+        launchLink = intent?.dataString
+        linkChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "romstore/link")
+        linkChannel!!.setMethodCallHandler { call, result ->
+            when (call.method) {
+                // Consumed once: a later rebuild should not jump the user back
+                // to the platform they arrived on.
+                "consumeInitialLink" -> {
+                    result.success(launchLink)
+                    launchLink = null
+                }
+                else -> result.notImplemented()
+            }
+        }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "romstore/shizuku")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -64,6 +84,15 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    // Launched again while already running (singleTop), e.g. tapping a second
+    // platform's shop tile: hand the new link straight to Flutter.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val link = intent.dataString ?: return
+        if (linkChannel == null) launchLink = link else linkChannel!!.invokeMethod("link", link)
     }
 
     override fun onDestroy() {

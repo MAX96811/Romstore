@@ -20,7 +20,16 @@ const _mappings = [
   (thor: '/sdcard/Android/data/org.dolphinemu.dolphinemu/files/GC', server: 'dolphin/GC'),
   (thor: '/sdcard/Android/data/me.magnum.melondualds/files/saves', server: 'melonds/saves'),
 ];
-const _edenLocalBase = '/sdcard/Android/data/com.miHoYo.Yuanshen/files/nand/user/save/0000000000000000';
+// Eden changed package name when the Genshin-spoof build stopped supporting
+// Android 13 (2026-09-16); the nightly is the live install now. Older names
+// stay as fallbacks so a reinstall of another flavour keeps syncing.
+const _edenPackages = [
+  'dev.eden.eden_emulator.nightly',
+  'dev.eden.eden_emulator',
+  'com.miHoYo.Yuanshen.nightly',
+  'com.miHoYo.Yuanshen',
+];
+String _edenSaveBase(String pkg) => '/sdcard/Android/data/$pkg/files/nand/user/save/0000000000000000';
 const _edenServerBase = 'eden/saves/0000000000000000';
 
 class Shizuku {
@@ -171,6 +180,16 @@ class SyncEngine {
     }
   }
 
+  // First Eden flavour whose NAND save folder exists on this device.
+  Future<String?> _findEdenBase() async {
+    for (final pkg in _edenPackages) {
+      final base = _edenSaveBase(pkg);
+      final out = await Shizuku.run('[ -d ${_shq(base)} ] && echo yes || echo no');
+      if (out.trim() == 'yes') return base;
+    }
+    return null;
+  }
+
   Future<String> run({String? prefer}) async {
     if (!await Shizuku.ping()) {
       throw Exception('Shizuku is not running. Open the Shizuku app and start it, then retry.');
@@ -200,7 +219,14 @@ class SyncEngine {
     }
 
     // Eden profile UUID differs per device; join on title id.
-    final uuids = (await Shizuku.run('ls ${_shq(_edenLocalBase)} 2>/dev/null'))
+    final edenLocalBase = await _findEdenBase();
+    if (edenLocalBase == null) {
+      log('No Eden installation found; skipping Eden saves.');
+      File(_stateFile).parent.createSync(recursive: true);
+      File(_stateFile).writeAsStringSync(jsonEncode(state));
+      return 'Done: $uploaded uploaded, $downloaded downloaded (no Eden)';
+    }
+    final uuids = (await Shizuku.run('ls ${_shq(edenLocalBase)} 2>/dev/null'))
         .split('\n')
         .map((s) => s.trim())
         .where((s) => RegExp(r'^[0-9A-Fa-f]{32}$').hasMatch(s) && !RegExp(r'^0+$').hasMatch(s))
@@ -230,9 +256,9 @@ class SyncEngine {
         final slot = entry.value['slot'];
         final other = gen == '0' ? '1' : '0';
         await _syncPair(
-          local: await _listLocal('$_edenLocalBase/$localUuid/${entry.key}'),
+          local: await _listLocal('$edenLocalBase/$localUuid/${entry.key}'),
           server: files,
-          localBase: '$_edenLocalBase/$localUuid/${entry.key}',
+          localBase: '$edenLocalBase/$localUuid/${entry.key}',
           serverPrefix: 'ryujinx/saves/$slot/$gen',
           prefer: prefer,
           alsoUploadTo: (rel) => 'ryujinx/saves/$slot/$other/$rel',
@@ -240,7 +266,7 @@ class SyncEngine {
       }
 
       // Plain Eden tree.
-      final localEden = await _listLocal('$_edenLocalBase/$localUuid');
+      final localEden = await _listLocal('$edenLocalBase/$localUuid');
       final serverEden = saves.where((s) => (s['relPath'] as String).startsWith('$_edenServerBase/')).toList();
       final titleToUuid = <String, String>{};
       for (final s in serverEden) {
@@ -264,7 +290,7 @@ class SyncEngine {
           server: serverEden
               .where((s) => (s['relPath'] as String).toUpperCase().startsWith('${prefix.toUpperCase()}/'))
               .toList(),
-          localBase: '$_edenLocalBase/$localUuid/$title',
+          localBase: '$edenLocalBase/$localUuid/$title',
           serverPrefix: prefix,
           prefer: prefer,
         );

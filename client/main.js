@@ -11,6 +11,7 @@ const {
 const { normalizeSaveRelativePath, scanDirectoryStats, scanLocalEmulation, scanLocalGames } = require('./local-library');
 const { collectSwitchBundleFiles, discoverSwitchAssociations, matchSwitchTitleId, readSlotTitleId, resolveRyujinxUserRoot, resolveSwitchSlotsRoot } = require('./switch-library');
 const { setupControllers } = require('./ryujinx-input');
+const { prepareSwitchAddons } = require('./switch-addons-sync');
 const { createSwitchAutoSync, slotIdFromRelativePath } = require('./switch-autosync');
 const { restoreSwitchBundle } = require('./switch-save-restore');
 
@@ -545,7 +546,43 @@ ipcMain.handle('launch-game', async (event, payload) => {
     // so the mapping is refreshed from what is actually plugged in right before
     // the emulator reads its config. It is a no-op when nothing has changed.
     let controllerSetup = null;
+    let addonSync = null;
     if (system === 'switch') {
+        // Updates and DLC are fetched from the server right before the launch
+        // and handed to Ryujinx through its autoload folders, so a game is
+        // always played on its newest patch without a manual install step.
+        try {
+            let serverUrl = String(payload.serverUrl || config.serverUrl || 'http://localhost:3000').replace(/\/+$/, '');
+            if (serverUrl && !serverUrl.startsWith('http')) serverUrl = 'http://' + serverUrl;
+            addonSync = await prepareSwitchAddons({
+                serverUrl,
+                sessionToken: payload.sessionToken || config.savedSessionToken || '',
+                emulationDir,
+                relPath,
+                homeDir: app.getPath('home'),
+                isEmulatorRunning: isRyujinxRunning,
+                onProgress: progress => {
+                    if (!event.sender.isDestroyed()) {
+                        event.sender.send('switch-addons', {
+                            relPath,
+                            phase: progress.phase,
+                            addon: progress.addon ? { name: progress.addon.name, kind: progress.addon.kind, relPath: progress.addon.relPath } : null,
+                            index: progress.index,
+                            count: progress.count,
+                            receivedBytes: progress.receivedBytes || 0,
+                            totalBytes: progress.totalBytes || 0
+                        });
+                    }
+                }
+            });
+            if (addonSync.downloaded.length || addonSync.failed.length) {
+                console.log(`[Addons] ${relPath}: ${addonSync.downloaded.length} downloaded, ${addonSync.skipped.length} present, ${addonSync.failed.length} failed`);
+            }
+        } catch (error) {
+            // A server that is unreachable must not stop an installed game from starting.
+            console.error('[Addons] Sync failed:', error.message);
+            addonSync = { error: error.message, addons: [], downloaded: [], skipped: [], failed: [], autoload: { configs: [], added: [], deferred: false } };
+        }
         try {
             controllerSetup = setupControllers({
                 homeDir: app.getPath('home'),
@@ -586,6 +623,14 @@ ipcMain.handle('launch-game', async (event, payload) => {
             system,
             profile: profile.label,
             controllers: controllerSetup && controllerSetup.changed ? controllerSetup.controllers.length : 0,
+            addons: addonSync ? {
+                error: addonSync.error || null,
+                total: addonSync.addons.length,
+                downloaded: addonSync.downloaded.length,
+                failed: addonSync.failed.length,
+                autoloadAdded: addonSync.autoload.added.length,
+                autoloadDeferred: addonSync.autoload.deferred
+            } : null,
             // The one refusal worth mentioning: a Ryujinx that is already open
             // will overwrite the configuration when it exits, so the pads keep
             // whatever mapping they had and the player would not know why.
