@@ -34,7 +34,13 @@ const _kStart = 108; // BUTTON_START -> Start menu
 const _kUp = 19;
 const _kDown = 20;
 const _kA = 96; // BUTTON_A -> confirm
+const _kB = 97; // BUTTON_B -> back/cancel, safe on any screen
 const _kY = 100; // BUTTON_Y -> "run" in the Rescan dialog
+
+// Cocoon's scraped artwork, and the row directly below Rescan Games is
+// "Clear Downloaded Media". If the menu ever shifts under us, that is what a
+// stray confirm would empty, so it is counted before and after.
+const _mediaDir = '/storage/emulated/0/ROMs/downloaded_media';
 
 class CocoonRefreshResult {
   final bool scanRan;
@@ -71,7 +77,6 @@ class CocoonRefresh {
     (_kA, 2200), // focus the right-hand pane (lands on Default Sort)
     (_kDown, 300), (_kDown, 500), // -> Rescan Games
     (_kA, 2500), // open the Rescan dialog
-    (_kY, 1500), // run it for every platform
   ];
 
   Future<CocoonRefreshResult> refresh() async {
@@ -91,32 +96,73 @@ class CocoonRefresh {
     await Shizuku.run('am start -n $_cocoonActivity');
     await Future.delayed(const Duration(seconds: 3));
 
+    final artworkBefore = _mediaFileCount();
+
     log?.call('Running Rescan Games…');
     for (final (key, pauseMs) in rescanKeySequence) {
       await Shizuku.run('input keyevent $key');
       await Future.delayed(Duration(milliseconds: pauseMs));
     }
 
+    // Y runs the scan in the Rescan dialog. If the menu ever shifts and this
+    // lands somewhere else, the scan simply never commits -- which is why
+    // every key from here on is decided by evidence, not by hope.
+    await Shizuku.run('input keyevent $_kY');
     final scanned = await watcher.waitForCommit(log: log);
-    log?.call('Closing the scan report…');
-    await Shizuku.run('input keyevent $_kA'); // dismiss "Scan complete"
-    await Future.delayed(const Duration(milliseconds: 800));
+
+    if (scanned) {
+      // Only now is a confirm key safe: the scan report is the screen in
+      // front of us, and A is its OK button.
+      log?.call('Closing the scan report…');
+      await Shizuku.run('input keyevent $_kA');
+      await Future.delayed(const Duration(milliseconds: 800));
+    } else {
+      // No idea what is on screen, so press nothing that can agree to
+      // anything. B cancels, and force-stop closes whatever B did not.
+      log?.call('Backing out…');
+      for (var i = 0; i < 3; i++) {
+        await Shizuku.run('input keyevent $_kB');
+        await Future.delayed(const Duration(milliseconds: 400));
+      }
+    }
 
     // The metadata we wrote is only read by Cocoon's ES-DE startup sync, so
-    // the game appears named after its file until Cocoon is restarted. Doing
-    // it here is what makes one button produce a finished tile.
-    log?.call('Restarting Cocoon to pick up artwork…');
+    // a new game keeps its file name until Cocoon restarts. Doing it here is
+    // what makes one button produce a finished tile.
+    log?.call('Restarting Cocoon…');
     await Shizuku.run('am force-stop $_cocoonPackage');
     await Future.delayed(const Duration(seconds: 2));
     await Shizuku.run('am start -n $_cocoonActivity');
+
+    final artworkAfter = _mediaFileCount();
+    if (artworkBefore > 0 && artworkAfter < artworkBefore ~/ 2) {
+      return CocoonRefreshResult(
+          scanned,
+          'Cocoon lost artwork during the refresh ($artworkBefore files before, '
+          '$artworkAfter after). Its menu has probably moved — stop using this '
+          'button and re-check the key sequence.');
+    }
 
     return CocoonRefreshResult(
       scanned,
       scanned
           ? 'Cocoon rescanned and restarted.'
-          : 'Cocoon did not report a scan. Open Settings → Library & data → Rescan Games once, '
-              'then tell me if its menu has moved.',
+          : 'Cocoon did not report a scan, so nothing was confirmed. Run '
+              'Settings → Library & data → Rescan Games by hand, and check whether '
+              'that menu has changed.',
     );
+  }
+
+  // Cheap canary: the number of scraped media files Cocoon holds. Read
+  // directly, since this lives on shared storage.
+  int _mediaFileCount() {
+    try {
+      final dir = Directory(_mediaDir);
+      if (!dir.existsSync()) return 0;
+      return dir.listSync(recursive: true).whereType<File>().length;
+    } catch (_) {
+      return 0;
+    }
   }
 
 }
