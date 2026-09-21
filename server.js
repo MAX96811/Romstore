@@ -909,7 +909,26 @@ app.get('/api/switch-save-candidates', requireAuth, (req, res) => {
 // --- API ROUTES ---
 
 // 1. List Games (ROMs) with Metadata
-function buildGameList() {
+//
+// Rebuilding this walks the whole ROM tree and parses Switch headers: about
+// 15 seconds over a 687GB library. Node is single threaded, so for those 15
+// seconds the server answers nothing else -- clients sat in front of a store
+// full of blank tiles because every artwork request was queued behind the
+// scan that their own library request had started.
+//
+// Callers get a recent copy instead. Anything that changes the library on
+// disk clears it, so a freshly uploaded game still shows up at once.
+const GAME_LIST_TTL_MS = 60000;
+let gameListCache = { at: 0, games: null };
+
+function invalidateGameList() {
+    gameListCache = { at: 0, games: null };
+}
+
+function buildGameList({ force = false } = {}) {
+    if (!force && gameListCache.games && Date.now() - gameListCache.at < GAME_LIST_TTL_MS) {
+        return gameListCache.games;
+    }
     if (!fs.existsSync(ROMS_DIR)) return [];
     const systems = listPlatforms(ROMS_DIR);
     const games = [];
@@ -996,6 +1015,7 @@ function buildGameList() {
         } catch (e) { }
     });
     attachSwitchAddons(games);
+    gameListCache = { at: Date.now(), games };
     return games;
 }
 
@@ -1259,6 +1279,7 @@ app.post('/api/upload', requireAuth, upload.single('file'), (req, res) => {
         if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
         fs.copyFileSync(req.file.path, targetPath);
         fs.unlinkSync(req.file.path);
+        invalidateGameList();
         console.log(`[Upload] Saved ${fileName} -> ${safeSystem} (${targetPath})`);
         res.json({
             success: true,
@@ -1308,6 +1329,7 @@ app.post('/api/upload/chunk', requireAuth, chunkUpload.single('chunk'), (req, re
         if (chunkIndex === totalChunks - 1) {
             fs.copyFileSync(assembledPath, targetPath);
             fs.unlinkSync(assembledPath);
+            invalidateGameList();
             console.log(`[UploadChunk] Complete - saved ${safeFileName} -> ${safeSystem} (${targetPath})`);
             return res.json({
                 success: true,
@@ -1602,6 +1624,8 @@ async function applyMetadataToGame(relPath, igdbData) {
         releaseDate: igdbData.first_release_date
     };
     fs.writeFileSync(METADATA_FILE, JSON.stringify(gameMetadata, null, 2));
+    // Titles and artwork live in the cached list too.
+    invalidateGameList();
 }
 
 app.post('/api/metadata/apply', requireAuth, async (req, res) => {
