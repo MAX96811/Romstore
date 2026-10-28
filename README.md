@@ -125,6 +125,7 @@ The client uses a data-protective sync system:
 4.  **Switch Bundles**: Ryujinx saves are backed up and restored as complete, verified candidates while Ryujinx is closed. Per-file auto-sync is disabled for Switch saves.
 
 ## 📝 Developer Notes
+*   **Tests**: `npm install && npm test` (Node's built-in runner, runs `lib/*.test.js` and `client/*.test.js`; no extra dependencies).
 *   **Logs**:
     *   Server: `docker-compose logs -f`
     *   Client: Check the VS Code terminal or DevTools Console (Ctrl+Shift+I).
